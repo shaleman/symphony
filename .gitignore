@@ -1,3 +1,4 @@
 /.vagrant
 /pkg
 /bin
+/src/godeps/pkg
