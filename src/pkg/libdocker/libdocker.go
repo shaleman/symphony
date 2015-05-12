@@ -4,6 +4,7 @@ import (
     "fmt"
     "bytes"
     "flag"
+
     "github.com/golang/glog"
     "github.com/docker/docker/pkg/parsers"
     docker "github.com/fsouza/go-dockerclient"

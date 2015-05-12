@@ -128,7 +128,7 @@ func Restore() error {
     for _, elemStr := range jsonArr {
 
         glog.Infof("Restoring resource provider: %s", elemStr)
-        
+
         // Parse the json model
         var provider RsrcProvider
         err = json.Unmarshal([]byte(elemStr), &provider)

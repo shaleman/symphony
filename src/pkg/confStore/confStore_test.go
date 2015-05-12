@@ -6,8 +6,9 @@ import (
     "time"
     "flag"
 
-    "github.com/golang/glog"
     api "pkg/confStore/confStoreApi"
+
+    "github.com/golang/glog"
 )
 
 type JsonObj struct {
