@@ -15,24 +15,27 @@ end
 
 provision_common = <<SCRIPT
 ### install basic packages
-#(apt-get update -qq > /dev/null && apt-get install -y vim curl python-software-properties git > /dev/null) || exit 1
-#
+(apt-get update -qq > /dev/null && apt-get install -y vim curl python-software-properties git ceph > /dev/null) || exit 1
+
 ### install Go 1.4
-#(cd /usr/local/ && \
-#curl -L https://storage.googleapis.com/golang/go1.4.linux-amd64.tar.gz -o go1.4.linux-amd64.tar.gz && \
-#tar -xzf go1.4.linux-amd64.tar.gz) || exit 1
-#
+(cd /usr/local/ && \
+curl -L https://storage.googleapis.com/golang/go1.4.linux-amd64.tar.gz -o go1.4.linux-amd64.tar.gz && \
+tar -xzf go1.4.linux-amd64.tar.gz) || exit 1
+
+(echo export PATH=$PATH:/usr/local/go/bin >> /home/vagrant/.bashrc &&
+ echo export GOROOT=/usr/local/go >> /home/vagrant/.bashrc)
+
 ### install etcd
-#(cd /tmp && \
-#curl -L  https://github.com/coreos/etcd/releases/download/v2.0.0/etcd-v2.0.0-linux-amd64.tar.gz -o etcd-v2.0.0-linux-amd64.tar.gz && \
-#tar -xzf etcd-v2.0.0-linux-amd64.tar.gz && \
-#cd /usr/bin && \
-#ln -s /tmp/etcd-v2.0.0-linux-amd64/etcd && \
-#ln -s /tmp/etcd-v2.0.0-linux-amd64/etcdctl) || exit 1
-#
+(cd /usr/local/ && \
+curl -L https://github.com/coreos/etcd/releases/download/v2.0.10/etcd-v2.0.10-linux-amd64.tar.gz -o etcd-v2.0.10-linux-amd64.tar.gz && \
+tar -xzf etcd-v2.0.10-linux-amd64.tar.gz && \
+cd /usr/bin && \
+ln -s /usr/local/etcd-v2.0.10-linux-amd64/etcd && \
+ln -s /usr/local/etcd-v2.0.10-linux-amd64/etcdctl) || exit 1
+
 ### install and start docker
-#(curl -sSL https://get.docker.com/ubuntu/ | sh > /dev/null) || exit 1
-#
+(curl -sSL https://get.docker.com/ubuntu/ | sh > /dev/null) || exit 1
+
 ## pass the env-var args to docker and restart the service. This helps passing
 ## stuff like http-proxy etc
 if [ $# -gt 0 ]; then
@@ -41,10 +44,15 @@ if [ $# -gt 0 ]; then
 fi
 
 ## install openvswitch and enable ovsdb-server to listen for incoming requests
-#(apt-get install -y openvswitch-switch > /dev/null) || exit 1
+(apt-get install -y openvswitch-switch > /dev/null) || exit 1
 (ovs-vsctl set-manager tcp:127.0.0.1:6640 && \
  ovs-vsctl set-manager ptcp:6640) || exit 1
+
+## add vagrant user to docker group
+(usermod -a -G docker vagrant)
+
 SCRIPT
+
 
 # Give VM 1024MB of RAM by default
 # In Fedora VM, tmpfs device is mapped to /tmp.  tmpfs is given 50% of RAM allocation.
@@ -59,15 +67,27 @@ $vm_mem = (ENV['NODE_MEMORY'] || 1024).to_i
 Vagrant.configure(2) do |config|
     num_nodes = (ENV['NUM_NODES'] || 3).to_i
     base_ip = "10.254.101."
+    node_ips = num_nodes.times.collect { |n| base_ip + "#{n+20}" }
+    node_names = num_nodes.times.collect { |n| "symphony-#{n+1}" }
+    node_peers = ""
+    node_ips.length.times { |i| node_peers += "#{node_names[i]}=http://#{node_ips[i]}:2380 "}
+    node_peers = node_peers.strip().gsub(' ', ',')
+    mon_members = ""
+    node_names.length.times { |i| mon_members += "#{node_names[i]} "}
+    mon_members = mon_members.strip().gsub(' ', ',')
+    mon_hosts = ""
+    node_ips.length.times { |i| mon_hosts += "#{node_ips[i]} "}
+    mon_hosts = mon_hosts.strip().gsub(' ', ',')
 
     num_nodes.times do |n|
         config.vm.define "symphony-#{n+1}" do |symphony|
             symphony.vm.box = "ubuntu/trusty64"
 
-            symphony_index = n+1
-            symphony_ip = base_ip + "#{n+10}"
-            symphony.vm.hostname = "symphony-#{symphony_index}"
-            symphony.vm.network :private_network, ip: "#{symphony_ip}"
+            node_index = n+1
+            node_ip = base_ip + "#{n+20}"
+            node_name = "symphony-#{node_index}"
+            symphony.vm.hostname = node_name
+            symphony.vm.network :private_network, ip: "#{node_ip}"
             # config.vm.synced_folder ".", "/vagrant", type: "nfs"
             symphony.vm.provider :virtualbox do |vb|
                 vb.customize ["modifyvm", :id, "--memory", $vm_mem]
@@ -80,6 +100,41 @@ Vagrant.configure(2) do |config|
             end
             symphony.vm.provision "shell" do |s|
                 s.inline = provision_common
+            end
+
+start_etcd_script = <<SCRIPT
+## start etcd with generated config
+(nohup etcd -name #{node_name} -data-dir /opt/etcd \
+-peer-heartbeat-interval=200 -peer-election-timeout=1000 \
+-listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+-advertise-client-urls http://#{node_ip}:2379,http://#{node_ip}:4001 \
+-initial-advertise-peer-urls http://#{node_ip}:2380 \
+-listen-peer-urls http://#{node_ip}:2380 \
+-initial-cluster #{node_peers} \
+-initial-cluster-state new 0<&- &>/tmp/etcd.log &) || exit 1
+
+## ceph config
+(echo [global] > /etc/ceph/ceph.conf && \
+echo fsid = 1d8e72e1-ee04-4b57-b0a4-0aa98879c9be >> /etc/ceph/ceph.conf && \
+echo mon_initial_members = #{mon_members} >> /etc/ceph/ceph.conf && \
+echo mon_host = #{mon_hosts} >> /etc/ceph/ceph.conf && \
+echo auth_cluster_required = none >> /etc/ceph/ceph.conf && \
+echo auth_service_required = none >> /etc/ceph/ceph.conf && \
+echo auth_client_required = none >> /etc/ceph/ceph.conf && \
+echo filestore_xattr_use_omap = true >> /etc/ceph/ceph.conf)
+
+## ceph mon & osd directories
+(mkdir -p /var/lib/ceph/mon/ceph-#{node_name} && \
+ceph-mon --mkfs -i #{node_name} && \
+touch /var/lib/ceph/mon/ceph-#{node_name}/done && \
+mkdir -p /var/lib/ceph/osd/ceph-#{n})
+
+## start ceph daemons
+(sudo start ceph-mon id=#{node_name} cluster=ceph )
+SCRIPT
+
+            symphony.vm.provision "shell", run: "always" do |s|
+                s.inline = start_etcd_script
             end
         end
     end
