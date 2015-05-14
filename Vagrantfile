@@ -15,7 +15,7 @@ end
 
 provision_common = <<SCRIPT
 ### install basic packages
-(apt-get update -qq > /dev/null && apt-get install -y vim curl python-software-properties git ceph > /dev/null) || exit 1
+(apt-get update -qq > /dev/null && apt-get install -y vim curl python-software-properties git ntp ceph > /dev/null) || exit 1
 
 ### install Go 1.4
 (cd /usr/local/ && \
@@ -113,6 +113,9 @@ start_etcd_script = <<SCRIPT
 -initial-cluster #{node_peers} \
 -initial-cluster-state new 0<&- &>/tmp/etcd.log &) || exit 1
 
+SCRIPT
+
+configure_ceph = <<SCRIPT
 ## ceph config
 (echo [global] > /etc/ceph/ceph.conf && \
 echo fsid = 1d8e72e1-ee04-4b57-b0a4-0aa98879c9be >> /etc/ceph/ceph.conf && \
@@ -121,17 +124,36 @@ echo mon_host = #{mon_hosts} >> /etc/ceph/ceph.conf && \
 echo auth_cluster_required = none >> /etc/ceph/ceph.conf && \
 echo auth_service_required = none >> /etc/ceph/ceph.conf && \
 echo auth_client_required = none >> /etc/ceph/ceph.conf && \
-echo filestore_xattr_use_omap = true >> /etc/ceph/ceph.conf)
+echo filestore_xattr_use_omap = true >> /etc/ceph/ceph.conf) || exit 1
 
 ## ceph mon & osd directories
 (mkdir -p /var/lib/ceph/mon/ceph-#{node_name} && \
 ceph-mon --mkfs -i #{node_name} && \
 touch /var/lib/ceph/mon/ceph-#{node_name}/done && \
-mkdir -p /var/lib/ceph/osd/ceph-#{n})
+mkdir -p /var/lib/ceph/osd/ceph-#{n} ) || exit 1
 
 ## start ceph daemons
-(sudo start ceph-mon id=#{node_name} cluster=ceph )
+(start ceph-mon id=#{node_name} cluster=ceph ) || exit 1
+
+## OSD initialization
+(echo sleep 100 > /tmp/start_osd.sh && \
+echo ceph osd create >> /tmp/start_osd.sh && \
+echo ceph-osd -i #{n} --mkfs --mkkey --mkjournal >> /tmp/start_osd.sh && \
+echo ceph osd crush add-bucket #{node_name} host >> /tmp/start_osd.sh && \
+echo ceph osd crush move #{node_name} root=default >> /tmp/start_osd.sh && \
+echo ceph osd crush add osd.#{n} 1.0 host=#{node_name} >> /tmp/start_osd.sh && \
+echo start ceph-osd id=#{n} >> /tmp/start_osd.sh ) || exit 1
+
+(chmod +x /tmp/start_osd.sh && \
+sh /tmp/start_osd.sh & ) || exit 1
+
+## monmaptool --create --add symphony-1 10.254.101.20 --add symphony-2 10.254.101.21 --add symphony-3 10.254.101.22 --fsid 1d8e72e1-ee04-4b57-b0a4-0aa98879c9be /etc/ceph/monmap
+
 SCRIPT
+
+            symphony.vm.provision "shell" do |s|
+                s.inline = configure_ceph
+            end
 
             symphony.vm.provision "shell", run: "always" do |s|
                 s.inline = start_etcd_script
