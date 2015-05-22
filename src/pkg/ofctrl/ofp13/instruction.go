@@ -1,6 +1,14 @@
 package ofp13
 
-// This file contains OFP 1.3 instrction defenitions
+// This file contains OFP 1.3 instruction defenitions
+
+import (
+    "errors"
+    "encoding/binary"
+    "pkg/ofctrl/util"
+)
+
+
 
 // ofp_instruction_type 1.3
 const (
@@ -52,14 +60,14 @@ func DecodeInstr(data []byte) Instruction {
     case InstrType_WRITE_METADATA:
         a = new(InstrWriteMetadata)
     case InstrType_WRITE_ACTIONS:
-        a = new(InstrWriteMetadata)
+        a = new(InstrActions)
     case InstrType_APPLY_ACTIONS:
-        a = new(InstrWriteMetadata)
+        a = new(InstrActions)
     case InstrType_CLEAR_ACTIONS:
-        a = new(InstrWriteMetadata)
+        a = new(InstrActions)
     case InstrType_METER:
         a = new(InstrMeter)
-    case InstrType_EXPERIMENTER
+    case InstrType_EXPERIMENTER:
     }
 
     a.UnmarshalBinary(data)
@@ -77,17 +85,17 @@ func (a *InstrGotoTable) Len() (n uint16) {
 }
 
 func (a *InstrGotoTable) MarshalBinary() (data []byte, err error) {
-    data, err = a.ActionHeader.MarshalBinary()
+    data, err = a.InstrHeader.MarshalBinary()
     b := a.TableId
     data = append(data, b)
     return
 }
 
 func (a *InstrGotoTable) UnmarshalBinary(data []byte) error {
-    a.ActionHeader.UnmarshalBinary(data[:4])
+    a.InstrHeader.UnmarshalBinary(data[:4])
 
     a.TableId = data[4]
-    copy(a.pad, data[5:8]
+    copy(a.pad, data[5:8])
 
     return nil
 }
@@ -105,39 +113,67 @@ type InstrActions struct {
     Actions     []Action     /* 0 or more actions associated with OFPIT_WRITE_ACTIONS and OFPIT_APPLY_ACTIONS */
 }
 
-func (a *InstrActions) Len() (n uint16) {
+func (instr *InstrActions) Len() (n uint16) {
     n = 8
 
-    for _, act := range a.Actions {
+    for _, act := range instr.Actions {
         n += act.Len()
     }
 
     return
 }
 
-func (a *InstrActions) MarshalBinary() (data []byte, err error) {
-    data, err = a.ActionHeader.MarshalBinary()
+func (instr *InstrActions) MarshalBinary() (data []byte, err error) {
+    data, err = instr.InstrHeader.MarshalBinary()
 
-    data = append(data, a.pad)
-    for _, a := range a.Actions {
-        b, err = a.MarshalBinary()
+    b := make([]byte, 4)
+    copy(b, instr.pad)
+    data = append(data, b...)
+
+    for _, act := range instr.Actions {
+        b, err = act.MarshalBinary()
         data = append(data, b...)
     }
 
     return
 }
 
-func (a *InstrActions) UnmarshalBinary(data []byte) error {
-    a.ActionHeader.UnmarshalBinary(data[:4])
+func (instr *InstrActions) UnmarshalBinary(data []byte) error {
+    instr.InstrHeader.UnmarshalBinary(data[:4])
 
-    n = 8
-    for ;n < int(a.Length); {
+    n := 8
+    for ;n < int(instr.Length); {
         act := DecodeAction(data[n:])
-        a.Actions = append(a.Actions, act)
+        instr.Actions = append(instr.Actions, act)
         n += int(act.Len())
     }
 
     return nil
+}
+
+func (instr *InstrActions) AddAction(act Action) error {
+    instr.Actions = append(instr.Actions, act)
+    instr.Length = instr.Len()
+    return nil
+}
+
+func NewInstrWriteActions() *InstrActions {
+    instr := new(InstrActions)
+    instr.Type = InstrType_WRITE_ACTIONS
+    instr.pad = make([]byte, 4)
+    instr.Actions = make([]Action, 0)
+    instr.Length = instr.Len()
+
+    return instr
+}
+func NewInstrApplyActions() *InstrActions {
+    instr := new(InstrActions)
+    instr.Type = InstrType_APPLY_ACTIONS
+    instr.pad = make([]byte, 4)
+    instr.Actions = make([]Action, 0)
+    instr.Length = instr.Len()
+
+    return instr
 }
 
 type InstrMeter struct {

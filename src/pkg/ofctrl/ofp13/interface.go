@@ -78,12 +78,12 @@ type PortModReactor interface {
     PortMod(portMod *PortMod)
 }
 
-type StatsRequestReactor interface {
-    StatsRequest(req *StatsRequest)
+type MultipartRequestReactor interface {
+    MultipartRequest(req *MultipartRequest)
 }
 
-type StatsReplyReactor interface {
-    StatsReply(dpid net.HardwareAddr, rep *StatsReply)
+type MultipartReplyReactor interface {
+    MultipartReply(dpid net.HardwareAddr, rep *MultipartReply)
 }
 
 type BarrierRequestReactor interface {

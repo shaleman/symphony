@@ -129,7 +129,7 @@ const (
 func NewActionOutput(portNum uint32) *ActionOutput {
     act := new(ActionOutput)
     act.Type = ActionType_Output
-    act.Length = 8
+    act.Length = act.Len()
     act.Port = portNum
     act.MaxLen = 256
     act.pad = make([]byte, 6)

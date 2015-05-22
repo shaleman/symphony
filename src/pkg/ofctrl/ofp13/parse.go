@@ -69,14 +69,12 @@ func Parse(b []byte) (message util.Message, err error) {
         break
     case Type_QueueGetConfigReply:
         break
-    /* DEPRECATED: replace it with MultiPartMessage
-    case Type_StatsRequest:
-        message = new(StatsRequest)
+    case Type_MultiPartRequest:
+        message = new(MultipartRequest)
         message.UnmarshalBinary(b)
-    case Type_StatsReply:
-        message = new(StatsReply)
+    case Type_MultiPartReply:
+        message = new(MultipartReply)
         message.UnmarshalBinary(b)
-    */
     default:
         err = errors.New("An unknown v1.0 packet type was received. Parse function will discard data.")
     }

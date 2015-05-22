@@ -2,6 +2,7 @@ package ofp13
 
 import (
     "net"
+    "log"
     "encoding/binary"
     "pkg/ofctrl/util"
 )
@@ -27,6 +28,7 @@ func NewMatch() *Match {
     m := new(Match)
 
     m.Type = MatchType_OXM
+    m.Length = 4
     m.Fields = make([]MatchField, 0)
 
     return m
@@ -37,6 +39,9 @@ func (m *Match) Len() (n uint16) {
     for _, a := range m.Fields {
         n += a.Len()
     }
+
+    // Round it to closest multiple of 8
+    n = ((n + 7)/8)*8
 
     return
 }
@@ -58,6 +63,14 @@ func (m *Match) MarshalBinary() (data []byte, err error) {
         copy(data[n:], b)
         n += len(b)
     }
+
+    /* See if we need to pad it to make it align to 64bit boundary
+    if ((n % 8) != 0) {
+        toPad := 8 - (n % 8)
+        b := make([]byte, toPad)
+        data = append(data, b...)
+    }
+    */
 
     return
 }
@@ -139,13 +152,76 @@ func (m *MatchField) UnmarshalBinary(data []byte) error {
     }
     m.Field = fld >> 1
 
-    m.Value.UnmarshalBinary(data[n:])
+
+    m.Value = DecodeMatchField(m.Class, m.Field, data[n:])
     n += m.Value.Len()
 
     if (m.HasMask) {
-        m.Mask.UnmarshalBinary(data[n:])
+        m.Mask = DecodeMatchField(m.Class, m.Field, data[n:])
         n += m.Mask.Len()
     }
+    return nil
+}
+
+func DecodeMatchField(class uint16, field uint8, data []byte) util.Message {
+    if (class == OXM_CLASS_OPENFLOW_BASIC) {
+        var val util.Message
+        switch (field) {
+        case OXM_FIELD_IN_PORT:
+            val = new(InPortField)
+        case OXM_FIELD_IN_PHY_PORT:
+        case OXM_FIELD_METADATA:
+        case OXM_FIELD_ETH_DST:
+            val = new(EthDstField)
+        case OXM_FIELD_ETH_SRC:
+            val = new(EthSrcField)
+        case OXM_FIELD_ETH_TYPE:
+            val = new(EthTypeField)
+        case OXM_FIELD_VLAN_VID:
+            val = new(VlanIdField)
+        case OXM_FIELD_VLAN_PCP:
+        case OXM_FIELD_IP_DSCP:
+        case OXM_FIELD_IP_ECN:
+        case OXM_FIELD_IP_PROTO:
+        case OXM_FIELD_IPV4_SRC:
+            val = new(Ipv4SrcField)
+        case OXM_FIELD_IPV4_DST:
+            val = new(Ipv4DstField)
+        case OXM_FIELD_TCP_SRC:
+        case OXM_FIELD_TCP_DST:
+        case OXM_FIELD_UDP_SRC:
+        case OXM_FIELD_UDP_DST:
+        case OXM_FIELD_SCTP_SRC:
+        case OXM_FIELD_SCTP_DST:
+        case OXM_FIELD_ICMPV4_TYPE:
+        case OXM_FIELD_ICMPV4_CODE:
+        case OXM_FIELD_ARP_OP:
+        case OXM_FIELD_ARP_SPA:
+        case OXM_FIELD_ARP_TPA:
+        case OXM_FIELD_ARP_SHA:
+        case OXM_FIELD_ARP_THA:
+        case OXM_FIELD_IPV6_SRC:
+        case OXM_FIELD_IPV6_DST:
+        case OXM_FIELD_IPV6_FLABEL:
+        case OXM_FIELD_ICMPV6_TYPE:
+        case OXM_FIELD_ICMPV6_CODE:
+        case OXM_FIELD_IPV6_ND_TARGET:
+        case OXM_FIELD_IPV6_ND_SLL:
+        case OXM_FIELD_IPV6_ND_TLL:
+        case OXM_FIELD_MPLS_LABEL:
+        case OXM_FIELD_MPLS_TC:
+        case OXM_FIELD_MPLS_BOS:
+        case OXM_FIELD_PBB_ISID:
+        case OXM_FIELD_TUNNEL_ID:
+        case OXM_FIELD_IPV6_EXTHDR:
+        }
+
+        val.UnmarshalBinary(data)
+        return val
+    } else {
+        log.Panic("Unsupported match field class")
+    }
+
     return nil
 }
 
@@ -200,7 +276,7 @@ const (
     OXM_FIELD_IPV6_ND_TLL  = 33   /* Target link-layer for ND. */
     OXM_FIELD_MPLS_LABEL   = 34   /* MPLS label. */
     OXM_FIELD_MPLS_TC      = 35   /* MPLS TC. */
-    OFPXMT_OFP_MPLS_BOS     = 36   /* MPLS BoS bit. */
+    OXM_FIELD_MPLS_BOS     = 36   /* MPLS BoS bit. */
     OXM_FIELD_PBB_ISID     = 37   /* PBB I-SID. */
     OXM_FIELD_TUNNEL_ID    = 38   /* Logical Port Metadata. */
     OXM_FIELD_IPV6_EXTHDR  = 39   /* IPv6 Extension Header pseudo-field */

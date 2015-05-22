@@ -87,7 +87,7 @@ func (m *MessageStream) outbound() {
                 m.Shutdown <- true
             }
 
-            log.Printf("Sent: %v", data)
+            log.Printf("Sent(%d): %v", len(data), data)
         }
     }
 }

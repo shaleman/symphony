@@ -8,27 +8,29 @@ import (
     "pkg/ofctrl/util"
 )
 
-// ofp_stats_request 1.0
-type StatsRequest struct {
+// ofp_multipart_request 1.3
+type MultipartRequest struct {
     ofpxx.Header
-    Type   uint16
-    Flags  uint16
-    Body   util.Message
+    Type    uint16
+    Flags   uint16
+    pad     []byte      // 4 bytes
+    Body    util.Message
 }
 
-func (s *StatsRequest) Len() (n uint16) {
-    return s.Header.Len() + 4 + s.Body.Len()
+func (s *MultipartRequest) Len() (n uint16) {
+    return s.Header.Len() + 8 + s.Body.Len()
 }
 
-func (s *StatsRequest) MarshalBinary() (data []byte, err error) {
+func (s *MultipartRequest) MarshalBinary() (data []byte, err error) {
     data, err = s.Header.MarshalBinary()
 
-    b := make([]byte, 4)
+    b := make([]byte, 8)
     n := 0
     binary.BigEndian.PutUint16(b[n:], s.Type)
     n += 2
     binary.BigEndian.PutUint16(b[n:], s.Flags)
     n += 2
+    n += 4 // for padding
     data = append(data, b...)
 
     b, err = s.Body.MarshalBinary()
@@ -36,7 +38,7 @@ func (s *StatsRequest) MarshalBinary() (data []byte, err error) {
     return
 }
 
-func (s *StatsRequest) UnmarshalBinary(data []byte) error {
+func (s *MultipartRequest) UnmarshalBinary(data []byte) error {
     err := s.Header.UnmarshalBinary(data)
     n := s.Header.Len()
 
@@ -44,57 +46,60 @@ func (s *StatsRequest) UnmarshalBinary(data []byte) error {
     n += 2
     s.Flags = binary.BigEndian.Uint16(data[n:])
     n += 2
+    n += 4 // for padding
 
     var req util.Message
     switch s.Type {
-    case StatsType_Aggregate:
+    case MultipartType_Aggregate:
         req = s.Body.(*AggregateStatsRequest)
         err = req.UnmarshalBinary(data[n:])
-    case StatsType_Desc:
+    case MultipartType_Desc:
         break
-    case StatsType_Flow:
+    case MultipartType_Flow:
         req = s.Body.(*FlowStatsRequest)
         err = req.UnmarshalBinary(data[n:])
-    case StatsType_Port:
+    case MultipartType_Port:
         req = s.Body.(*PortStatsRequest)
         err = req.UnmarshalBinary(data[n:])
-    case StatsType_Table:
+    case MultipartType_Table:
         break
-    case StatsType_Queue:
+    case MultipartType_Queue:
         req = s.Body.(*QueueStatsRequest)
         err = req.UnmarshalBinary(data[n:])
-    case StatsType_Vendor:
+    case MultipartType_Experimenter:
         break
     }
     return err
 }
 
-// _stats_reply 1.0
-type StatsReply struct {
+// ofp_multipart_reply 1.3
+type MultipartReply struct {
     ofpxx.Header
-    Type   uint16
-    Flags  uint16
-    Body   []util.Message
+    Type    uint16
+    Flags   uint16
+    pad     []byte          // 4 bytes
+    Body    []util.Message
 }
 
-func (s *StatsReply) Len() (n uint16) {
+func (s *MultipartReply) Len() (n uint16) {
     n = s.Header.Len()
-    n += 4
+    n += 8
     for _, r := range s.Body {
         n += uint16(r.Len())
     }
     return
 }
 
-func (s *StatsReply) MarshalBinary() (data []byte, err error) {
+func (s *MultipartReply) MarshalBinary() (data []byte, err error) {
     data, err = s.Header.MarshalBinary()
 
-    b := make([]byte, 4)
+    b := make([]byte, 8)
     n := 0
     binary.BigEndian.PutUint16(b[n:], s.Type)
     n += 2
     binary.BigEndian.PutUint16(b[n:], s.Flags)
     n += 2
+    n += 4 // for padding
     data = append(data, b...)
 
     for _, r := range s.Body {
@@ -105,7 +110,7 @@ func (s *StatsReply) MarshalBinary() (data []byte, err error) {
     return
 }
 
-func (s *StatsReply) UnmarshalBinary(data []byte) error {
+func (s *MultipartReply) UnmarshalBinary(data []byte) error {
     err := s.Header.UnmarshalBinary(data)
     n := s.Header.Len()
 
@@ -113,56 +118,32 @@ func (s *StatsReply) UnmarshalBinary(data []byte) error {
     n += 2
     s.Flags = binary.BigEndian.Uint16(data[n:])
     n += 2
-
+    n += 4 // for padding
     var req []util.Message
     for ; n < s.Header.Length; {
         var repl util.Message
         switch s.Type {
-        case StatsType_Aggregate:
+        case MultipartType_Aggregate:
             repl = new(AggregateStats)
-            err = repl.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-        case StatsType_Desc:
+        case MultipartType_Desc:
             repl = new(DescStats)
-            err = repl.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-        case StatsType_Flow:
-            // Array
-            sts := new(FlowStats)
-            err = sts.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-            repl = sts
-        case StatsType_Port:
+        case MultipartType_Flow:
+            repl = new(FlowStats)
+        case MultipartType_Port:
             repl = new(PortStats)
-            err = repl.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-        case StatsType_Table:
-            // Array
+        case MultipartType_Table:
             repl = new(TableStats)
-            err = repl.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-        case StatsType_Queue:
-            // Array
+        case MultipartType_Queue:
             repl = new(QueueStats)
-            err = repl.UnmarshalBinary(data[n:])
-            if err != nil {
-                log.Printf("Error parsing stats reply")
-            }
-        case StatsType_Vendor:
-            // Array of Group Stats
+        // FIXME: Support all types
+        case MultipartType_Experimenter:
             break
         }
 
+        err = repl.UnmarshalBinary(data[n:])
+        if err != nil {
+            log.Printf("Error parsing stats reply")
+        }
         n += repl.Len()
         req = append(req, repl)
 
@@ -173,39 +154,95 @@ func (s *StatsReply) UnmarshalBinary(data []byte) error {
     return err
 }
 
+// ofp_multipart_request_flags & ofp_multipart_reply_flags 1.3
+const (
+    OFPMPF_REQ_MORE = 1 << 0         /* More requests to follow. */
+    OFPMPF_REPLY_MORE = 1 << 0       /* More replies to follow. */
+)
+
 // _stats_types
 const (
     /* Description of this OpenFlow switch.
     * The request body is empty.
     * The reply body is struct ofp_desc_stats. */
-    StatsType_Desc = iota
+    MultipartType_Desc = iota
+
     /* Individual flow statistics.
     * The request body is struct ofp_flow_stats_request.
     * The reply body is an array of struct ofp_flow_stats. */
-    StatsType_Flow
+    MultipartType_Flow
+
     /* Aggregate flow statistics.
     * The request body is struct ofp_aggregate_stats_request.
     * The reply body is struct ofp_aggregate_stats_reply. */
-    StatsType_Aggregate
+    MultipartType_Aggregate
+
     /* Flow table statistics.
     * The request body is empty.
     * The reply body is an array of struct ofp_table_stats. */
-    StatsType_Table
+    MultipartType_Table
+
     /* Port statistics.
     * The request body is struct ofp_port_stats_request.
     * The reply body is an array of struct ofp_port_stats. */
-    StatsType_Port
+    MultipartType_Port
+
     /* Queue statistics for a port
     * The request body is struct _queue_stats_request.
     * The reply body is an array of struct ofp_queue_stats */
-    StatsType_Queue
+    MultipartType_Queue
+
     /* Group counter statistics.
     * The request body is struct ofp_group_stats_request.
     * The reply is an array of struct ofp_group_stats. */
-    StatsType_Vendor = 0xffff
+    MultipartType_Group
+
+    /* Group description.
+    * The request body is empty.
+    * The reply body is an array of struct ofp_group_desc. */
+    MultipartType_GroupDesc
+
+    /* Group features.
+    * The request body is empty.
+    * The reply body is struct ofp_group_features. */
+    MultipartType_GroupFeatures
+
+    /* Meter statistics.
+    * The request body is struct ofp_meter_multipart_requests.
+    * The reply body is an array of struct ofp_meter_stats. */
+    MultipartType_Meter
+
+    /* Meter configuration.
+    * The request body is struct ofp_meter_multipart_requests.
+    * The reply body is an array of struct ofp_meter_config. */
+    MultipartType_MeterConfig
+
+    /* Meter features.
+    * The request body is empty.
+    * The reply body is struct ofp_meter_features. */
+    MultipartType_MeterFeatures
+
+    /* Table features.
+    * The request body is either empty or contains an array of
+    * struct ofp_table_features containing the controller’s
+    * desired view of the switch. If the switch is unable to
+    * set the specified view an error is returned.
+    * The reply body is an array of struct ofp_table_features. */
+    MultipartType_TableFeatures
+
+    /* Port description.
+    * The request body is empty.
+    * The reply body is an array of struct ofp_port. */
+    MultipartType_PortDesc
+
+    /* Experimenter extension.
+    * The request and reply bodies begin with
+    * struct ofp_experimenter_multipart_header.
+    * The request and reply bodies are otherwise experimenter-defined. */
+    MultipartType_Experimenter = 0xffff
 )
 
-// ofp_desc_stats 1.0
+// ofp_desc_stats 1.3
 type DescStats struct {
     MfrDesc   []byte // Size DESC_STR_LEN
     HWDesc    []byte // Size DESC_STR_LEN
@@ -264,87 +301,119 @@ const (
     SERIAL_NUM_LEN = 32
 )
 
-// ofp_flow_stats_request 1.0
+const (
+    OFPTT_MAX = 0xfe
+    /* Fake tables. */
+    OFPTT_ALL = 0xff /* Wildcard table used for table config, flow stats and flow deletes. */
+)
+
+// ofp_flow_stats_request 1.3
 type FlowStatsRequest struct {
-    Match
-    TableId uint8
-    pad     uint8
-    OutPort uint16
+    TableId     uint8
+    pad         []byte      // 3 bytes
+    OutPort     uint32
+    OutGroup    uint32
+    pad2        []byte      // 4 bytes
+    Cookie      uint64
+    CookieMask  uint64
+    Match       Match
 }
 
 func NewFlowStatsRequest() *FlowStatsRequest {
     s := new(FlowStatsRequest)
+    s.pad = make([]byte, 3)
+    s.pad2 = make([]byte, 4)
     s.Match = *NewMatch()
     return s
 }
 
 func (s *FlowStatsRequest) Len() (n uint16) {
-    return s.Match.Len() + 4
+    return s.Match.Len() + 32
 }
 
 func (s *FlowStatsRequest) MarshalBinary() (data []byte, err error) {
-    data, err = s.Match.MarshalBinary()
-
-    b := make([]byte, 4)
+    data = make([]byte, 32)
     n := 0
-    b[n] = s.TableId
+    data[n] = s.TableId
     n += 1
-    b[n] = s.pad
-    n += 1
-    binary.BigEndian.PutUint16(b[n:], s.OutPort)
-    n += 2
+    copy(data[n:], s.pad)
+    n += 3
+    binary.BigEndian.PutUint32(data[n:], s.OutPort)
+    n += 4
+    binary.BigEndian.PutUint32(data[n:], s.OutGroup)
+    n += 4
+    copy(data[n:], s.pad2)
+    n += 4
+    binary.BigEndian.PutUint64(data[n:], s.Cookie)
+    n += 8
+    binary.BigEndian.PutUint64(data[n:], s.CookieMask)
+    n += 8
+
+    b, err := s.Match.MarshalBinary()
     data = append(data, b...)
     return
 }
 
 func (s *FlowStatsRequest) UnmarshalBinary(data []byte) error {
-    err := s.Match.UnmarshalBinary(data)
-    n := s.Match.Len()
-
+    n := 0
     s.TableId = data[n]
     n += 1
-    s.pad = data[n]
-    n += 1
-    s.OutPort = binary.BigEndian.Uint16(data[n:])
-    n += 2
+    copy(s.pad, data[n:n+3])
+    n += 3
+    s.OutPort = binary.BigEndian.Uint32(data[n:])
+    n += 4
+    s.OutGroup = binary.BigEndian.Uint32(data[n:])
+    n += 4
+    copy(s.pad2, data[n:n+4])
+    n += 4
+    s.Cookie = binary.BigEndian.Uint64(data[n:])
+    n += 8
+    s.CookieMask = binary.BigEndian.Uint64(data[n:])
+    n += 8
+
+    err := s.Match.UnmarshalBinary(data[n:])
+    n += int(s.Match.Len())
+
     return err
 }
 
-// ofp_flow_stats 1.0
+// ofp_flow_stats 1.3
 type FlowStats struct {
     Length       uint16
     TableId      uint8
     pad          uint8
-    Match
     DurationSec  uint32
     DurationNSec uint32
     Priority     uint16
     IdleTimeout  uint16
     HardTimeout  uint16
-    pad2         []uint8 // Size 6
+    Flags        uint16
+    pad2         []uint8 // Size 4
     Cookie       uint64
     PacketCount  uint64
     ByteCount    uint64
-    Actions      []Action
+    Match        Match
+    Instructions []Instruction
 }
 
 func NewFlowStats() *FlowStats {
     f := new(FlowStats)
     f.Match = *NewMatch()
-    f.pad2 = make([]byte, 6)
+    f.pad2 = make([]byte, 4)
+    f.Instructions = make([]Instruction, 0)
     return f
 }
 
 func (s *FlowStats) Len() (n uint16) {
-    n = 24 + s.Match.Len() + 24
-    for _, a := range s.Actions {
-        n += a.Len()
+    n = 48 + s.Match.Len()
+    for _, instr := range s.Instructions {
+        n += instr.Len()
     }
     return
 }
 
 func (s *FlowStats) MarshalBinary() (data []byte, err error) {
-    data = make([]byte, int(s.Len()))
+    data = make([]byte, 48)
     n := 0
 
     binary.BigEndian.PutUint16(data[n:], s.Length)
@@ -353,9 +422,7 @@ func (s *FlowStats) MarshalBinary() (data []byte, err error) {
     n += 1
     data[n] = s.pad
     n += 1
-    b, err := s.Match.MarshalBinary()
-    data = append(data, b...)
-    n += len(b)
+
     binary.BigEndian.PutUint32(data[n:], s.DurationSec)
     n += 4
     binary.BigEndian.PutUint32(data[n:], s.DurationNSec)
@@ -366,6 +433,8 @@ func (s *FlowStats) MarshalBinary() (data []byte, err error) {
     n += 2
     binary.BigEndian.PutUint16(data[n:], s.HardTimeout)
     n += 2
+    binary.BigEndian.PutUint16(data[n:], s.Flags)
+    n += 2
     copy(data[n:], s.pad2)
     n += len(s.pad2)
     binary.BigEndian.PutUint64(data[n:], s.Cookie)
@@ -375,8 +444,12 @@ func (s *FlowStats) MarshalBinary() (data []byte, err error) {
     binary.BigEndian.PutUint64(data[n:], s.ByteCount)
     n += 8
 
-    for _, a := range s.Actions {
-        b, err = a.MarshalBinary()
+    b, err := s.Match.MarshalBinary()
+    data = append(data, b...)
+    n += len(b)
+
+    for _, instr := range s.Instructions {
+        b, err = instr.MarshalBinary()
         data = append(data, b...)
         n += len(b)
     }
@@ -391,8 +464,6 @@ func (s *FlowStats) UnmarshalBinary(data []byte) error {
     n += 1
     s.pad = data[n]
     n += 1
-    err := s.Match.UnmarshalBinary(data[n:])
-    n += int(s.Match.Len())
     s.DurationSec = binary.BigEndian.Uint32(data[n:])
     n += 4
     s.DurationNSec = binary.BigEndian.Uint32(data[n:])
@@ -403,76 +474,98 @@ func (s *FlowStats) UnmarshalBinary(data []byte) error {
     n += 2
     s.HardTimeout = binary.BigEndian.Uint16(data[n:])
     n += 2
-    copy(s.pad2, data[n:n+6])
-    // FIXME: hard coding pad len
-    //n += len(s.pad2)
-    n += 6
+    s.Flags = binary.BigEndian.Uint16(data[n:])
+    n += 2
+    copy(s.pad2, data[n:n+4])
+    n += 4
     s.Cookie = binary.BigEndian.Uint64(data[n:])
     n += 8
     s.PacketCount = binary.BigEndian.Uint64(data[n:])
     n += 8
     s.ByteCount = binary.BigEndian.Uint64(data[n:])
     n += 8
+    err := s.Match.UnmarshalBinary(data[n:])
+    n += int(s.Match.Len())
+
     for ;n < int(s.Length); {
-        t := binary.BigEndian.Uint16(data[n:])
-        var a Action
-        switch t {
-        case ActionType_Output:
-            a = NewActionOutput(0)
-        case ActionType_SetQueue:
-            a = NewActionSetQueue(0)
-        }
-        s.Actions = append(s.Actions, a)
-        n += int(a.Len())
+        instr := DecodeInstr(data[n:])
+        s.Instructions = append(s.Instructions, instr)
+        n += int(instr.Len())
     }
     return err
 }
 
-// ofp_aggregate_stats_request 1.0
+// ofp_aggregate_stats_request 1.3
 type AggregateStatsRequest struct {
+    TableId     uint8
+    pad         []byte      // 3 bytes
+    OutPort     uint32
+    OutGroup    uint32
+    pad2        []byte      // 4 bytes
+    Cookie      uint64
+    CookieMask  uint64
     Match
-    TableId uint8
-    pad     uint8
-    OutPort uint16
 }
 
 func NewAggregateStatsRequest() *AggregateStatsRequest {
-    return new(AggregateStatsRequest)
+    a := new(AggregateStatsRequest)
+    a.pad = make([]byte, 3)
+    a.pad2 = make([]byte, 4)
+    a.Match = *NewMatch()
+
+    return a
 }
 
 func (s *AggregateStatsRequest) Len() (n uint16) {
-    return s.Match.Len() + 4
+    return s.Match.Len() + 32
 }
 
 func (s *AggregateStatsRequest) MarshalBinary() (data []byte, err error) {
-    data, err = s.Match.MarshalBinary()
-
-    b := make([]byte, 4)
+    data = make([]byte, 32)
     n := 0
-    b[n] = s.TableId
+    data[n] = s.TableId
     n += 1
-    b[n] = s.pad
-    n += 1
-    binary.BigEndian.PutUint16(data[n:], s.OutPort)
-    n += 2
+    copy(data[n:], s.pad)
+    n += 3
+    binary.BigEndian.PutUint32(data[n:], s.OutPort)
+    n += 4
+    binary.BigEndian.PutUint32(data[n:], s.OutGroup)
+    n += 4
+    copy(data[n:], s.pad2)
+    n += 4
+    binary.BigEndian.PutUint64(data[n:], s.Cookie)
+    n += 8
+    binary.BigEndian.PutUint64(data[n:], s.CookieMask)
+    n += 8
+
+    b, err := s.Match.MarshalBinary()
     data = append(data, b...)
     return
 }
 
 func (s *AggregateStatsRequest) UnmarshalBinary(data []byte) error {
     n := 0
-    s.Match.UnmarshalBinary(data[n:])
-    n += int(s.Match.Len())
     s.TableId = data[n]
     n += 1
-    s.pad = data[n]
-    n += 1
-    s.OutPort = binary.BigEndian.Uint16(data[n:])
-    n += 2
+    copy(s.pad, data[n:n+3])
+    n += 3
+    s.OutPort = binary.BigEndian.Uint32(data[n:])
+    n += 4
+    s.OutGroup = binary.BigEndian.Uint32(data[n:])
+    n += 4
+    copy(s.pad2, data[n:n+4])
+    n += 4
+    s.Cookie = binary.BigEndian.Uint64(data[n:])
+    n += 8
+    s.CookieMask = binary.BigEndian.Uint64(data[n:])
+    n += 8
+
+    s.Match.UnmarshalBinary(data[n:])
+    n += int(s.Match.Len())
     return nil
 }
 
-// ofp_aggregate_stats_reply 1.0
+// ofp_aggregate_stats_reply 1.3
 type AggregateStats struct {
     PacketCount uint64
     ByteCount   uint64
@@ -516,6 +609,7 @@ func (s *AggregateStats) UnmarshalBinary(data []byte) error {
     return nil
 }
 
+// FIXME: Everything below this needs to be changed for ofp1.3
 // ofp_table_stats 1.0
 type TableStats struct {
     TableId      uint8

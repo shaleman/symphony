@@ -98,16 +98,19 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                 log.Printf("Received ofp1.0 Switch feature response: %+v", *m)
 
                 // Create a new switch and handover the stream
-                sw := NewSwitch(stream, *m)
-
-                // Register the actors
-                sw.AddActor(c.actor)
+                NewSwitch(stream, m.DPID, c)
 
                 // Let switch instance all future messages..
                 return
             case *ofp13.SwitchFeatures:
                 log.Printf("Received ofp1.3 Switch feature response: %+v", *m)
 
+                // Create a new switch and handover the stream
+                NewSwitch(stream, m.DPID, c)
+
+                // Let switch instance all future messages..
+                return
+                
             // An error message may indicate a version mismatch. We
             // disconnect if an error occurs this early.
             case *ofp10.ErrorMsg:
@@ -116,6 +119,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                 stream.Shutdown <- true
             case *ofp13.ErrorMsg:
                 log.Printf("Received ofp1.3 error msg: %+v", *m)
+                stream.Shutdown <- true
             }
         case err := <-stream.Error:
             // The connection has been shutdown.

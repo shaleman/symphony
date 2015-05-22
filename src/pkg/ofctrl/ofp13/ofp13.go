@@ -43,55 +43,54 @@ func NewEchoReply() *ofpxx.Header {
 // ofp_type 1.3
 const (
     /* Immutable messages. */
-    Type_Hello = iota
-    Type_Error
-    Type_EchoRequest
-    Type_EchoReply
-
-    Type_Experimenter  /* Symmetric message */
+    Type_Hello          = 0
+    Type_Error          = 1
+    Type_EchoRequest    = 2
+    Type_EchoReply      = 3
+    Type_Experimenter   = 4
 
     /* Switch configuration messages. */
-    Type_FeaturesRequest
-    Type_FeaturesReply
-    Type_GetConfigRequest
-    Type_GetConfigReply
-    Type_SetConfig
+    Type_FeaturesRequest    = 5
+    Type_FeaturesReply      = 6
+    Type_GetConfigRequest   = 7
+    Type_GetConfigReply     = 8
+    Type_SetConfig          = 9
 
     /* Asynchronous messages. */
-    Type_PacketIn
-    Type_FlowRemoved
-    Type_PortStatus
+    Type_PacketIn       = 10
+    Type_FlowRemoved    = 11
+    Type_PortStatus     = 12
 
     /* Controller command messages. */
-    Type_PacketOut
-    Type_FlowMod
-    Type_GroupMod
-    Type_PortMod
-    Type_TableMod
+    Type_PacketOut      = 13
+    Type_FlowMod        = 14
+    Type_GroupMod       = 15
+    Type_PortMod        = 16
+    Type_TableMod       = 17
 
     /* Multipart messages. */
-    Type_MultiPartRequest
-    Type_MultiPartReply
+    Type_MultiPartRequest   = 18
+    Type_MultiPartReply     = 19
 
     /* Barrier messages. */
-    Type_BarrierRequest
-    Type_BarrierReply
+    Type_BarrierRequest     = 20
+    Type_BarrierReply       = 21
 
     /* Queue Configuration messages. */
-    Type_QueueGetConfigRequest
-    Type_QueueGetConfigReply
+    Type_QueueGetConfigRequest  = 22
+    Type_QueueGetConfigReply    = 23
 
     /* Controller role change request messages. */
-    Type_RoleRequest
-    Type_RoleReply
+    Type_RoleRequest            = 24
+    Type_RoleReply              = 25
 
     /* Asynchronous message configuration. */
-    Type_GetAsyncRequest
-    Type_GetAsyncReply
-    Type_SetAsync
+    Type_GetAsyncRequest        = 26
+    Type_GetAsyncReply          = 27
+    Type_SetAsync               = 28
 
     /* Meters and rate limiters configuration messages. */
-    Type_MeterMod
+    Type_MeterMod               = 29
 )
 
 // When the controller wishes to send a packet out through the
