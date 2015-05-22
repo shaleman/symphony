@@ -16,6 +16,7 @@ import (
     "github.com/golang/glog"
 )
 
+// Model to be persisted
 type AltaModel struct {
     Spec        altaspec.AltaSpec   // Spec for the container
     CurrNode    string              // Node where this container is placed
