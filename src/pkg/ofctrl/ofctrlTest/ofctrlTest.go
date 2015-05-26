@@ -6,8 +6,8 @@ import (
     "time"
     //"flag"
 
-    "pkg/ofctrl/ofpxx"
-    "pkg/ofctrl/ofp13"
+    "pkg/ofctrl/libOpenflow/common"
+    "pkg/ofctrl/libOpenflow/openflow13"
     "pkg/ofctrl"
 )
 
@@ -15,7 +15,7 @@ type OfActor struct {
     dpid    net.HardwareAddr
 }
 
-func (o *OfActor) PacketIn(dpid net.HardwareAddr, packet *ofp13.PacketIn) {
+func (o *OfActor) PacketIn(dpid net.HardwareAddr, packet *openflow13.PacketIn) {
     log.Printf("Received packet: %+v", packet)
 }
 
@@ -32,14 +32,14 @@ func (o *OfActor) ConnectionUp(dpid net.HardwareAddr) {
     o.dpid = dpid
 }
 
-func (o *OfActor) MultipartReply(dpid net.HardwareAddr, rep *ofp13.MultipartReply) {
+func (o *OfActor) MultipartReply(dpid net.HardwareAddr, rep *openflow13.MultipartReply) {
     log.Printf("Received Stats Reply: %+v", rep)
     for _, sts := range rep.Body {
         log.Printf("Stats body: %+v", sts)
     }
 }
 
-func (o *OfActor) GetConfigReply(dpid net.HardwareAddr, config *ofp13.SwitchConfig) {
+func (o *OfActor) GetConfigReply(dpid net.HardwareAddr, config *openflow13.SwitchConfig) {
         log.Printf("Received config reply: %+v", config)
 }
 
@@ -51,20 +51,20 @@ func sendRequest() {
     // wait for 10sec to make sure we are connected
     <-time.After(time.Second * 10)
     // Send flowmod request
-    dropMod := ofp13.NewFlowMod()
+    dropMod := openflow13.NewFlowMod()
     dropMod.Priority = 1
 
     log.Printf("Sending DropMod: %+v", dropMod)
     ofctrl.Switch(ofActor.dpid).Send(dropMod)
 
-    arpMod := ofp13.NewFlowMod()
+    arpMod := openflow13.NewFlowMod()
     arpMod.Priority = 2
-    etypeField := ofp13.NewEthTypeField(0x806)
-    arpMatch := ofp13.NewMatch()
+    etypeField := openflow13.NewEthTypeField(0x806)
+    arpMatch := openflow13.NewMatch()
     arpMatch.AddField(*etypeField)
     arpMod.Match = *arpMatch
-    ctrlAct := ofp13.NewActionOutput(ofp13.P_CONTROLLER)
-    ctrlInstr := ofp13.NewInstrApplyActions()
+    ctrlAct := openflow13.NewActionOutput(openflow13.P_CONTROLLER)
+    ctrlInstr := openflow13.NewInstrApplyActions()
     ctrlInstr.AddAction(ctrlAct)
     arpMod.AddInstruction(ctrlInstr)
 
@@ -74,14 +74,14 @@ func sendRequest() {
     <-time.After(time.Second * 3)
 
     // Build flow stats req
-    stats :=new(ofp13.MultipartRequest)
-    stats.Header = ofpxx.NewOfp13Header()
-    stats.Header.Type = ofp13.Type_MultiPartRequest
-    stats.Type = ofp13.MultipartType_Flow
-    flowReq := ofp13.NewFlowStatsRequest()
-    flowReq.TableId = ofp13.OFPTT_ALL
-    flowReq.OutPort = ofp13.P_ANY
-    flowReq.OutGroup = ofp13.OFPG_ANY
+    stats :=new(openflow13.MultipartRequest)
+    stats.Header = common.NewOfp13Header()
+    stats.Header.Type = openflow13.Type_MultiPartRequest
+    stats.Type = openflow13.MultipartType_Flow
+    flowReq := openflow13.NewFlowStatsRequest()
+    flowReq.TableId = openflow13.OFPTT_ALL
+    flowReq.OutPort = openflow13.P_ANY
+    flowReq.OutGroup = openflow13.OFPG_ANY
     stats.Body = flowReq
     stats.Header.Length = stats.Len()
 
@@ -91,7 +91,7 @@ func sendRequest() {
 
     <- time.After(time.Second * 5)
 
-    cfgReq := ofp13.NewConfigRequest()
+    cfgReq := openflow13.NewConfigRequest()
 
     log.Printf("Sending config req: %+v", cfgReq)
     ofctrl.Switch(ofActor.dpid).Send(cfgReq)

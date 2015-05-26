@@ -6,12 +6,12 @@ import (
     "testing"
     //"flag"
 
-    "pkg/ofctrl/ofp10"
+    "pkg/ofctrl/libOpenflow/openflow10"
 )
 
 type OfActor struct {}
 
-func (o *OfActor) PacketIn(dpid net.HardwareAddr, packet *ofp10.PacketIn) {
+func (o *OfActor) PacketIn(dpid net.HardwareAddr, packet *openflow10.PacketIn) {
     log.Println("Received packet: ", packet)
 }
 

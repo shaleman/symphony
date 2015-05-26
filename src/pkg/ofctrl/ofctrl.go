@@ -1,14 +1,14 @@
 package ofctrl
-// This library implements a simple openflow controller
+// This library implements a simple openflow 1.3 controller
 
 import (
     "log"
     "net"
     "time"
 
-    "pkg/ofctrl/ofpxx"
-    "pkg/ofctrl/ofp10"
-    "pkg/ofctrl/ofp13"
+    "pkg/ofctrl/libOpenflow/common"
+    "pkg/ofctrl/libOpenflow/openflow10"
+    "pkg/ofctrl/libOpenflow/openflow13"
 )
 
 // Note: Command to make ovs connect to controller:
@@ -58,8 +58,8 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
     log.Println("New connection..")
 
-    // Send ofp 1.3 Hello
-    h, err := ofpxx.NewHello(4)
+    // Send ofp 1.3 Hello by default
+    h, err := common.NewHello(4)
     if err != nil {
         return
     }
@@ -74,50 +74,50 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             // completes version negotiation. If version
             // types are incompatable, it is possible the
             // connection may be servered without error.
-            case *ofpxx.Header:
-                if m.Version == ofp10.VERSION {
+            case *common.Header:
+                if m.Version == openflow10.VERSION {
                     // Version negotiation is
                     // considered complete. Create
                     // new Switch and notifiy listening
                     // applications.
                     stream.Version = m.Version
-                    stream.Outbound <- ofp10.NewFeaturesRequest()
-                } else if m.Version == ofp13.VERSION {
+                    stream.Outbound <- openflow10.NewFeaturesRequest()
+
+                    log.Println("Received Openflow 1.0 Hello message")
+                    log.Println("This controller requires openflow 1.3")
+
+                } else if m.Version == openflow13.VERSION {
                     stream.Version = m.Version
-                    stream.Outbound <- ofp13.NewFeaturesRequest()
+                    stream.Outbound <- openflow13.NewFeaturesRequest()
                 } else {
                     // Connection should be severed if controller
                     // doesn't support switch version.
                     log.Println("Received unsupported ofp version", m.Version)
                     stream.Shutdown <- true
                 }
+            case *openflow10.SwitchFeatures:
+                log.Println("Received Openflow 1.3 feature response")
+                log.Println("This controller requires openflow 1.3")
+
             // After a vaild FeaturesReply has been received we
             // have all the information we need. Create a new
             // switch object and notify applications.
-            case *ofp10.SwitchFeatures:
-                log.Printf("Received ofp1.0 Switch feature response: %+v", *m)
-
-                // Create a new switch and handover the stream
-                NewSwitch(stream, m.DPID, c)
-
-                // Let switch instance all future messages..
-                return
-            case *ofp13.SwitchFeatures:
+            case *openflow13.SwitchFeatures:
                 log.Printf("Received ofp1.3 Switch feature response: %+v", *m)
 
                 // Create a new switch and handover the stream
                 NewSwitch(stream, m.DPID, c)
 
-                // Let switch instance all future messages..
+                // Let switch instance handle all future messages..
                 return
-                
+
             // An error message may indicate a version mismatch. We
             // disconnect if an error occurs this early.
-            case *ofp10.ErrorMsg:
+            case *openflow10.ErrorMsg:
                 log.Println(m)
                 stream.Version = m.Header.Version
                 stream.Shutdown <- true
-            case *ofp13.ErrorMsg:
+            case *openflow13.ErrorMsg:
                 log.Printf("Received ofp1.3 error msg: %+v", *m)
                 stream.Shutdown <- true
             }

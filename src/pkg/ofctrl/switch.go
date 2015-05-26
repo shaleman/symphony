@@ -4,11 +4,10 @@ import (
     "log"
     "net"
     "time"
-    // "sync"
 
-    "pkg/ofctrl/ofp13"
-    "pkg/ofctrl/ofpxx"
-    "pkg/ofctrl/util"
+    "pkg/ofctrl/libOpenflow/openflow13"
+    "pkg/ofctrl/libOpenflow/common"
+    "pkg/ofctrl/libOpenflow/util"
 )
 
 
@@ -56,7 +55,7 @@ func NewSwitch(stream *MessageStream, dpid net.HardwareAddr, c *Controller) *OFS
 
     // Send connection up callback
     for _, inst := range s.actors {
-        if actor, ok := inst.(ofp13.ConnectionUpReactor); ok {
+        if actor, ok := inst.(openflow13.ConnectionUpReactor); ok {
             actor.ConnectionUp(s.DPID())
         }
     }
@@ -110,7 +109,7 @@ func (s *OFSwitch) receive() {
         case err := <-s.stream.Error:
             // Message stream has been disconnected.
             for _, app := range s.actors {
-                if actor, ok := app.(ofp13.ConnectionDownReactor); ok {
+                if actor, ok := app.(openflow13.ConnectionDownReactor); ok {
                     actor.ConnectionDown(s.DPID(), err)
                 }
             }
@@ -124,90 +123,90 @@ func (sw *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) 
 
     for _, app := range sw.actors {
         switch t := msg.(type) {
-        case *ofpxx.Header:
+        case *common.Header:
             switch t.Header().Type {
-            case ofp13.Type_Hello:
-                if actor, ok := app.(ofp13.HelloReactor); ok {
+            case openflow13.Type_Hello:
+                if actor, ok := app.(openflow13.HelloReactor); ok {
                     actor.Hello(t)
                 }
-            case ofp13.Type_EchoRequest:
-                if actor, ok := app.(ofp13.EchoRequestReactor); ok {
+            case openflow13.Type_EchoRequest:
+                if actor, ok := app.(openflow13.EchoRequestReactor); ok {
                     actor.EchoRequest(sw.DPID())
                 }
-            case ofp13.Type_EchoReply:
-                if actor, ok := app.(ofp13.EchoReplyReactor); ok {
+            case openflow13.Type_EchoReply:
+                if actor, ok := app.(openflow13.EchoReplyReactor); ok {
                     actor.EchoReply(sw.DPID())
                 }
-            case ofp13.Type_FeaturesRequest:
-                if actor, ok := app.(ofp13.FeaturesRequestReactor); ok {
+            case openflow13.Type_FeaturesRequest:
+                if actor, ok := app.(openflow13.FeaturesRequestReactor); ok {
                     actor.FeaturesRequest(t)
                 }
-            case ofp13.Type_GetConfigRequest:
-                if actor, ok := app.(ofp13.GetConfigRequestReactor); ok {
+            case openflow13.Type_GetConfigRequest:
+                if actor, ok := app.(openflow13.GetConfigRequestReactor); ok {
                     actor.GetConfigRequest(t)
                 }
-            case ofp13.Type_BarrierRequest:
-                if actor, ok := app.(ofp13.BarrierRequestReactor); ok {
+            case openflow13.Type_BarrierRequest:
+                if actor, ok := app.(openflow13.BarrierRequestReactor); ok {
                     actor.BarrierRequest(t)
                 }
-            case ofp13.Type_BarrierReply:
-                if actor, ok := app.(ofp13.BarrierReplyReactor); ok {
+            case openflow13.Type_BarrierReply:
+                if actor, ok := app.(openflow13.BarrierReplyReactor); ok {
                     actor.BarrierReply(sw.DPID(), t)
                 }
             }
-        case *ofp13.ErrorMsg:
-            if actor, ok := app.(ofp13.ErrorReactor); ok {
+        case *openflow13.ErrorMsg:
+            if actor, ok := app.(openflow13.ErrorReactor); ok {
                 actor.Error(sw.DPID(), t)
             }
-        case *ofp13.VendorHeader:
-            if actor, ok := app.(ofp13.VendorReactor); ok {
+        case *openflow13.VendorHeader:
+            if actor, ok := app.(openflow13.VendorReactor); ok {
                 actor.VendorHeader(sw.DPID(), t)
             }
-        case *ofp13.SwitchFeatures:
-            if actor, ok := app.(ofp13.FeaturesReplyReactor); ok {
+        case *openflow13.SwitchFeatures:
+            if actor, ok := app.(openflow13.FeaturesReplyReactor); ok {
                 actor.FeaturesReply(sw.DPID(), t)
             }
-        case *ofp13.SwitchConfig:
+        case *openflow13.SwitchConfig:
             switch t.Header.Type {
-            case ofp13.Type_GetConfigReply:
-                if actor, ok := app.(ofp13.GetConfigReplyReactor); ok {
+            case openflow13.Type_GetConfigReply:
+                if actor, ok := app.(openflow13.GetConfigReplyReactor); ok {
                     actor.GetConfigReply(sw.DPID(), t)
                 }
-            case ofp13.Type_SetConfig:
-                if actor, ok := app.(ofp13.SetConfigReactor); ok {
+            case openflow13.Type_SetConfig:
+                if actor, ok := app.(openflow13.SetConfigReactor); ok {
                     actor.SetConfig(t)
                 }
             }
-        case *ofp13.PacketIn:
-            if actor, ok := app.(ofp13.PacketInReactor); ok {
+        case *openflow13.PacketIn:
+            if actor, ok := app.(openflow13.PacketInReactor); ok {
                 actor.PacketIn(sw.DPID(), t)
             }
-        case *ofp13.FlowRemoved:
-            if actor, ok := app.(ofp13.FlowRemovedReactor); ok {
+        case *openflow13.FlowRemoved:
+            if actor, ok := app.(openflow13.FlowRemovedReactor); ok {
                 actor.FlowRemoved(sw.DPID(), t)
             }
-        case *ofp13.PortStatus:
-            if actor, ok := app.(ofp13.PortStatusReactor); ok {
+        case *openflow13.PortStatus:
+            if actor, ok := app.(openflow13.PortStatusReactor); ok {
                 actor.PortStatus(sw.DPID(), t)
             }
-        case *ofp13.PacketOut:
-            if actor, ok := app.(ofp13.PacketOutReactor); ok {
+        case *openflow13.PacketOut:
+            if actor, ok := app.(openflow13.PacketOutReactor); ok {
                 actor.PacketOut(t)
             }
-        case *ofp13.FlowMod:
-            if actor, ok := app.(ofp13.FlowModReactor); ok {
+        case *openflow13.FlowMod:
+            if actor, ok := app.(openflow13.FlowModReactor); ok {
                 actor.FlowMod(t)
             }
-        case *ofp13.PortMod:
-            if actor, ok := app.(ofp13.PortModReactor); ok {
+        case *openflow13.PortMod:
+            if actor, ok := app.(openflow13.PortModReactor); ok {
                 actor.PortMod(t)
             }
-        case *ofp13.MultipartRequest:
-            if actor, ok := app.(ofp13.MultipartRequestReactor); ok {
+        case *openflow13.MultipartRequest:
+            if actor, ok := app.(openflow13.MultipartRequestReactor); ok {
                 actor.MultipartRequest(t)
             }
-        case *ofp13.MultipartReply:
-            if actor, ok := app.(ofp13.MultipartReplyReactor); ok {
+        case *openflow13.MultipartReply:
+            if actor, ok := app.(openflow13.MultipartReplyReactor); ok {
                 actor.MultipartReply(sw.DPID(), t)
             }
         }
@@ -222,8 +221,8 @@ func (o *DefaultActor) ConnectionUp(dpid net.HardwareAddr) {
 
     sw := Switch(dpid)
     if (sw != nil)  {
-        sw.Send(ofp13.NewFeaturesRequest())
-        sw.Send(ofp13.NewEchoRequest())
+        sw.Send(openflow13.NewFeaturesRequest())
+        sw.Send(openflow13.NewEchoRequest())
     }
 }
 
@@ -237,7 +236,7 @@ func (o *DefaultActor) EchoRequest(dpid net.HardwareAddr) {
         <-time.After(time.Second * 3)
 
         // Send echo reply
-        res := ofp13.NewEchoReply()
+        res := openflow13.NewEchoReply()
         Switch(dpid).Send(res)
     }()
 }
@@ -248,7 +247,7 @@ func (o *DefaultActor) EchoReply(dpid net.HardwareAddr) {
         <-time.After(time.Second * 3)
 
         // Send echo request
-        res := ofp13.NewEchoRequest()
+        res := openflow13.NewEchoRequest()
         Switch(dpid).Send(res)
     }()
 }

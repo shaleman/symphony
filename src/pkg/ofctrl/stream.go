@@ -6,9 +6,9 @@ import (
     "net"
     "bytes"
 
-    "pkg/ofctrl/util"
-    "pkg/ofctrl/ofp10"
-    "pkg/ofctrl/ofp13"
+    "pkg/ofctrl/libOpenflow/util"
+    "pkg/ofctrl/libOpenflow/openflow10"
+    "pkg/ofctrl/libOpenflow/openflow13"
 )
 
 
@@ -92,6 +92,7 @@ func (m *MessageStream) outbound() {
     }
 }
 
+// Handle inbound messages
 func (m *MessageStream) inbound() {
     msg := 0
     hdr := 0
@@ -132,16 +133,7 @@ func (m *MessageStream) inbound() {
     }
 }
 
-func Parse(b []byte) (message util.Message, err error) {
-    switch b[0] {
-    case 1:
-        message, err = ofp10.Parse(b)
-    case 4:
-        message, err = ofp13.Parse(b)
-    }
-    return
-}
-
+// Parse incoming message
 func (m *MessageStream) parse() {
     for {
         b := <- m.pool.Full
@@ -156,4 +148,15 @@ func (m *MessageStream) parse() {
         b.Reset()
         m.pool.Empty <- b
     }
+}
+
+// Demux based on message version
+func Parse(b []byte) (message util.Message, err error) {
+    switch b[0] {
+    case openflow10.VERSION:
+        message, err = openflow10.Parse(b)
+    case openflow13.VERSION:
+        message, err = openflow13.Parse(b)
+    }
+    return
 }
