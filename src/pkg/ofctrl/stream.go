@@ -2,13 +2,14 @@ package ofctrl
 
 import (
     "encoding/binary"
-    "log"
     "net"
     "bytes"
 
     "pkg/ofctrl/libOpenflow/util"
     "pkg/ofctrl/libOpenflow/openflow10"
     "pkg/ofctrl/libOpenflow/openflow13"
+
+    log "github.com/Sirupsen/logrus"
 )
 
 
@@ -75,19 +76,19 @@ func (m *MessageStream) outbound() {
     for {
         select {
         case <-m.Shutdown:
-            log.Println("Closing OpenFlow message stream.")
+            log.Warnln("Closing OpenFlow message stream.")
             m.conn.Close()
             return
         case msg := <-m.Outbound:
             // Forward outbound messages to conn
             data, _ := msg.MarshalBinary()
             if _, err := m.conn.Write(data); err != nil {
-                log.Println("OutboundError:", err)
+                log.Warnln("OutboundError:", err)
                 m.Error <- err
                 m.Shutdown <- true
             }
 
-            log.Printf("Sent(%d): %v", len(data), data)
+            log.Debugf("Sent(%d): %v", len(data), data)
         }
     }
 }
@@ -103,7 +104,7 @@ func (m *MessageStream) inbound() {
     for {
         n, err := m.conn.Read(tmp)
         if err != nil {
-            log.Println("InboundError", err)
+            log.Warnln("InboundError", err)
             m.Error <- err
             m.Shutdown <- true
             return
@@ -137,7 +138,7 @@ func (m *MessageStream) inbound() {
 func (m *MessageStream) parse() {
     for {
         b := <- m.pool.Full
-        log.Printf("Rcvd: %v", b.Bytes())
+        log.Debugf("Rcvd: %v", b.Bytes())
         msg, err := Parse(b.Bytes())
         // Log all message parsing errors.
         if err != nil {

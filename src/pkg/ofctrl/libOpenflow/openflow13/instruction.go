@@ -80,24 +80,38 @@ type InstrGotoTable struct {
     pad         []byte  // 3 bytes
 }
 
-func (a *InstrGotoTable) Len() (n uint16) {
+func (instr *InstrGotoTable) Len() (n uint16) {
     return 8
 }
 
-func (a *InstrGotoTable) MarshalBinary() (data []byte, err error) {
-    data, err = a.InstrHeader.MarshalBinary()
-    b := a.TableId
-    data = append(data, b)
+func (instr *InstrGotoTable) MarshalBinary() (data []byte, err error) {
+    data, err = instr.InstrHeader.MarshalBinary()
+
+    b := make([]byte, 4)
+    b[0] = instr.TableId
+    copy(b[3:], instr.pad)
+
+    data = append(data, b...)
     return
 }
 
-func (a *InstrGotoTable) UnmarshalBinary(data []byte) error {
-    a.InstrHeader.UnmarshalBinary(data[:4])
+func (instr *InstrGotoTable) UnmarshalBinary(data []byte) error {
+    instr.InstrHeader.UnmarshalBinary(data[:4])
 
-    a.TableId = data[4]
-    copy(a.pad, data[5:8])
+    instr.TableId = data[4]
+    copy(instr.pad, data[5:8])
 
     return nil
+}
+
+func NewInstrGotoTable(tableId uint8) *InstrGotoTable {
+    instr := new(InstrGotoTable)
+    instr.Type = InstrType_GOTO_TABLE
+    instr.TableId = tableId
+    instr.pad = make([]byte, 3)
+    instr.Length = instr.Len()
+
+    return instr
 }
 
 type InstrWriteMetadata struct {
@@ -107,6 +121,45 @@ type InstrWriteMetadata struct {
     MetadataMask    uint64   /* Metadata write bitmask */
 }
 
+// FIXME: we need marshall/unmarshall/len/new functions for write metadata instr
+func (instr *InstrWriteMetadata) Len() (n uint16) {
+    return 24
+}
+
+func (instr *InstrWriteMetadata) MarshalBinary() (data []byte, err error) {
+    data, err = instr.InstrHeader.MarshalBinary()
+
+    b := make([]byte, 20)
+    copy(b, instr.pad)
+    binary.BigEndian.PutUint64(b[4:], instr.Metadata)
+    binary.BigEndian.PutUint64(b[12:], instr.MetadataMask)
+
+    data = append(data, b...)
+    return
+}
+
+func (instr *InstrWriteMetadata) UnmarshalBinary(data []byte) error {
+    instr.InstrHeader.UnmarshalBinary(data[:4])
+
+    copy(instr.pad, data[4:8])
+    instr.Metadata = binary.BigEndian.Uint64(data[8:16])
+    instr.MetadataMask = binary.BigEndian.Uint64(data[16:24])
+
+    return nil
+}
+
+func NewInstrWriteMetadata(metadata, metadataMask uint64) *InstrWriteMetadata {
+    instr := new(InstrWriteMetadata)
+    instr.Type = InstrType_WRITE_METADATA
+    instr.pad = make([]byte, 4)
+    instr.Metadata = metadata
+    instr.MetadataMask = metadataMask
+    instr.Length = instr.Len()
+
+    return instr
+}
+
+// *_ACTION instructions
 type InstrActions struct {
     InstrHeader
     pad         []byte  // 4 bytes
@@ -166,6 +219,7 @@ func NewInstrWriteActions() *InstrActions {
 
     return instr
 }
+
 func NewInstrApplyActions() *InstrActions {
     instr := new(InstrActions)
     instr.Type = InstrType_APPLY_ACTIONS

@@ -10,7 +10,7 @@ import (
 func Parse(b []byte) (message util.Message, err error) {
     switch b[1] {
     case Type_Hello:
-        message = new(common.Header)
+        message = new(common.Hello)
         message.UnmarshalBinary(b)
     case Type_Error:
         message = new(ErrorMsg)

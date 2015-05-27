@@ -2,8 +2,6 @@ package ovsdriver
 
 import (
     "fmt"
-    "log"
-    "os"
     "reflect"
     "time"
     // "strconv"
@@ -31,9 +29,6 @@ type OvsDriver struct {
 // Create a new OVS driver
 func NewOvsDriver() *OvsDriver {
     ovsDriver := new(OvsDriver)
-
-    // Hack:
-    log.SetOutput(os.Stdout)
 
     // connect to OVS
     ovs, err := libovsdb.Connect("localhost", 6640)

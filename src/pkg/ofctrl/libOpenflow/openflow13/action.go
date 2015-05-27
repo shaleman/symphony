@@ -274,7 +274,7 @@ func (a *ActionPush) Len() (n uint16) {
 func (a *ActionPush) MarshalBinary() (data []byte, err error) {
     data, err = a.ActionHeader.MarshalBinary()
 
-    bytes := make([]byte, 2)
+    bytes := make([]byte, 4)
     binary.BigEndian.PutUint16(bytes[0:], a.EtherType)
 
     data = append(data, bytes...)
@@ -295,27 +295,35 @@ type ActionPopMpls struct {
 
 type ActionSetField struct {
     ActionHeader
-    EtherType uint16
     Field   MatchField
 }
 
 func NewActionSetField(field MatchField) *ActionSetField {
     a := new(ActionSetField)
     a.Type = ActionType_SetField
-    a.Length = 4 + field.Len()
     a.Field = field
+    a.Length = a.Len()
     return a
 }
 
 func (a *ActionSetField) Len() (n uint16) {
-    return a.ActionHeader.Len() + a.Field.Len()
+    n = a.ActionHeader.Len() + a.Field.Len()
+    // Round it to closest multiple of 8
+    n = ((n + 7)/8)*8
+
+    return
 }
 
 func (a *ActionSetField) MarshalBinary() (data []byte, err error) {
-    data, err = a.ActionHeader.MarshalBinary()
+    data = make([]byte, int(a.Len()))
+    n := 0
+    b, err := a.ActionHeader.MarshalBinary()
+    copy(data, b)
+    n += int(a.ActionHeader.Len())
 
-    b, err := a.Field.MarshalBinary()
-    data = append(data, b...)
+    b, err = a.Field.MarshalBinary()
+    copy(data[n:], b)
+
     return
 }
 func (a *ActionSetField) UnmarshalBinary(data []byte) error {

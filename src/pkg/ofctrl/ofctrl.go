@@ -2,13 +2,14 @@ package ofctrl
 // This library implements a simple openflow 1.3 controller
 
 import (
-    "log"
     "net"
     "time"
 
     "pkg/ofctrl/libOpenflow/common"
     "pkg/ofctrl/libOpenflow/openflow10"
     "pkg/ofctrl/libOpenflow/openflow13"
+
+    log "github.com/Sirupsen/logrus"
 )
 
 // Note: Command to make ovs connect to controller:
@@ -19,16 +20,22 @@ import (
 // ovs-vsctl set bridge <bridge-name> protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13
 // E.g. sudo ovs-vsctl set bridge ovsbr0 protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13
 
+type AppInterface interface {
+    SwitchConnected(sw *OFSwitch)
+    SwitchDisconnected(sw *OFSwitch)
+    PacketRcvd(sw *OFSwitch, pkt *openflow13.PacketIn)
+}
+
 type Controller struct{
-    actor      interface{}
+    app      AppInterface
 }
 
 // Create a new controller
-func NewController(actor interface{}) *Controller {
+func NewController(app AppInterface) *Controller {
     c := new(Controller)
 
     // Save the handler
-    c.actor = actor
+    c.app = app
 
     return c
 }
@@ -74,7 +81,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             // completes version negotiation. If version
             // types are incompatable, it is possible the
             // connection may be servered without error.
-            case *common.Header:
+            case *common.Hello:
                 if m.Version == openflow10.VERSION {
                     // Version negotiation is
                     // considered complete. Create
@@ -83,10 +90,12 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                     stream.Version = m.Version
                     stream.Outbound <- openflow10.NewFeaturesRequest()
 
-                    log.Println("Received Openflow 1.0 Hello message")
-                    log.Println("This controller requires openflow 1.3")
+                    log.Warnln("Received Openflow 1.0 Hello message")
+                    log.Warnln("This controller requires openflow 1.3")
 
                 } else if m.Version == openflow13.VERSION {
+                    log.Infoln("Received Openflow 1.3 Hello message")
+
                     stream.Version = m.Version
                     stream.Outbound <- openflow13.NewFeaturesRequest()
                 } else {
@@ -96,8 +105,8 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                     stream.Shutdown <- true
                 }
             case *openflow10.SwitchFeatures:
-                log.Println("Received Openflow 1.3 feature response")
-                log.Println("This controller requires openflow 1.3")
+                log.Warnln("Received Openflow 1.3 feature response")
+                log.Warnln("This controller requires openflow 1.3")
 
             // After a vaild FeaturesReply has been received we
             // have all the information we need. Create a new
@@ -106,7 +115,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                 log.Printf("Received ofp1.3 Switch feature response: %+v", *m)
 
                 // Create a new switch and handover the stream
-                NewSwitch(stream, m.DPID, c)
+                NewSwitch(stream, m.DPID, c.app)
 
                 // Let switch instance handle all future messages..
                 return
@@ -114,11 +123,11 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             // An error message may indicate a version mismatch. We
             // disconnect if an error occurs this early.
             case *openflow10.ErrorMsg:
-                log.Println(m)
+                log.Warnln(m)
                 stream.Version = m.Header.Version
                 stream.Shutdown <- true
             case *openflow13.ErrorMsg:
-                log.Printf("Received ofp1.3 error msg: %+v", *m)
+                log.Warnf("Received ofp1.3 error msg: %+v", *m)
                 stream.Shutdown <- true
             }
         case err := <-stream.Error:
@@ -129,7 +138,7 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             // This shouldn't happen. If it does, both the controller
             // and switch are no longer communicating. The TCPConn is
             // still established though.
-            log.Println("Connection timed out.")
+            log.Warnln("Connection timed out.")
             return
         }
     }
