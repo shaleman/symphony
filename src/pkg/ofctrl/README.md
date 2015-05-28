@@ -1,6 +1,6 @@
 # Ofctrl
 
-This library implements a simple Openflow1.3 controller
+This library implements a simple Openflow1.3 controller API
 
 # Usage
 
@@ -183,6 +183,7 @@ Forwarding Graph elements are linked together as follows
     
      // Match on IP dest addr and forward to a port
      ipFlow := ipTable.NewFlow(FlowParams{
+                               Ethertype: 0x0800,
                                IpDa: &net.IPv4("10.10.10.10")
                               }, 100)
     
