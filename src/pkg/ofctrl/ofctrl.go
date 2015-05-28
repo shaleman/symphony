@@ -21,8 +21,13 @@ import (
 // E.g. sudo ovs-vsctl set bridge ovsbr0 protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13
 
 type AppInterface interface {
+    // A Switch connected to the controller
     SwitchConnected(sw *OFSwitch)
+
+    // Switch disconnected from the controller
     SwitchDisconnected(sw *OFSwitch)
+
+    // Controller received a packet from the switch
     PacketRcvd(sw *OFSwitch, pkt *openflow13.PacketIn)
 }
 
