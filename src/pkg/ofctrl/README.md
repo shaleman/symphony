@@ -72,9 +72,9 @@ Example:
 
 # Forwarding Graph API
 An app can install flow table entries into the Openflow switch by using forwarding graph API.
+Forwarding graph is made up of forwarding elements which determine how a packet lookups are done. Forwarding graph is a higher level interface that is converted to openflow flow entries, instructions, groups and actions by the library
 
-
- Forwarding graph is local to each switch. It is roughly structured as follows
+ Forwarding graph specific to each switch. It is roughly structured as follows
 ```
          +------------+
          | Controller |
@@ -121,22 +121,30 @@ An app can install flow table entries into the Openflow switch by using forwardi
 ```
 
  Forwarding graph is made up of Fgraph elements. Currently there are three
- kinds of elements (i) Table (ii) Flow (iii) Output. In future we will support
- Two additional types (iv) Flood and (v) Multipath.
- - Each Switch has a set of Tables. Switch has a special DefaultTable where
-   All packet lookups start.
- - Each Table contains list of Flows. Each Flow has a Match which determines
-   which packets match the flow and a NextElem which it points to
+ kinds of elements.
+ 
+    1. Table - Represents a flow table
+    2. Flow - Represents a specific flow 
+    3. Output - Represents an output action either drop or send it on a port
+
+In future we will support Two additional types.
+
+    4. Flood - Represents flood to list of ports
+    5. Multipath - Represents load balancing across a set of ports
+    
+Forwarding Graph elements are linked together as follows
+
+ - Each Switch has a set of Tables. Switch has a special DefaultTable where all packet lookups start.
+ - Each Table contains list of Flows. Each Flow has a Match condition which determines the packets that match the flow and a NextElem which it points to
  - A Flow can point to following elements
       1. Table - This moves the forwarding lookup to specified table
-      2. Output - This causes the packet to be sent out
+      2. Output - This causes the packet to be sent out or dropped
       3. Flood  - This causes the packet to be flooded to list of ports
-      4. Multipath - This causes packet to be load balanced across set of
-                      ports. This can be used for link aggregation and ECMP
+      4. Multipath - This causes packet to be load balanced across set of ports. This can be used for link aggregation and ECMP
  - There are three kinds of outputs
       1. drop - which causes the packet to be dropped
       2. toController - sends the packet to controller
-      3. port - sends the packet out of specified port
+      3. port - sends the packet out of specified port. Tunnels like Vxlan VTEP are also represented as ports.
  - A flow can have additional actions like:
     1. Set Vlan tag
     2. Set metadata Which is used for setting VRF for a packet 
