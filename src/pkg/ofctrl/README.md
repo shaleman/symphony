@@ -4,8 +4,6 @@ This library implements a simple Openflow1.3 controller
 
 # Usage
 
-    var app OfApp
-    
     // Create a controller
     ctrler := ofctrl.NewController(&app)
 
@@ -44,6 +42,12 @@ This creates a new controller and registers the app for event callbacks. The app
         log.Printf("App: Switch connected: %v", sw.DPID())
     }
 
+    // Main app
+    var app OfApp
+    
+    // Create a controller
+    ctrler := ofctrl.NewController(&app)
+    
 # Forwarding Graph API
 An app can install flow table entries into the Openflow switch by using forwarding graph API.
 
