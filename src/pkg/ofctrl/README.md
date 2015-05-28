@@ -7,6 +7,9 @@ This library implements a simple Openflow1.3 controller
     // Create a controller
     ctrler := ofctrl.NewController(&app)
 
+    // start listening on a port
+    ctrler.Listen(":6633")
+    
 This creates a new controller and registers the app for event callbacks. The app needs to implement following interface to get callbacks when an openflow switch connects to the controller.
 
 
@@ -48,6 +51,25 @@ This creates a new controller and registers the app for event callbacks. The app
     // Create a controller
     ctrler := ofctrl.NewController(&app)
     
+    // start listening
+    ctrler.Listen(":6633")
+    
+# Working with OpenVswitch
+
+### Command to make ovs connect to controller:
+`ovs-vsctl set-controller <bridge-name> tcp:<ip-addr>:<port>`
+
+Example:
+
+    sudo ovs-vsctl set-controller ovsbr0 tcp:127.0.0.1:6633
+
+### To enable openflow1.3 support in OVS:
+`ovs-vsctl set bridge <bridge-name> protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13`
+
+Example:
+
+    sudo ovs-vsctl set bridge ovsbr0 protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13
+
 # Forwarding Graph API
 An app can install flow table entries into the Openflow switch by using forwarding graph API.
 
@@ -106,17 +128,19 @@ An app can install flow table entries into the Openflow switch by using forwardi
  - Each Table contains list of Flows. Each Flow has a Match which determines
    which packets match the flow and a NextElem which it points to
  - A Flow can point to following elements
-      (a) Table - This moves the forwarding lookup to specified table
-      (b) Output - This causes the packet to be sent out
-      (c) Flood  - This causes the packet to be flooded to list of ports
-      (d) Multipath - This causes packet to be load balanced across set of
+      1. Table - This moves the forwarding lookup to specified table
+      2. Output - This causes the packet to be sent out
+      3. Flood  - This causes the packet to be flooded to list of ports
+      4. Multipath - This causes packet to be load balanced across set of
                       ports. This can be used for link aggregation and ECMP
  - There are three kinds of outputs
-      (i) drop - which causes the packet to be dropped
-      (ii) toController - sends the packet to controller
-      (iii) port - sends the packet out of specified port
- - A flow can have additional actions like (i) Set Vlan tag (ii) Set metadata
-   Which is used for setting VRF for a packet (iii) Set VNI/tunnel header etc
+      1. drop - which causes the packet to be dropped
+      2. toController - sends the packet to controller
+      3. port - sends the packet out of specified port
+ - A flow can have additional actions like:
+    1. Set Vlan tag
+    2. Set metadata Which is used for setting VRF for a packet 
+    3. Set VNI/tunnel header etc
 
  ----------------------------------------------------------------
  Example usage:
