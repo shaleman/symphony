@@ -22,7 +22,7 @@ type SwitchFeatures struct {
 
 // FeaturesRequest constructor
 func NewFeaturesRequest() *common.Header {
-    req := common.NewOfp13Header()
+    req := NewOfp13Header()
     req.Type = Type_FeaturesRequest
     return &req
 }
@@ -30,7 +30,7 @@ func NewFeaturesRequest() *common.Header {
 // FeaturesReply constructor
 func NewFeaturesReply() *SwitchFeatures {
     res := new(SwitchFeatures)
-    res.Header = common.NewOfp13Header()
+    res.Header = NewOfp13Header()
     res.Header.Type = Type_FeaturesReply
     res.DPID = make([]byte, 8)
     res.pad = make([]byte, 2)

@@ -34,7 +34,7 @@ type FlowMod struct {
 
 func NewFlowMod() *FlowMod {
     f := new(FlowMod)
-    f.Header = common.NewOfp13Header()
+    f.Header = NewOfp13Header()
     f.Header.Type = Type_FlowMod
     // Add a generator for f.Cookie here
     f.Cookie = 0
@@ -199,7 +199,7 @@ type FlowRemoved struct {
 
 func NewFlowRemoved() *FlowRemoved {
     f := new(FlowRemoved)
-    f.Header = common.NewOfp13Header()
+    f.Header = NewOfp13Header()
     f.Match = *NewMatch()
     return f
 }

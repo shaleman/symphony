@@ -12,7 +12,7 @@ import (
     "encoding/binary"
     "errors"
 
-    "pkg/ofctrl/libOpenflow/protocol/eth"
+    "pkg/ofctrl/libOpenflow/protocol"
     "pkg/ofctrl/libOpenflow/common"
     "pkg/ofctrl/libOpenflow/util"
 )
@@ -21,12 +21,15 @@ const (
     VERSION = 4
 )
 
+// Returns a new OpenFlow header with version field set to v1.3.
+var NewOfp13Header func() common.Header = common.NewHeaderGenerator(VERSION)
+
 // Echo request/reply messages can be sent from either the
 // switch or the controller, and must return an echo reply. They
 // can be used to indicate the latency, bandwidth, and/or
 // liveness of a controller-switch connection.
 func NewEchoRequest() *common.Header {
-    h := common.NewOfp13Header()
+    h := NewOfp13Header()
     h.Type = Type_EchoRequest
     return &h
 }
@@ -36,7 +39,7 @@ func NewEchoRequest() *common.Header {
 // can be used to indicate the latency, bandwidth, and/or
 // liveness of a controller-switch connection.
 func NewEchoReply() *common.Header {
-    h := common.NewOfp13Header()
+    h := NewOfp13Header()
     h.Type = Type_EchoReply
     return &h
 }
@@ -113,7 +116,7 @@ type PacketOut struct {
 
 func NewPacketOut() *PacketOut {
     p := new(PacketOut)
-    p.Header = common.NewOfp13Header()
+    p.Header = NewOfp13Header()
     p.Header.Type = Type_PacketOut
     p.BufferId = 0xffffffff
     p.InPort = P_ANY
@@ -202,12 +205,12 @@ type PacketIn struct {
     Cookie   uint64
     Match    Match
     pad      []uint8
-    Data     eth.Ethernet
+    Data     protocol.Ethernet
 }
 
 func NewPacketIn() *PacketIn {
     p := new(PacketIn)
-    p.Header = common.NewOfp13Header()
+    p.Header = NewOfp13Header()
     p.Header.Type = Type_PacketIn
     p.BufferId = 0xffffffff
     p.Reason = 0

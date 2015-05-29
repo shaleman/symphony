@@ -1,12 +1,10 @@
-package eth
+package protocol
 
 import (
     "encoding/binary"
     "errors"
     "net"
 
-    "pkg/ofctrl/libOpenflow/protocol/arp"
-    "pkg/ofctrl/libOpenflow/protocol/ipv4"
     "pkg/ofctrl/libOpenflow/util"
 )
 
@@ -33,7 +31,7 @@ type Ethernet struct {
     Data      util.Message
 }
 
-func New() *Ethernet {
+func NewEthernet() *Ethernet {
     eth := new(Ethernet)
     eth.HWDst = net.HardwareAddr(make([]byte, 6))
     eth.HWSrc = net.HardwareAddr(make([]byte, 6))
@@ -115,9 +113,9 @@ func (e *Ethernet) UnmarshalBinary(data []byte) error {
 
     switch e.Ethertype {
     case IPv4_MSG:
-        e.Data = new(ipv4.IPv4)
+        e.Data = new(IPv4)
     case ARP_MSG:
-        e.Data = new(arp.ARP)
+        e.Data = new(ARP)
     default:
         e.Data = new(util.Buffer)
     }

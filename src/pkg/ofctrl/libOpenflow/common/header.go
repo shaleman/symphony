@@ -9,14 +9,9 @@ import (
     "pkg/ofctrl/libOpenflow/util"
 )
 
-// Returns a new OpenFlow header with version field set to v1.0.
-var NewOfp10Header func() Header = newHeaderGenerator(1)
-// Returns a new OpenFlow header with version field set to v1.3.
-var NewOfp13Header func() Header = newHeaderGenerator(4)
-
 var messageXid uint32 = 1
 
-func newHeaderGenerator(ver int) func() Header {
+func NewHeaderGenerator(ver int) func() Header {
     return func() Header {
         messageXid += 1
         p := Header{uint8(ver), 0, 8, messageXid}
@@ -122,9 +117,8 @@ func NewHelloElemVersionBitmap() *HelloElemVersionBitmap {
     h := new(HelloElemVersionBitmap)
     h.HelloElemHeader = *NewHelloElemHeader()
     h.Bitmaps = make([]uint32, 0)
-    // FIXME: eventually 10010 meaning openflow 1.0 & 1.3 support
+    // 10010 meaning openflow 1.0 & 1.3 support
     h.Bitmaps = append(h.Bitmaps, uint32(1<<4) | uint32(1<<1))
-    // h.Bitmaps = append(h.Bitmaps, uint32(1<<1))
     h.Length = h.Length + uint16(len(h.Bitmaps) * 4)
     return h
 }
@@ -190,17 +184,10 @@ type Hello struct {
 
 func NewHello(ver int) (h *Hello, err error) {
     h = new(Hello)
-    h.Header = NewOfp10Header()
+    h.Header = NewHeaderGenerator(ver)()
     h.Elements = make([]HelloElem, 0)
-
-    if ver == 1 {
-        h.Header = NewOfp10Header()
-    } else if ver == 4 {
-        h.Header = NewOfp13Header()
-    } else {
-        err = errors.New("New hello message with unsupported verion was attempted to be created.")
-    }
     h.Elements = append(h.Elements, NewHelloElemVersionBitmap())
+
     return
 }
 

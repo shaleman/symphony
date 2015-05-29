@@ -837,7 +837,7 @@ type PortStatus struct {
 
 func NewPortStatus() *PortStatus {
     p := new(PortStatus)
-    p.Header = common.NewOfp10Header()
+    p.Header = NewOfp10Header()
     p.pad = make([]byte, 7)
     return p
 }

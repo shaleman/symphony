@@ -3,7 +3,6 @@ package openflow13
 import (
     "encoding/binary"
     "errors"
-    //"net"
 
     "pkg/ofctrl/libOpenflow/util"
 )

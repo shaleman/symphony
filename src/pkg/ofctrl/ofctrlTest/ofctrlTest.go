@@ -5,7 +5,6 @@ import (
     "time"
     //"flag"
 
-    "pkg/ofctrl/libOpenflow/common"
     "pkg/ofctrl/libOpenflow/openflow13"
     "pkg/ofctrl"
 
@@ -25,24 +24,10 @@ func (o *OfActor) SwitchConnected(sw *ofctrl.OFSwitch) {
 
     // Store switch for later use
     o.Switch = sw
-
-    // Hack to register for messages
-    sw.AddActor(o)
 }
 
 func (o *OfActor) SwitchDisconnected(sw *ofctrl.OFSwitch) {
     log.Printf("App: Switch connected: %v", sw.DPID())
-}
-
-func (o *OfActor) MultipartReply(dpid net.HardwareAddr, rep *openflow13.MultipartReply) {
-    log.Printf("Received Stats Reply: %+v", rep)
-    for _, sts := range rep.Body {
-        log.Printf("Stats body: %+v", sts)
-    }
-}
-
-func (o *OfActor) GetConfigReply(dpid net.HardwareAddr, config *openflow13.SwitchConfig) {
-        log.Printf("Received config reply: %+v", config)
 }
 
 
@@ -77,7 +62,7 @@ func sendRequest() {
 
     // Build flow stats req
     stats :=new(openflow13.MultipartRequest)
-    stats.Header = common.NewOfp13Header()
+    stats.Header = openflow13.NewOfp13Header()
     stats.Header.Type = openflow13.Type_MultiPartRequest
     stats.Type = openflow13.MultipartType_Flow
     flowReq := openflow13.NewFlowStatsRequest()
@@ -116,14 +101,15 @@ func fgraphTest() {
     // Drop bcast source mac
     bcastMac, _ := net.ParseMAC("ff:ff:ff:ff:ff:ff")
     bcastSrc, _ := initTbl.NewFlow(ofctrl.FlowMatch{
-        MacSa: &bcastMac,
-        }, 100)
+                                Priority: 100,
+                                MacSa: &bcastMac,
+                            })
     bcastSrc.Next(sw.DropAction())
     <-time.After(time.Second * 2)
 
     log.Printf("Adding valid pkt flow")
     // valid pkts go to next table
-    validPkt, _ := initTbl.NewFlow(ofctrl.FlowMatch{}, 1)
+    validPkt, _ := initTbl.NewFlow(ofctrl.FlowMatch{ Priority: 1 })
     validPkt.Next(vlanTbl)
     <-time.After(time.Second * 2)
 
@@ -131,8 +117,9 @@ func fgraphTest() {
 
     // Add vlan id based on port num
     port2Vlan, _ := vlanTbl.NewFlow(ofctrl.FlowMatch{
+                                Priority: 100,
                                 InputPort: 2,
-                                }, 100)
+                                })
     port2Vlan.SetVlan(9)
     port2Vlan.Next(ipTbl)
     <-time.After(time.Second * 2)
@@ -142,9 +129,10 @@ func fgraphTest() {
     // IP DA lookup
     ipDa := net.ParseIP("10.10.10.10")
     ipFlow, _ := ipTbl.NewFlow(ofctrl.FlowMatch{
+                        Priority: 100,
                         Ethertype: 0x0800,
                         IpDa: &ipDa,
-                    }, 100)
+                    })
     port3, _ := sw.NewOutputPort(3)
     ipFlow.Next(port3)
 

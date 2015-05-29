@@ -7,7 +7,7 @@ import (
 )
 
 func NewConfigRequest() *common.Header {
-    h := common.NewOfp13Header()
+    h := NewOfp13Header()
     h.Type = Type_GetConfigRequest
     return &h
 }
@@ -29,7 +29,7 @@ type SwitchConfig struct {
 
 func NewSetConfig() *SwitchConfig {
     c := new(SwitchConfig)
-    c.Header = common.NewOfp13Header()
+    c.Header = NewOfp13Header()
     c.Header.Type = Type_SetConfig
     c.Flags = 0
     c.MissSendLen = 0

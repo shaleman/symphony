@@ -13,8 +13,7 @@ import (
 
 
 type OFSwitch struct {
-    stream      *MessageStream
-    actors      []interface{}
+    stream      *util.MessageStream
     dpid        net.HardwareAddr
     app         AppInterface
     // Following are fgraph state for the switch
@@ -27,7 +26,7 @@ var switchDb map[string]*OFSwitch = make(map[string]*OFSwitch)
 
 // Builds and populates a Switch struct then starts listening
 // for OpenFlow messages on conn.
-func NewSwitch(stream *MessageStream, dpid net.HardwareAddr, app AppInterface) *OFSwitch {
+func NewSwitch(stream *util.MessageStream, dpid net.HardwareAddr, app AppInterface) *OFSwitch {
     var s *OFSwitch
 
     if (switchDb[dpid.String()] == nil) {
@@ -36,15 +35,10 @@ func NewSwitch(stream *MessageStream, dpid net.HardwareAddr, app AppInterface) *
         s = new(OFSwitch)
         s.app = app
         s.stream = stream
-        s.actors = *new([]interface{})
         s.dpid = dpid
 
         // Initialize the fgraph elements
         s.initFgraph()
-
-        // Add a default message handler for echo replies
-        dfltActor := DefaultActor{}
-        s.AddActor(&dfltActor)
 
         // Save it
         switchDb[dpid.String()] = s
@@ -61,15 +55,7 @@ func NewSwitch(stream *MessageStream, dpid net.HardwareAddr, app AppInterface) *
     }
 
     // send Switch connected callback
-    app.SwitchConnected(s)
-
-    // Send connection up callback to registered actors
-    for _, inst := range s.actors {
-        if actor, ok := inst.(openflow13.ConnectionUpReactor); ok {
-            actor.ConnectionUp(s.DPID())
-        }
-    }
-
+    s.switchConnected()
 
     // Return the new switch
     return s
@@ -79,24 +65,6 @@ func NewSwitch(stream *MessageStream, dpid net.HardwareAddr, app AppInterface) *
 func Switch(dpid net.HardwareAddr) *OFSwitch {
     return switchDb[dpid.String()]
 }
-
-// Check if an actor already exists
-func (self *OFSwitch) actorExists(inst interface{}) bool {
-    for _, actr := range self.actors {
-        if actr == inst {
-            return true
-        }
-    }
-    return false
-}
-
-// Add a message handler
-func (self *OFSwitch) AddActor(inst interface{}) {
-    if (!self.actorExists(inst)) {
-        self.actors = append(self.actors, inst)
-    }
-}
-
 
 // Returns the dpid of Switch s.
 func (self *OFSwitch) DPID() net.HardwareAddr {
@@ -109,6 +77,23 @@ func (self *OFSwitch) Send(req util.Message) {
     self.stream.Outbound <- req
 }
 
+// Handle switch connected event
+func (self *OFSwitch) switchConnected() {
+    self.app.SwitchConnected(self)
+
+    // Send new feature request
+    self.Send(openflow13.NewFeaturesRequest())
+
+    // FIXME: This is too fragile. Create a periodic timer
+    // Start the periodic echo request loop
+    self.Send(openflow13.NewEchoRequest())
+}
+
+// Handle switch disconnected event
+func (self *OFSwitch) switchDisconnected() {
+    self.app.SwitchDisconnected(self)
+}
+
 // Receive loop for each Switch.
 func (self *OFSwitch) receive() {
     for {
@@ -116,156 +101,90 @@ func (self *OFSwitch) receive() {
         case msg := <-self.stream.Inbound:
             // New message has been received from message
             // stream.
-            self.distributeMessages(self.dpid, msg)
+            self.handleMessages(self.dpid, msg)
         case err := <-self.stream.Error:
+            log.Errorf("Received error message from switch %v. Err: %v", self.dpid, err)
             // send Switch disconnected callback
-            self.app.SwitchDisconnected(self)
+            self.switchDisconnected()
 
-            // Message stream has been disconnected.
-            for _, app := range self.actors {
-                if actor, ok := app.(openflow13.ConnectionDownReactor); ok {
-                    actor.ConnectionDown(self.DPID(), err)
-                }
-            }
             return
         }
     }
 }
 
-func (self *OFSwitch) distributeMessages(dpid net.HardwareAddr, msg util.Message) {
+// Handle openflow messages from the switch
+func (self *OFSwitch) handleMessages(dpid net.HardwareAddr, msg util.Message) {
     log.Debugf("Received message: %+v, on switch: %s", msg, dpid.String())
 
-    for _, app := range self.actors {
-        switch t := msg.(type) {
-        case *common.Header:
-            switch t.Header().Type {
-            case openflow13.Type_Hello:
-                if actor, ok := app.(openflow13.HelloReactor); ok {
-                    actor.Hello(t)
-                }
-            case openflow13.Type_EchoRequest:
-                if actor, ok := app.(openflow13.EchoRequestReactor); ok {
-                    actor.EchoRequest(self.DPID())
-                }
-            case openflow13.Type_EchoReply:
-                if actor, ok := app.(openflow13.EchoReplyReactor); ok {
-                    actor.EchoReply(self.DPID())
-                }
-            case openflow13.Type_FeaturesRequest:
-                if actor, ok := app.(openflow13.FeaturesRequestReactor); ok {
-                    actor.FeaturesRequest(t)
-                }
-            case openflow13.Type_GetConfigRequest:
-                if actor, ok := app.(openflow13.GetConfigRequestReactor); ok {
-                    actor.GetConfigRequest(t)
-                }
-            case openflow13.Type_BarrierRequest:
-                if actor, ok := app.(openflow13.BarrierRequestReactor); ok {
-                    actor.BarrierRequest(t)
-                }
-            case openflow13.Type_BarrierReply:
-                if actor, ok := app.(openflow13.BarrierReplyReactor); ok {
-                    actor.BarrierReply(self.DPID(), t)
-                }
+    switch t := msg.(type) {
+    case *common.Header:
+        switch t.Header().Type {
+        case openflow13.Type_Hello:
+            // Send Hello response
+            h, err := common.NewHello(4)
+            if (err != nil) {
+                log.Errorf("Error creating hello message")
             }
-        case *openflow13.ErrorMsg:
-            if actor, ok := app.(openflow13.ErrorReactor); ok {
-                actor.Error(self.DPID(), t)
-            }
-        case *openflow13.VendorHeader:
-            if actor, ok := app.(openflow13.VendorReactor); ok {
-                actor.VendorHeader(self.DPID(), t)
-            }
-        case *openflow13.SwitchFeatures:
-            if actor, ok := app.(openflow13.FeaturesReplyReactor); ok {
-                actor.FeaturesReply(self.DPID(), t)
-            }
-        case *openflow13.SwitchConfig:
-            switch t.Header.Type {
-            case openflow13.Type_GetConfigReply:
-                if actor, ok := app.(openflow13.GetConfigReplyReactor); ok {
-                    actor.GetConfigReply(self.DPID(), t)
-                }
-            case openflow13.Type_SetConfig:
-                if actor, ok := app.(openflow13.SetConfigReactor); ok {
-                    actor.SetConfig(t)
-                }
-            }
-        case *openflow13.PacketIn:
-            // send packet rcvd callback
-            self.app.PacketRcvd(self, t)
+            self.Send(h)
 
-            // Send it to all registered actors too
-            if actor, ok := app.(openflow13.PacketInReactor); ok {
-                actor.PacketIn(self.DPID(), t)
-            }
-        case *openflow13.FlowRemoved:
-            if actor, ok := app.(openflow13.FlowRemovedReactor); ok {
-                actor.FlowRemoved(self.DPID(), t)
-            }
-        case *openflow13.PortStatus:
-            if actor, ok := app.(openflow13.PortStatusReactor); ok {
-                actor.PortStatus(self.DPID(), t)
-            }
-        case *openflow13.PacketOut:
-            if actor, ok := app.(openflow13.PacketOutReactor); ok {
-                actor.PacketOut(t)
-            }
-        case *openflow13.FlowMod:
-            if actor, ok := app.(openflow13.FlowModReactor); ok {
-                actor.FlowMod(t)
-            }
-        case *openflow13.PortMod:
-            if actor, ok := app.(openflow13.PortModReactor); ok {
-                actor.PortMod(t)
-            }
-        case *openflow13.MultipartRequest:
-            if actor, ok := app.(openflow13.MultipartRequestReactor); ok {
-                actor.MultipartRequest(t)
-            }
-        case *openflow13.MultipartReply:
-            if actor, ok := app.(openflow13.MultipartReplyReactor); ok {
-                actor.MultipartReply(self.DPID(), t)
-            }
+        case openflow13.Type_EchoRequest:
+            // Send echo reply
+            res := openflow13.NewEchoReply()
+            self.Send(res)
+
+        case openflow13.Type_EchoReply:
+
+            // FIXME: This is too fragile. Create a periodic timer
+            // Wait three seconds then send an echo_request message.
+            go func() {
+                <-time.After(time.Second * 3)
+
+                // Send echo request
+                res := openflow13.NewEchoRequest()
+                self.Send(res)
+            }()
+
+        case openflow13.Type_FeaturesRequest:
+
+        case openflow13.Type_GetConfigRequest:
+
+        case openflow13.Type_BarrierRequest:
+
+        case openflow13.Type_BarrierReply:
+
         }
+    case *openflow13.ErrorMsg:
+        log.Errorf("Received ofp1.3 error msg: %+v", *t)
+        self.stream.Shutdown <- true
+    case *openflow13.VendorHeader:
+
+    case *openflow13.SwitchFeatures:
+
+    case *openflow13.SwitchConfig:
+        switch t.Header.Type {
+        case openflow13.Type_GetConfigReply:
+
+        case openflow13.Type_SetConfig:
+
+        }
+    case *openflow13.PacketIn:
+        // send packet rcvd callback
+        self.app.PacketRcvd(self, t)
+
+    case *openflow13.FlowRemoved:
+
+    case *openflow13.PortStatus:
+        // FIXME: This needs to propagated to the app.
+    case *openflow13.PacketOut:
+
+    case *openflow13.FlowMod:
+
+    case *openflow13.PortMod:
+
+    case *openflow13.MultipartRequest:
+
+    case *openflow13.MultipartReply:
+        // FIXME: find a way to get multipart resp to app
+
     }
-}
-
-// Default openflow message handler
-type DefaultActor struct {}
-
-func (o *DefaultActor) ConnectionUp(dpid net.HardwareAddr) {
-    log.Println("DefaultActor: Switch connected:", dpid)
-
-    sw := Switch(dpid)
-    if (sw != nil)  {
-        sw.Send(openflow13.NewFeaturesRequest())
-        sw.Send(openflow13.NewEchoRequest())
-    }
-}
-
-func (o *DefaultActor) ConnectionDown(dpid net.HardwareAddr) {
-    log.Println("DefaultActor: Switch Disconnected:", dpid)
-}
-
-func (o *DefaultActor) EchoRequest(dpid net.HardwareAddr) {
-    // Wait three seconds then send an echo_reply message.
-    go func() {
-        <-time.After(time.Second * 3)
-
-        // Send echo reply
-        res := openflow13.NewEchoReply()
-        Switch(dpid).Send(res)
-    }()
-}
-
-func (o *DefaultActor) EchoReply(dpid net.HardwareAddr) {
-    // Wait three seconds then send an echo_request message.
-    go func() {
-        <-time.After(time.Second * 3)
-
-        // Send echo request
-        res := openflow13.NewEchoRequest()
-        Switch(dpid).Send(res)
-    }()
 }

@@ -14,6 +14,7 @@ import (
 // Small subset of openflow fields we currently support
 // FIXME: we need to start supporting Masks on each field
 type FlowMatch struct {
+    Priority        uint16              // Priority of the flow
     InputPort       uint32
     MacDa           *net.HardwareAddr
     MacSa           *net.HardwareAddr
@@ -33,7 +34,6 @@ type FlowAction struct {
 // State of a flow entry
 type Flow struct {
     Table           *Table          // Table where this flow resides
-    Priority        uint16          // Priority of the flow entry
     Match           FlowMatch       // Fields to be matched
     NextElem        FgraphElem      // Next fw graph element
     isInstalled     bool            // Is the flow installed in the switch
@@ -111,7 +111,7 @@ func (self *Flow) install() error {
     // Create a flowmode entry
     flowMod := openflow13.NewFlowMod()
     flowMod.TableId = self.Table.TableId
-    flowMod.Priority = self.Priority
+    flowMod.Priority = self.Match.Priority
     flowMod.Cookie = self.flowId
 
     // Add or modify

@@ -32,11 +32,10 @@ func (self *Table) GetFlowInstr() openflow13.Instruction {
 var globalFlowId uint64 = 0
 
 // Create a new flow on the table
-func (self *Table) NewFlow(match FlowMatch, priority uint16) (*Flow, error) {
+func (self *Table) NewFlow(match FlowMatch) (*Flow, error) {
     flow := new(Flow)
     flow.Table = self
     flow.Match = match
-    flow.Priority = priority
     flow.isInstalled = false
     flow.flowId = globalFlowId // FIXME: need a better id allocation
     globalFlowId += 1

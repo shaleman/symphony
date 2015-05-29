@@ -6,8 +6,8 @@ import (
     "time"
 
     "pkg/ofctrl/libOpenflow/common"
-    "pkg/ofctrl/libOpenflow/openflow10"
     "pkg/ofctrl/libOpenflow/openflow13"
+    "pkg/ofctrl/libOpenflow/util"
 
     log "github.com/Sirupsen/logrus"
 )
@@ -65,8 +65,9 @@ func (c *Controller) Listen(port string) {
     }
 }
 
+// Handle TCP connection from the switch
 func (c *Controller) handleConnection(conn *net.TCPConn) {
-    stream := NewMessageStream(conn)
+    stream := util.NewMessageStream(conn, c)
 
     log.Println("New connection..")
 
@@ -87,20 +88,12 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             // types are incompatable, it is possible the
             // connection may be servered without error.
             case *common.Hello:
-                if m.Version == openflow10.VERSION {
+                if m.Version == openflow13.VERSION {
+                    log.Infoln("Received Openflow 1.3 Hello message")
                     // Version negotiation is
                     // considered complete. Create
                     // new Switch and notifiy listening
                     // applications.
-                    stream.Version = m.Version
-                    stream.Outbound <- openflow10.NewFeaturesRequest()
-
-                    log.Warnln("Received Openflow 1.0 Hello message")
-                    log.Warnln("This controller requires openflow 1.3")
-
-                } else if m.Version == openflow13.VERSION {
-                    log.Infoln("Received Openflow 1.3 Hello message")
-
                     stream.Version = m.Version
                     stream.Outbound <- openflow13.NewFeaturesRequest()
                 } else {
@@ -109,10 +102,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
                     log.Println("Received unsupported ofp version", m.Version)
                     stream.Shutdown <- true
                 }
-            case *openflow10.SwitchFeatures:
-                log.Warnln("Received Openflow 1.3 feature response")
-                log.Warnln("This controller requires openflow 1.3")
-
             // After a vaild FeaturesReply has been received we
             // have all the information we need. Create a new
             // switch object and notify applications.
@@ -127,10 +116,6 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
 
             // An error message may indicate a version mismatch. We
             // disconnect if an error occurs this early.
-            case *openflow10.ErrorMsg:
-                log.Warnln(m)
-                stream.Version = m.Header.Version
-                stream.Shutdown <- true
             case *openflow13.ErrorMsg:
                 log.Warnf("Received ofp1.3 error msg: %+v", *m)
                 stream.Shutdown <- true
@@ -147,4 +132,16 @@ func (c *Controller) handleConnection(conn *net.TCPConn) {
             return
         }
     }
+}
+
+
+// Demux based on message version
+func (c *Controller) Parse(b []byte) (message util.Message, err error) {
+    switch b[0] {
+    case openflow13.VERSION:
+        message, err = openflow13.Parse(b)
+    default:
+        log.Errorf("Received unsupported openflow version: %d", b[0])
+    }
+    return
 }

@@ -1,12 +1,10 @@
-package ipv4
+package protocol
 
 import (
     "encoding/binary"
     "errors"
     "net"
 
-    "pkg/ofctrl/libOpenflow/protocol/icmp"
-    "pkg/ofctrl/libOpenflow/protocol/udp"
     "pkg/ofctrl/libOpenflow/util"
 )
 
@@ -36,7 +34,7 @@ type IPv4 struct {
     Data           util.Message
 }
 
-func New() *IPv4 {
+func NewIPv4() *IPv4 {
     ip := new(IPv4)
     ip.NWSrc = make([]byte, 4)
     ip.NWDst = make([]byte, 4)
@@ -142,9 +140,9 @@ func (i *IPv4) UnmarshalBinary(data []byte) error {
 
     switch i.Protocol {
     case Type_ICMP:
-        i.Data = icmp.New()
+        i.Data = NewICMP()
     case Type_UDP:
-        i.Data = udp.New()
+        i.Data = NewUDP()
     default:
         i.Data = new(util.Buffer)
     }

@@ -12,7 +12,7 @@ import (
     "encoding/binary"
     "errors"
 
-    "pkg/ofctrl/libOpenflow/protocol/eth"
+    "pkg/ofctrl/libOpenflow/protocol"
     "pkg/ofctrl/libOpenflow/common"
     "pkg/ofctrl/libOpenflow/util"
 )
@@ -21,12 +21,15 @@ const (
     VERSION = 1
 )
 
+// Returns a new OpenFlow header with version field set to v1.0.
+var NewOfp10Header func() common.Header = common.NewHeaderGenerator(VERSION)
+
 // Echo request/reply messages can be sent from either the
 // switch or the controller, and must return an echo reply. They
 // can be used to indicate the latency, bandwidth, and/or
 // liveness of a controller-switch connection.
 func NewEchoRequest() *common.Header {
-    h := common.NewOfp10Header()
+    h := NewOfp10Header()
     h.Type = Type_EchoRequest
     return &h
 }
@@ -36,7 +39,7 @@ func NewEchoRequest() *common.Header {
 // can be used to indicate the latency, bandwidth, and/or
 // liveness of a controller-switch connection.
 func NewEchoReply() *common.Header {
-    h := common.NewOfp10Header()
+    h := NewOfp10Header()
     h.Type = Type_EchoReply
     return &h
 }
@@ -98,7 +101,7 @@ type PacketOut struct {
 
 func NewPacketOut() *PacketOut {
     p := new(PacketOut)
-    p.Header = common.NewOfp10Header()
+    p.Header = NewOfp10Header()
     p.Header.Type = Type_PacketOut
     p.BufferId = 0xffffffff
     p.InPort = P_NONE
@@ -181,12 +184,12 @@ type PacketIn struct {
     TotalLen uint16
     InPort   uint16
     Reason   uint8
-    Data     eth.Ethernet
+    Data     protocol.Ethernet
 }
 
 func NewPacketIn() *PacketIn {
     p := new(PacketIn)
-    p.Header = common.NewOfp10Header()
+    p.Header = NewOfp10Header()
     p.Header.Type = Type_PacketIn
     p.BufferId = 0xffffffff
     p.InPort = P_NONE

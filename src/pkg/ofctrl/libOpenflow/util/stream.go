@@ -1,17 +1,12 @@
-package ofctrl
+package util
 
 import (
     "encoding/binary"
     "net"
     "bytes"
 
-    "pkg/ofctrl/libOpenflow/util"
-    "pkg/ofctrl/libOpenflow/openflow10"
-    "pkg/ofctrl/libOpenflow/openflow13"
-
     log "github.com/Sirupsen/logrus"
 )
-
 
 
 type BufferPool struct {
@@ -30,31 +25,39 @@ func NewBufferPool() *BufferPool {
     return m
 }
 
+// Parser interface
+type Parser interface {
+    Parse(b []byte) (message Message, err error)
+}
+
 type MessageStream struct {
     conn *net.TCPConn
     pool *BufferPool
+    // Message parser
+    parser Parser
     // OpenFlow Version
     Version uint8
     // Channel on which to publish connection errors
     Error chan error
     // Channel on which to publish inbound messages
-    Inbound chan util.Message
+    Inbound chan Message
     // Channel on which to receive outbound messages
-    Outbound chan util.Message
+    Outbound chan Message
     // Channel on which to receive a shutdown command
     Shutdown chan bool
 }
 
 // Returns a pointer to a new MessageStream. Used to parse
 // OpenFlow messages from conn.
-func NewMessageStream(conn *net.TCPConn) *MessageStream {
+func NewMessageStream(conn *net.TCPConn, parser Parser) *MessageStream {
     m := &MessageStream{
         conn,
         NewBufferPool(),
+        parser,
         0,
         make(chan error, 1),        // Error
-        make(chan util.Message, 1), // Inbound
-        make(chan util.Message, 1), // Outbound
+        make(chan Message, 1), // Inbound
+        make(chan Message, 1), // Outbound
         make(chan bool, 1),         // Shutdown
     }
 
@@ -139,7 +142,7 @@ func (m *MessageStream) parse() {
     for {
         b := <- m.pool.Full
         log.Debugf("Rcvd: %v", b.Bytes())
-        msg, err := Parse(b.Bytes())
+        msg, err := m.parser.Parse(b.Bytes())
         // Log all message parsing errors.
         if err != nil {
             log.Print(err)
@@ -149,15 +152,4 @@ func (m *MessageStream) parse() {
         b.Reset()
         m.pool.Empty <- b
     }
-}
-
-// Demux based on message version
-func Parse(b []byte) (message util.Message, err error) {
-    switch b[0] {
-    case openflow10.VERSION:
-        message, err = openflow10.Parse(b)
-    case openflow13.VERSION:
-        message, err = openflow13.Parse(b)
-    }
-    return
 }

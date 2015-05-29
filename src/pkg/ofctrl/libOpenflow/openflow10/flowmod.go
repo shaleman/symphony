@@ -24,7 +24,7 @@ type FlowMod struct {
 
 func NewFlowMod() *FlowMod {
     f := new(FlowMod)
-    f.Header = common.NewOfp10Header()
+    f.Header = NewOfp10Header()
     f.Header.Type = Type_FlowMod
     f.Match = *NewMatch()
     // Add a generator for f.Cookie here
@@ -157,7 +157,7 @@ type FlowRemoved struct {
 
 func NewFlowRemoved() *FlowRemoved {
     f := new(FlowRemoved)
-    f.Header = common.NewOfp10Header()
+    f.Header = NewOfp10Header()
     f.Match = *NewMatch()
     f.pad = make([]byte, 1)
     f.pad2 = make([]byte, 2)
