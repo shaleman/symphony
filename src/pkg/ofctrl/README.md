@@ -1,6 +1,6 @@
 # Ofctrl
 
-This library implements a simple Openflow1.3 controller
+This library implements a simple Openflow1.3 controller API
 
 # Usage
 
@@ -72,9 +72,9 @@ Example:
 
 # Forwarding Graph API
 An app can install flow table entries into the Openflow switch by using forwarding graph API.
-Forwarding graph is made up of forwarding elements which determine how a packet lookups are done. Forwarding graph is a higher level interface that is converted to openflow flow entries, instructions, groups and actions by the library
+Forwarding graph is made up of forwarding elements which determine how a packet lookups are done. Forwarding graph is a higher level interface that is converted to Openflow1.3 flows, instructions, groups and actions by the library
 
- Forwarding graph specific to each switch. It is roughly structured as follows
+ Forwarding graph is specific to each switch. It is roughly structured as follows
 ```
          +------------+
          | Controller |
@@ -183,11 +183,10 @@ Forwarding Graph elements are linked together as follows
     
      // Match on IP dest addr and forward to a port
      ipFlow := ipTable.NewFlow(FlowParams{
+                               Ethertype: 0x0800,
                                IpDa: &net.IPv4("10.10.10.10")
                               }, 100)
     
-     outPort := switch.NewOutputPort(OutParams{
-                                  OutPort: Port(10)
-                                  }, 100)
+     outPort := switch.NewOutputPort(10)
      ipFlow.Next(outPort)
 ```
