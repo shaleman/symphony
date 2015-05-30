@@ -130,11 +130,13 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 
     // Default volumes to mount
     altaSpec.Volumes = []altaspec.AltaVolumeBind{
+        /* FIXME: dont mount ceph volumes for now
         {
             DatastoreType: "PersistentVolume",
             DatastoreVolumeId: altaSpec.AltaId,
             BindMountPoint: "/var/data",
         },
+        */
         {
             DatastoreType: "HostVolume",
             DatastoreVolumeId: altaSpec.AltaId + ".log",

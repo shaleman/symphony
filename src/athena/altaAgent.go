@@ -83,6 +83,9 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec)  (*AltaState, error)
         Envs:       altaSpec.EnvList,
         WorkingDir: altaSpec.WorkingDir,
 
+        // FIXME: Just a hack for tcpdump testing
+        Privileged:     true,
+
         ExposePorts:   altaSpec.ExposePorts,
         PortMapList:   altaSpec.PortMapList,
         // Set network mode as none so that we can add network interfaces later

@@ -3,6 +3,8 @@ package main
 import (
     "flag"
     "time"
+    "net"
+    "os/user"
 
     "pkg/confStore"
     "pkg/confStore/confStoreApi"
@@ -24,20 +26,22 @@ var volumeAgent    *VolumeAgent
 // Conf store plugin
 var cStore   confStoreApi.ConfStorePlugin
 
+var localIpAddr net.IP
+
 // Register the node with registry
 func registerNode() {
     // Wait for everything to be initialized before advertizing ourselves
     time.Sleep(time.Second * 1)
 
     // Get the local address to bind to
-    lclAddr, err := cStore.GetLocalAddr()
+    localIpAddr, err := cStore.GetLocalAddr()
     if (err != nil) {
         glog.Fatalf("Could not find a local address to bind to. Err %v", err)
     }
 
     srvInfo := confStoreApi.ServiceInfo {
         ServiceName:    "athena",
-        HostAddr:       lclAddr,
+        HostAddr:       localIpAddr,
         Port:           API_PORT,
     }
 
@@ -54,6 +58,12 @@ func registerNode() {
 func main() {
     // FIXME: Temporary hack for testing
     flag.Lookup("logtostderr").Value.Set("true")
+
+    // Make sure we are running as root
+    usr, _ := user.Current()
+    if (usr.Username != "root") {
+        glog.Fatalf("This process can only be run as root")
+    }
 
     // Create a alta manager
     altaMgr = NewAltaMgr()

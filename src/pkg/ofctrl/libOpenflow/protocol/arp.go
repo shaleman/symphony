@@ -23,7 +23,7 @@ type ARP struct {
     IPDst       net.IP
 }
 
-func New(opt int) (*ARP, error) {
+func NewARP(opt int) (*ARP, error) {
     if opt != Type_Request && opt != Type_Reply {
         return nil, errors.New("Invalid ARP Operation.")
     }

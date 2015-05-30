@@ -2,6 +2,7 @@ package main
 
 import (
     //"fmt"
+    "net"
     "errors"
     "strconv"
     "time"
@@ -9,6 +10,7 @@ import (
     "pkg/ovsdriver"
     "pkg/altaspec"
     "pkg/netutils"
+    "pkg/ofnet"
 
     "github.com/jainvipin/bitset"
     "github.com/golang/glog"
@@ -25,6 +27,7 @@ type NetState struct {
 
 type NetAgent struct {
     ovsDriver       *ovsdriver.OvsDriver
+    ofnetAgent      *ofnet.OfnetAgent
 
     networkDb       map[string]*NetState
     vlanBitset      *bitset.BitSet  // Allocated Vlan Ids
@@ -38,6 +41,9 @@ func NewNetAgent() *NetAgent {
 
     // Create an OVS client
     netAgent.ovsDriver = ovsdriver.NewOvsDriver()
+
+    // Create an ofnet agent
+    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(6633, localIpAddr)
 
     // Initialize vlan bitset
     netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
@@ -147,7 +153,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
 
     // Hack: Wait a second for the interface to show up
     // OVS seem to take few millisecond to create the interface
-    time.Sleep(100 * time.Millisecond)
+    time.Sleep(1000 * time.Millisecond)
 
     // Move it to container namespace
     err = netutils.MoveIntfToNetns(portName, contPid)
@@ -171,6 +177,29 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     if (err != nil){
         glog.Errorf("Error Setting intf %s identity: %+v\n. Error: %v\n",
                     portName, intfIdentity, err)
+        return "", err
+    }
+
+    // Get OFP port number
+    ofpPort, err := self.ovsDriver.GetOfpPortNo(portName)
+    if (err != nil) {
+        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        return "", err
+    }
+
+    // First get the vlanTag for the network
+    netState, err := self.GetNetwork(ifSpec.NetworkName)
+    if (err != nil) {
+        glog.Errorf("Network %s does not exist", ifSpec.NetworkName)
+        return "", err
+    }
+
+    // Add local port to ofnet
+    intfMac, _ := net.ParseMAC(ifSpec.IntfMacAddr)
+    err = self.ofnetAgent.AddLocalPort(ofpPort, intfMac, uint16(netState.VlanTag),
+                                    net.ParseIP(ifSpec.IntfIpv4Addr))
+    if (err != nil) {
+        glog.Errorf("Error adding local port %s to ofnetAgent. Err: %v", portName, err)
         return "", err
     }
 

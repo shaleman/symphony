@@ -42,10 +42,11 @@ func NewEthernet() *Ethernet {
 }
 
 func (e *Ethernet) Len() (n uint16) {
-    if e.VLANID.VID != 0 {
-        n += 5
-    }
+    n = 0
     n += 12
+    if e.VLANID.VID != 0 {
+        n += 4
+    }
     n += 2
     if e.Data != nil {
         n += e.Data.Len()
@@ -88,12 +89,13 @@ func (e *Ethernet) UnmarshalBinary(data []byte) error {
     if len(data) < 14 {
         return errors.New("The []byte is too short to unmarshal a full Ethernet message.")
     }
-    n := 1
-    copy(e.HWDst, data[n:])
-    n += len(e.HWDst)
-
-    copy(e.HWSrc, data[n:])
-    n += len(e.HWSrc)
+    n := 0
+    e.HWDst = net.HardwareAddr(make([]byte, 6))
+    copy(e.HWDst, data[n:n+6])
+    n += 6
+    e.HWSrc = net.HardwareAddr(make([]byte, 6))
+    copy(e.HWSrc, data[n:n+6])
+    n += 6
 
     e.Ethertype = binary.BigEndian.Uint16(data[n:])
     if e.Ethertype == VLAN_MSG {
@@ -132,7 +134,7 @@ type VLAN struct {
     TPID uint16
     PCP  uint8
     DEI  uint8
-    VID  uint8
+    VID  uint16
 }
 
 func NewVLAN() *VLAN {
@@ -150,7 +152,7 @@ func (v *VLAN) MarshalBinary() (data []byte, err error) {
     data = make([]byte, v.Len())
     binary.BigEndian.PutUint16(data[:2], v.TPID)
     var tci uint16
-    tci = (tci | uint16(v.PCP)<<13) + (tci | uint16(v.DEI)<<12) + (tci | uint16(v.VID))
+    tci = (tci | uint16(v.PCP)<<13) + (tci | uint16(v.DEI)<<12) + (tci | v.VID)
     binary.BigEndian.PutUint16(data[2:], tci)
     return
 }
@@ -164,6 +166,6 @@ func (v *VLAN) UnmarshalBinary(data []byte) error {
     tci = binary.BigEndian.Uint16(data[2:])
     v.PCP = uint8(PCP_MASK & tci >> 13)
     v.DEI = uint8(DEI_MASK & tci >> 12)
-    v.VID = uint8(VID_MASK & tci)
+    v.VID = VID_MASK & tci
     return nil
 }

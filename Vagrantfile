@@ -151,7 +151,7 @@ sh /tmp/start_osd.sh & ) || exit 1
 
 SCRIPT
 
-            symphony.vm.provision "shell" do |s|
+            symphony.vm.provision "shell", run: "always" do |s|
                 s.inline = configure_ceph
             end
 

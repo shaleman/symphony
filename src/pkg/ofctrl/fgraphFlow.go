@@ -28,6 +28,7 @@ type FlowMatch struct {
 type FlowAction struct {
     actionType      string      // Type of action "setVlan", "setMetadata"
     vlanId          uint16      // Vlan Id in case of "setVlan"
+    macAddr         net.HardwareAddr    // Mac address to set
     metadata        uint64      // Metadata in case of "setMetadata"
 }
 
@@ -146,6 +147,12 @@ func (self *Flow) install() error {
 
             log.Debugf("flow install. Added setVlan instr: %+v", pushVlanInstr)
 
+        case "setMacDa":
+            // FIXME: this is handled elsewhere temporarily. See below
+
+        case "setMacSa":
+            // FIXME: this is handled elsewhere temporarily. See below
+
         case "setMetadata":
             // Set Metadata instruction
             metadataInstr := openflow13.NewInstrWriteMetadata(flowAction.metadata, 0)
@@ -176,6 +183,37 @@ func (self *Flow) install() error {
         // Add the instruction to flowmod if its not nil
         // a nil instruction means drop action
         if (instr != nil) {
+            switch tinstr := instr.(type) {
+            case *openflow13.InstrActions:
+                var actInstr *openflow13.InstrActions = tinstr
+
+                // Set MacDa and setMacSa actions need to go here
+                for _, flowAction := range self.flowActions {
+                    switch(flowAction.actionType) {
+                    case "setMacDa":
+                        // Set Outer MacDA field
+                        macDaField := openflow13.NewEthDstField(flowAction.macAddr)
+                        setMacDaAction := openflow13.NewActionSetField(*macDaField)
+
+                        // Add set macDa action to the instruction
+                        actInstr.AddAction(setMacDaAction)
+
+                        log.Debugf("flow install. Added setMacDa action: %+v", setMacDaAction)
+
+                    case "setMacSa":
+                        // Set Outer MacSA field
+                        macSaField := openflow13.NewEthSrcField(flowAction.macAddr)
+                        setMacSaAction := openflow13.NewActionSetField(*macSaField)
+
+                        // Add set macDa action to the instruction
+                        actInstr.AddAction(setMacSaAction)
+
+                        log.Debugf("flow install. Added setMacSa Action: %+v", setMacSaAction)
+                    }
+
+                }
+            }
+
             flowMod.AddInstruction(instr)
 
             log.Debugf("flow install: added output port instr: %+v", instr)
@@ -210,6 +248,42 @@ func (self *Flow) SetVlan(vlanId uint16) error {
     action := new(FlowAction)
     action.actionType = "setVlan"
     action.vlanId   = vlanId
+
+    // Add to the action list
+    // FIXME: detect duplicates
+    self.flowActions = append(self.flowActions, action)
+
+    // If the flow entry was already installed, re-install it
+    if (self.isInstalled) {
+        self.install()
+    }
+
+    return nil
+}
+
+// Special actions on the flow to set mac dest addr
+func (self *Flow) SetMacDa(macDa net.HardwareAddr) error {
+    action := new(FlowAction)
+    action.actionType = "setMacDa"
+    action.macAddr   = macDa
+
+    // Add to the action list
+    // FIXME: detect duplicates
+    self.flowActions = append(self.flowActions, action)
+
+    // If the flow entry was already installed, re-install it
+    if (self.isInstalled) {
+        self.install()
+    }
+
+    return nil
+}
+
+// Special action on the flow to set mac source addr
+func (self *Flow) SetMacSa(macSa net.HardwareAddr) error {
+    action := new(FlowAction)
+    action.actionType = "setMacSa"
+    action.macAddr   = macSa
 
     // Add to the action list
     // FIXME: detect duplicates

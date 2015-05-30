@@ -360,6 +360,31 @@ func (self *OvsDriver) IsPortNamePresent(intfName string) bool {
     return false
 }
 
+// Return OFP port number for an interface
+func (self *OvsDriver) GetOfpPortNo(intfName string) (uint32, error) {
+    for tName, table := range self.ovsdbCache {
+        if tName == "Interface" {
+            for _, row := range table {
+                if (row.Fields["name"] == intfName) {
+                    value := row.Fields["ofport"]
+                    switch t := value.(type) {
+                    case uint32:
+                        return t, nil
+                    case float64:
+                        var ofpPort uint32 = uint32(t)
+                        return ofpPort, nil
+                    default:
+                        return 0, errors.New("Unknown field type")
+                    }
+                }
+            }
+        }
+    }
+
+    // We could not find the interface name
+    return 0, errors.New("Interface not found")
+}
+
 // ************************ Notification handler for OVS DB changes ****************
 func (self *OvsDriver) Update(context interface{}, tableUpdates libovsdb.TableUpdates) {
     // fmt.Printf("Received OVS update: %+v\n\n", tableUpdates)

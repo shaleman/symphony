@@ -14,7 +14,7 @@ import (
 
 // Note: Command to make ovs connect to controller:
 // ovs-vsctl set-controller <bridge-name> tcp:<ip-addr>:<port>
-// E.g.    ovs-vsctl set-controller ovsbr0 tcp:127.0.0.1:6633
+// E.g.    sudo ovs-vsctl set-controller ovsbr0 tcp:127.0.0.1:6633
 
 // To enable openflow1.3 support in OVS:
 // ovs-vsctl set bridge <bridge-name> protocols=OpenFlow10,OpenFlow11,OpenFlow12,OpenFlow13
@@ -39,6 +39,9 @@ type Controller struct{
 func NewController(app AppInterface) *Controller {
     c := new(Controller)
 
+    // for debug logs
+    log.SetLevel(log.DebugLevel)
+    
     // Save the handler
     c.app = app
 

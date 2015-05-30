@@ -152,6 +152,8 @@ func (m *MatchField) UnmarshalBinary(data []byte) error {
     }
     m.Field = fld >> 1
 
+    m.Length = data[n]
+    n += 1
 
     m.Value = DecodeMatchField(m.Class, m.Field, data[n:])
     n += m.Value.Len()

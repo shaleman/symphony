@@ -205,7 +205,10 @@ func (instr *InstrActions) UnmarshalBinary(data []byte) error {
 }
 
 func (instr *InstrActions) AddAction(act Action) error {
-    instr.Actions = append(instr.Actions, act)
+    // FIXME: trying prepend for an experiment
+    instr.Actions = append([]Action{act}, instr.Actions...)
+    // instr.Actions = append(instr.Actions, act)
+
     instr.Length = instr.Len()
     return nil
 }
