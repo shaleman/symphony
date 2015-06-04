@@ -318,11 +318,12 @@ func (self *OfnetAgent) initFgraph() error {
     self.ipTable, _ = sw.NewTable(IP_TBL_ID)
 
     //Create all drop entries
-    // Drop bcast source mac
-    bcastMac, _ := net.ParseMAC("ff:ff:ff:ff:ff:ff")
+    // Drop mcast source mac
+    bcastMac, _ := net.ParseMAC("01:00:00:00:00:00")
     bcastSrcFlow, _ := self.inputTable.NewFlow(ofctrl.FlowMatch{
                             Priority: FLOW_MATCH_PRIORITY,
                             MacSa: &bcastMac,
+                            MacSaMask: &bcastMac,
                         })
     bcastSrcFlow.Next(sw.DropAction())
 

@@ -52,7 +52,7 @@ func sendRequest() {
     arpMod.Match = *arpMatch
     ctrlAct := openflow13.NewActionOutput(openflow13.P_CONTROLLER)
     ctrlInstr := openflow13.NewInstrApplyActions()
-    ctrlInstr.AddAction(ctrlAct)
+    ctrlInstr.AddAction(ctrlAct, false)
     arpMod.AddInstruction(ctrlInstr)
 
     log.Printf("Sending ArpMod: %+v, instr: %+v", arpMod, arpMod.Instructions[0])

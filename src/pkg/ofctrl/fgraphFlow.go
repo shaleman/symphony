@@ -12,16 +12,19 @@ import (
 )
 
 // Small subset of openflow fields we currently support
-// FIXME: we need to start supporting Masks on each field
 type FlowMatch struct {
     Priority        uint16              // Priority of the flow
     InputPort       uint32
     MacDa           *net.HardwareAddr
+    MacDaMask       *net.HardwareAddr
     MacSa           *net.HardwareAddr
+    MacSaMask       *net.HardwareAddr
     Ethertype       uint16
     VlanId          uint16
     IpSa            *net.IP
+    IpSaMask        *net.IP
     IpDa            *net.IP
+    IpDaMask        *net.IP
 }
 
 // additional actions in flow's instruction set
@@ -76,13 +79,23 @@ func (self *Flow) xlateMatch() openflow13.Match {
     }
 
     if (self.Match.MacDa != nil) {
-        macDaField := openflow13.NewEthDstField(*self.Match.MacDa)
-        ofMatch.AddField(*macDaField)
+        if (self.Match.MacDaMask != nil) {
+            macDaField := openflow13.NewEthDstField(*self.Match.MacDa, self.Match.MacDaMask)
+            ofMatch.AddField(*macDaField)
+        } else {
+            macDaField := openflow13.NewEthDstField(*self.Match.MacDa, nil)
+            ofMatch.AddField(*macDaField)
+        }
     }
 
     if (self.Match.MacSa != nil) {
-        macSaField := openflow13.NewEthSrcField(*self.Match.MacSa)
-        ofMatch.AddField(*macSaField)
+        if (self.Match.MacSaMask != nil) {
+            macSaField := openflow13.NewEthSrcField(*self.Match.MacSa, self.Match.MacSaMask)
+            ofMatch.AddField(*macSaField)
+        } else {
+            macSaField := openflow13.NewEthSrcField(*self.Match.MacSa, nil)
+            ofMatch.AddField(*macSaField)
+        }
     }
 
     if (self.Match.Ethertype != 0) {
@@ -96,13 +109,23 @@ func (self *Flow) xlateMatch() openflow13.Match {
     }
 
     if (self.Match.IpDa != nil) {
-        ipDaField := openflow13.NewIpv4DstField(*self.Match.IpDa)
-        ofMatch.AddField(*ipDaField)
+        if (self.Match.IpDaMask != nil) {
+            ipDaField := openflow13.NewIpv4DstField(*self.Match.IpDa, self.Match.IpDaMask)
+            ofMatch.AddField(*ipDaField)
+        } else {
+            ipDaField := openflow13.NewIpv4DstField(*self.Match.IpDa, nil)
+            ofMatch.AddField(*ipDaField)
+        }
     }
 
     if (self.Match.IpSa != nil) {
-        ipSaField := openflow13.NewIpv4SrcField(*self.Match.IpSa)
-        ofMatch.AddField(*ipSaField)
+        if (self.Match.IpSaMask != nil) {
+            ipSaField := openflow13.NewIpv4SrcField(*self.Match.IpSa, self.Match.IpSaMask)
+            ofMatch.AddField(*ipSaField)
+        } else {
+            ipSaField := openflow13.NewIpv4SrcField(*self.Match.IpSa, nil)
+            ofMatch.AddField(*ipSaField)
+        }
     }
 
     return *ofMatch
@@ -146,7 +169,7 @@ func (self *Flow) installFlowActions(flowMod *openflow13.FlowMod,
 
         case "setMacDa":
             // Set Outer MacDA field
-            macDaField := openflow13.NewEthDstField(flowAction.macAddr)
+            macDaField := openflow13.NewEthDstField(flowAction.macAddr, nil)
             setMacDaAction := openflow13.NewActionSetField(*macDaField)
 
 
@@ -159,7 +182,7 @@ func (self *Flow) installFlowActions(flowMod *openflow13.FlowMod,
 
         case "setMacSa":
             // Set Outer MacSA field
-            macSaField := openflow13.NewEthSrcField(flowAction.macAddr)
+            macSaField := openflow13.NewEthSrcField(flowAction.macAddr, nil)
             setMacSaAction := openflow13.NewActionSetField(*macSaField)
 
             // Add set macDa action to the instruction

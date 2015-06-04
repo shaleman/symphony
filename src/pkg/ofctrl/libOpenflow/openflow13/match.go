@@ -340,7 +340,7 @@ func (m *EthDstField) UnmarshalBinary(data []byte) error {
 }
 
 // Return a MatchField for ethernet dest addr
-func NewEthDstField(ethDst net.HardwareAddr) *MatchField {
+func NewEthDstField(ethDst net.HardwareAddr, ethDstMask *net.HardwareAddr) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
     f.Field = OXM_FIELD_ETH_DST
@@ -350,6 +350,15 @@ func NewEthDstField(ethDst net.HardwareAddr) *MatchField {
     ethDstField.EthDst = ethDst
     f.Value = ethDstField
     f.Length = uint8(ethDstField.Len())
+
+    // Add the mask
+    if (ethDstMask != nil) {
+        mask := new(EthDstField)
+        mask.EthDst = *ethDstMask
+        f.Mask = mask
+        f.HasMask = true
+        f.Length += uint8(mask.Len())
+    }
 
     return f
 }
@@ -374,7 +383,7 @@ func (m *EthSrcField) UnmarshalBinary(data []byte) error {
 }
 
 // Return a MatchField for ethernet src addr
-func NewEthSrcField(ethSrc net.HardwareAddr) *MatchField {
+func NewEthSrcField(ethSrc net.HardwareAddr, ethSrcMask *net.HardwareAddr) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
     f.Field = OXM_FIELD_ETH_SRC
@@ -384,6 +393,15 @@ func NewEthSrcField(ethSrc net.HardwareAddr) *MatchField {
     ethSrcField.EthSrc = ethSrc
     f.Value = ethSrcField
     f.Length = uint8(ethSrcField.Len())
+
+    // Add the mask
+    if (ethSrcMask != nil) {
+        mask := new(EthSrcField)
+        mask.EthSrc = *ethSrcMask
+        f.Mask = mask
+        f.HasMask = true
+        f.Length += uint8(mask.Len())
+    }
 
     return f
 }
@@ -476,7 +494,7 @@ func (m *Ipv4SrcField) UnmarshalBinary(data []byte) error {
 }
 
 // Return a MatchField for ipv4 src addr
-func NewIpv4SrcField(ipSrc net.IP) *MatchField {
+func NewIpv4SrcField(ipSrc net.IP, ipSrcMask *net.IP) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
     f.Field = OXM_FIELD_IPV4_SRC
@@ -486,6 +504,15 @@ func NewIpv4SrcField(ipSrc net.IP) *MatchField {
     ipSrcField.Ipv4Src = ipSrc
     f.Value = ipSrcField
     f.Length = uint8(ipSrcField.Len())
+
+    // Add the mask
+    if (ipSrcMask != nil) {
+        mask := new(Ipv4SrcField)
+        mask.Ipv4Src = *ipSrcMask
+        f.Mask = mask
+        f.HasMask = true
+        f.Length += uint8(mask.Len())
+    }
 
     return f
 }
@@ -510,7 +537,7 @@ func (m *Ipv4DstField) UnmarshalBinary(data []byte) error {
 }
 
 // Return a MatchField for ipv4 dest addr
-func NewIpv4DstField(ipDst net.IP) *MatchField {
+func NewIpv4DstField(ipDst net.IP, ipDstMask *net.IP) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
     f.Field = OXM_FIELD_IPV4_DST
@@ -520,6 +547,15 @@ func NewIpv4DstField(ipDst net.IP) *MatchField {
     ipDstField.Ipv4Dst = ipDst
     f.Value = ipDstField
     f.Length = uint8(ipDstField.Len())
+
+    // Add the mask
+    if (ipDstMask != nil) {
+        mask := new(Ipv4DstField)
+        mask.Ipv4Dst = *ipDstMask
+        f.Mask = mask
+        f.HasMask = true
+        f.Length += uint8(mask.Len())
+    }
 
     return f
 }
