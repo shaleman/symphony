@@ -70,7 +70,7 @@ func TestCreatePort(t *testing.T) {
     ovsDriver := NewOvsDriver()
 
     // Create a port
-    err := ovsDriver.CreatePort("port12", "internal", nil, 11)
+    err := ovsDriver.CreatePort("port12", "internal", 11)
     if (err != nil) {
         fmt.Printf("Error creating the port. Err: %v", err)
         t.Errorf("Failed to create a port")
@@ -117,9 +117,21 @@ func TestDeletePort(t *testing.T) {
     // Connect to OVS
     ovsDriver := NewOvsDriver()
 
-    err := ovsDriver.DeletePort("port11")
+    err := ovsDriver.DeletePort("port12")
     if (err != nil) {
         fmt.Printf("Error Deleting the port. Err: %v", err)
         t.Errorf("Failed to delete a port")
+    }
+}
+
+func TestCreateVtep(t *testing.T) {
+    // Connect to OVS
+    ovsDriver := NewOvsDriver()
+
+    // Create a port
+    err := ovsDriver.CreateVtep("vtep1", "10.254.101.21")
+    if (err != nil) {
+        fmt.Printf("Error creating the VTEP. Err: %v", err)
+        t.Errorf("Failed to create a port")
     }
 }

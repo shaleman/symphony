@@ -52,15 +52,17 @@ func createRouter() *mux.Router {
             "/alta/{altaId}/start":          httpPostAltaStart,
             "/alta/{altaId}/stop":           httpPostAltaStop,
             "/network/{networkName}/create": httpPostNetworkCreate,
+            "/peer/{peerAddr}":              httpPostPeerAdd,
             "/volume/create":                httpPostVolumeCreate,
             "/volume/mount":                 httpPostVolumeMount,
             "/volume/unmount":               httpPostVolumeUnmount,
 
         },
         "DELETE": {
-            "/alta/{altaId}":        httpRemoveAlta,
-            "/images/{altaId}":        httpRemoveImage,
-            "/network/{networkName}":    httpRemoveNetwork,
+            "/alta/{altaId}":           httpRemoveAlta,
+            "/images/{altaId}":         httpRemoveImage,
+            "/network/{networkName}":   httpRemoveNetwork,
+            "/peer/{peerAddr}":         httpRemovePeer,
         },
     }
 
@@ -429,4 +431,40 @@ func httpGetNodeInfo(w http.ResponseWriter, r *http.Request, vars map[string]str
     }
 
     return nodeInfoResp, nil
+}
+
+// Add a peer host
+func httpPostPeerAdd(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+    // Get the peer ip address
+    peerAddr := vars["peerAddr"]
+
+    err := netAgent.AddPeerHost(peerAddr)
+    if (err != nil) {
+        glog.Errorf("Error adding peer host %s. Err: %v", peerAddr, err)
+        return nil, err
+    }
+
+    addResp := altaspec.ReqSuccess{
+        Success: true,
+    }
+
+    return addResp, nil
+}
+
+// Remove a peer host
+func httpRemovePeer(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+    // Get the peer ip address
+    peerAddr := vars["peerAddr"]
+
+    err := netAgent.RemovePeerHost(peerAddr)
+    if (err != nil) {
+        glog.Errorf("Error removing peer host %s. Err: %v", peerAddr, err)
+        return nil, err
+    }
+
+    delResp := altaspec.ReqSuccess{
+        Success: true,
+    }
+
+    return delResp, nil
 }

@@ -3,8 +3,10 @@ package nodeCtrler
 import (
     "errors"
 
+    "pkg/altaspec"
     // "pkg/confStore"
     "pkg/confStore/confStoreApi"
+    "pkg/rpcHub"
 
     "github.com/golang/glog"
 )
@@ -127,6 +129,50 @@ func (self *NodeCtrler) nodeMgrLoop() {
             }
         }
     }
+}
+
+// Inform all existing nodes about a new node coming up
+func nodeUpBcast(nodeAddr string) error {
+    // Inform everyone except the node thats coming up
+    for _, node := range nodeCtrl.nodeDb {
+        if (node.HostAddr != nodeAddr) {
+            var resp altaspec.ReqSuccess
+            err := node.NodePostReq("/peer/" + nodeAddr, "", &resp)
+            if (err != nil) {
+                glog.Errorf("Error informing %s about node %s. Err: %v",
+                            node.HostAddr, nodeAddr, err)
+            }
+        }
+    }
+
+    // Inform the node about all the other nodes
+    for _, node := range nodeCtrl.nodeDb {
+        if (node.HostAddr != nodeAddr) {
+            var resp altaspec.ReqSuccess
+            err := NodePostReq(nodeAddr, "/peer/" + node.HostAddr, "", &resp)
+            if (err != nil) {
+                glog.Errorf("Error informing %s about node %s. Err: %v",
+                            nodeAddr, node.HostAddr, err)
+            }
+        }
+    }
+
+    // Get my address
+    localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
+    if (err != nil) {
+        glog.Fatalf("Could not find a local address. Err %v", err)
+        return err
+    }
+
+    // Ask the node to connect to master
+    var resp bool
+    err = rpcHub.Client(nodeAddr, 9002).Call("OfnetAgent.AddMaster", &localIpAddr, &resp)
+    if (err != nil) {
+        glog.Errorf("Failed to tell node %s about the master. Err: %v", nodeAddr, err)
+        return err
+    }
+
+    return nil
 }
 
 // Perform Get request on a node

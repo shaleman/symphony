@@ -1,0 +1,69 @@
+package rpcHub
+// Hub and spoke RPC implementation based on JSON RPC library
+
+import (
+    "fmt"
+    "net"
+    "net/rpc"
+    "net/rpc/jsonrpc"
+
+    log "github.com/Sirupsen/logrus"
+)
+
+// Create a new RPC server
+func NewRpcServer(portNo uint16) *rpc.Server{
+    server := rpc.NewServer()
+
+    // Listen on RPC port in background
+    go func() {
+        // Listens on a port
+        l, e := net.Listen("tcp", fmt.Sprintf(":%d", portNo))
+        if e != nil {
+            log.Fatal("listen error:", e)
+        }
+
+        for {
+            conn, err := l.Accept()
+            if err != nil {
+                log.Fatal(err)
+            }
+
+            go server.ServeCodec(jsonrpc.NewServerCodec(conn))
+        }
+    }()
+
+    return server
+}
+
+// DB of all existing clients
+var clientDb map[string]*rpc.Client = make(map[string]*rpc.Client)
+
+// Create a new client
+func NewRpcClient(servAddr string, portNo uint16) *rpc.Client {
+    // Connect to the server
+    conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", servAddr, portNo))
+    if err != nil {
+        panic(err)
+    }
+
+    // Create an RPC client
+    client := jsonrpc.NewClient(conn)
+
+    // FIXME: handle disconnects
+
+    return client
+}
+
+// Get a client to the rpc server
+func Client(servAddr string, portNo uint16) *rpc.Client {
+    // Return the client if it already exists
+    if (clientDb[servAddr] != nil) {
+        return clientDb[servAddr]
+    }
+
+    // Create a new client and add it to the DB
+    client := NewRpcClient(servAddr, portNo)
+    clientDb[servAddr] = client
+
+    return client
+}

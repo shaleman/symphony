@@ -167,7 +167,7 @@ func (self *OvsDriver) CreateBridge(bridgeName string) error {
     return self.ovsdbTransact(operations)
 }
 
-// Delete a bridge from ov
+// Delete a bridge from ovs
 func (self *OvsDriver) DeleteBridge(bridgeName string) error {
     namedUuidStr := "dummy"
     brUuid := []libovsdb.UUID{libovsdb.UUID{namedUuidStr}}
@@ -209,7 +209,8 @@ func (self *OvsDriver) DeleteBridge(bridgeName string) error {
     return self.ovsdbTransact(operations)
 }
 
-func (self *OvsDriver) CreatePort(intfName, intfType string, intfOptions map[string]interface{}, vlanTag uint) error {
+// Create an internal port in OVS
+func (self *OvsDriver) CreatePort(intfName, intfType string, vlanTag uint) error {
     portUuidStr := intfName
     intfUuidStr := fmt.Sprintf("Intf%s", intfName)
     portUuid := []libovsdb.UUID{libovsdb.UUID{portUuidStr}}
@@ -222,21 +223,6 @@ func (self *OvsDriver) CreatePort(intfName, intfType string, intfOptions map[str
     intf["name"] = intfName
     intf["type"] = intfType
 
-    //idMap := make(map[string]string)
-    // idMap["endpoint-id"] = id
-    // intf["external_ids"], err = libovsdb.NewOvsMap(idMap)
-    // if err != nil {
-    //    return err
-    // }
-
-    // Handle special options for Vxlan vTEPs
-    if intfOptions != nil {
-        intf["options"], err = libovsdb.NewOvsMap(intfOptions)
-        if err != nil {
-            glog.Infof("error '%s' creating options from %v \n", err, intfOptions)
-            return err
-        }
-    }
 
     // Add an entry in Interface table
     intfOp := libovsdb.Operation{
@@ -262,10 +248,6 @@ func (self *OvsDriver) CreatePort(intfName, intfType string, intfOptions map[str
         return err
     }
 
-    // port["external_ids"], err = libovsdb.NewOvsMap(idMap)
-    // if err != nil {
-    //    return err
-    // }
 
     // Add an entry in Port table
     portOp := libovsdb.Operation{
@@ -291,6 +273,7 @@ func (self *OvsDriver) CreatePort(intfName, intfType string, intfOptions map[str
     return self.ovsdbTransact(operations)
 }
 
+// Delete a port from OVS
 func (self *OvsDriver) DeletePort(intfName string) error {
     portUuidStr := intfName
     portUuid := []libovsdb.UUID{libovsdb.UUID{portUuidStr}}
@@ -335,6 +318,81 @@ func (self *OvsDriver) DeletePort(intfName string) error {
     // Perform OVS transaction
     operations := []libovsdb.Operation{intfOp, portOp, mutateOp}
     return self.ovsdbTransact(operations)
+}
+
+// Create a VTEP port on the OVS
+func (self *OvsDriver) CreateVtep(intfName string, vtepRemoteIP string) error {
+    portUuidStr := intfName
+    intfUuidStr := fmt.Sprintf("Intf%s", intfName)
+    portUuid := []libovsdb.UUID{libovsdb.UUID{portUuidStr}}
+    intfUuid := []libovsdb.UUID{libovsdb.UUID{intfUuidStr}}
+    opStr := "insert"
+    intfType := "vxlan"
+    var err error = nil
+
+    // insert/delete a row in Interface table
+    intf := make(map[string]interface{})
+    intf["name"] = intfName
+    intf["type"] = intfType
+
+    // Special handling for VTEP ports
+    intfOptions := make(map[string]interface{})
+    intfOptions["remote_ip"] = vtepRemoteIP
+    intfOptions["key"] = "flow"     // Insert VNI per flow
+
+    intf["options"], err = libovsdb.NewOvsMap(intfOptions)
+    if err != nil {
+        glog.Errorf("error '%s' creating options from %v \n", err, intfOptions)
+        return err
+    }
+
+    // Add an entry in Interface table
+    intfOp := libovsdb.Operation{
+        Op:       opStr,
+        Table:    "Interface",
+        Row:      intf,
+        UUIDName: intfUuidStr,
+    }
+
+
+    // insert/delete a row in Port table
+    port := make(map[string]interface{})
+    port["name"] = intfName
+    port["vlan_mode"] = "trunk"
+
+    port["interfaces"], err = libovsdb.NewOvsSet(intfUuid)
+    if err != nil {
+        return err
+    }
+
+
+    // Add an entry in Port table
+    portOp := libovsdb.Operation{
+        Op:       opStr,
+        Table:    "Port",
+        Row:      port,
+        UUIDName: portUuidStr,
+    }
+
+    // mutate the Ports column of the row in the Bridge table
+    mutateSet, _ := libovsdb.NewOvsSet(portUuid)
+    mutation := libovsdb.NewMutation("ports", opStr, mutateSet)
+    condition := libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    mutateOp := libovsdb.Operation{
+        Op:        "mutate",
+        Table:     "Bridge",
+        Mutations: []interface{}{mutation},
+        Where:     []interface{}{condition},
+    }
+
+    // Perform OVS transaction
+    operations := []libovsdb.Operation{intfOp, portOp, mutateOp}
+    return self.ovsdbTransact(operations)
+}
+
+// Delete a VTEP port
+func (self *OvsDriver) DeleteVtep(intfName string) error {
+    return self.DeletePort(intfName)
 }
 
 // Check the local cache and see if the portname is taken already

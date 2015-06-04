@@ -48,14 +48,14 @@ func NewNode(hostAddr string, port int) (*Node, error) {
     // FSM for the node
     node.Fsm = libfsm.NewFsm(&libfsm.FsmTable{
         // currentState,  event,      newState,   callback
-        { "created",     "up",        "alive",       func(e libfsm.Event) error { return node.getNodeInfo() }},
+        { "created",     "up",        "alive",       func(e libfsm.Event) error { return node.nodeUpEvent() }},
         { "created",     "ticker",    "created",     func(e libfsm.Event) error { return nil }},
         { "alive",       "ticker",    "alive",       func(e libfsm.Event) error { return node.nodeAliveTicker() }},
         { "alive",       "timeout",   "unreachable", func(e libfsm.Event) error { return nil }},
         { "alive",       "down",      "down",        func(e libfsm.Event) error { return nil }},
         { "unreachable", "ticker",    "unreachable", func(e libfsm.Event) error { return nil }},
         { "unreachable", "up",        "alive",       func(e libfsm.Event) error { return nil }},
-        { "down",        "up",        "alive",       func(e libfsm.Event) error { return node.getNodeInfo() }},
+        { "down",        "up",        "alive",       func(e libfsm.Event) error { return node.nodeUpEvent() }},
         { "down",        "ticker",    "down",        func(e libfsm.Event) error { return node.nodeAliveTicker() }},
     }, "created")
 
@@ -93,8 +93,8 @@ func (self *Node) NodeEvent(eventName string) {
     self.eventChan <- libfsm.Event{eventName, nil}
 }
 
-// Get Node info
-func (self *Node) getNodeInfo() error {
+// Handle node up event
+func (self *Node) nodeUpEvent() error {
     glog.Infof("Getting node info")
 
     var nodeSpec altaspec.NodeSpec
@@ -137,6 +137,12 @@ func (self *Node) getNodeInfo() error {
     if (err != nil) {
         glog.Errorf("Error adding provider %+v. Err: %v", rsrcProvider, err)
         return err
+    }
+
+    // Inform all node about the new node and new node about all existing nodes
+    err = nodeUpBcast(self.HostAddr)
+    if (err != nil) {
+        glog.Errorf("Error sending nod up broadcast. Err: %v", err)
     }
 
     return nil

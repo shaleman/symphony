@@ -40,8 +40,8 @@ func NewController(app AppInterface) *Controller {
     c := new(Controller)
 
     // for debug logs
-    log.SetLevel(log.DebugLevel)
-    
+    //log.SetLevel(log.DebugLevel)
+
     // Save the handler
     c.app = app
 

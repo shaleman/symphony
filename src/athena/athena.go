@@ -65,6 +65,9 @@ func main() {
         glog.Fatalf("This process can only be run as root")
     }
 
+    // create conf store
+    cStore = confStore.NewConfStore()
+
     // Create a alta manager
     altaMgr = NewAltaMgr()
 
@@ -73,9 +76,6 @@ func main() {
 
     // Create a volume agent
     volumeAgent = NewVolumeAgent()
-
-    // create conf store
-    cStore = confStore.NewConfStore()
 
     // Add the node registry.
     go registerNode()

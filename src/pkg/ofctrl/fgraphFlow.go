@@ -107,6 +107,87 @@ func (self *Flow) xlateMatch() openflow13.Match {
     return *ofMatch
 }
 
+// Install all flow actions
+func (self *Flow) installFlowActions(flowMod *openflow13.FlowMod,
+                                    instr openflow13.Instruction) error {
+    var actInstr openflow13.Instruction
+    var addActn bool = false
+
+    // Create a apply_action instruction to be used if its not already created
+    switch instr.(type) {
+    case *openflow13.InstrActions:
+        actInstr = instr
+    default:
+        actInstr = openflow13.NewInstrApplyActions()
+    }
+
+
+    // Loop thru all actions
+    for _, flowAction := range self.flowActions {
+        switch(flowAction.actionType) {
+        case "setVlan":
+            // Push Vlan Tag action
+            pushVlanAction := openflow13.NewActionPushVlan(0x8100)
+
+            // Set Outer vlan tag field
+            vlanField := openflow13.NewVlanIdField(flowAction.vlanId)
+            setVlanAction := openflow13.NewActionSetField(*vlanField)
+
+
+            // Prepend push vlan & setvlan actions to existing instruction
+            instr.AddAction(pushVlanAction, true)
+            instr.AddAction(setVlanAction, true)
+            addActn = true
+
+            log.Debugf("flow install. Added pushvlan action: %+v, setVlan actions: %+v",
+                            pushVlanAction, setVlanAction)
+
+
+        case "setMacDa":
+            // Set Outer MacDA field
+            macDaField := openflow13.NewEthDstField(flowAction.macAddr)
+            setMacDaAction := openflow13.NewActionSetField(*macDaField)
+
+
+            // Add set macDa action to the instruction
+            actInstr.AddAction(setMacDaAction, true)
+            addActn = true
+
+            log.Debugf("flow install. Added setMacDa action: %+v", setMacDaAction)
+
+
+        case "setMacSa":
+            // Set Outer MacSA field
+            macSaField := openflow13.NewEthSrcField(flowAction.macAddr)
+            setMacSaAction := openflow13.NewActionSetField(*macSaField)
+
+            // Add set macDa action to the instruction
+            actInstr.AddAction(setMacSaAction, true)
+            addActn = true
+
+            log.Debugf("flow install. Added setMacSa Action: %+v", setMacSaAction)
+
+        case "setMetadata":
+            // Set Metadata instruction
+            metadataInstr := openflow13.NewInstrWriteMetadata(flowAction.metadata, 0)
+
+            // Add the instruction to flowmod
+            flowMod.AddInstruction(metadataInstr)
+
+        default:
+            log.Fatalf("Unknown action type %s", flowAction.actionType)
+        }
+    }
+
+    // Add the instruction to flow if its not already added
+    if ((addActn) && (actInstr != instr)) {
+        // Add the instrction to flowmod
+        flowMod.AddInstruction(actInstr)
+    }
+
+    return nil
+}
+
 // Install a flow entry
 func (self *Flow) install() error {
     // Create a flowmode entry
@@ -126,50 +207,15 @@ func (self *Flow) install() error {
     flowMod.Match = self.xlateMatch()
     log.Printf("flow install: Match: %+v", flowMod.Match)
 
-    // Check if there are any flow actions to perform
-    for _, flowAction := range self.flowActions {
-        switch(flowAction.actionType) {
-        case "setVlan":
-            // Push Vlan Tag action
-            pushVlanAction := openflow13.NewActionPushVlan(0x8100)
-
-            // Set Outer vlan tag field
-            vlanField := openflow13.NewVlanIdField(flowAction.vlanId)
-            setVlanAction := openflow13.NewActionSetField(*vlanField)
-
-            // Apply actions instruction that contains push vlan and set vlan actions
-            pushVlanInstr := openflow13.NewInstrApplyActions()
-            pushVlanInstr.AddAction(pushVlanAction)
-            pushVlanInstr.AddAction(setVlanAction)
-
-            // Add the instrction to flowmod
-            flowMod.AddInstruction(pushVlanInstr)
-
-            log.Debugf("flow install. Added setVlan instr: %+v", pushVlanInstr)
-
-        case "setMacDa":
-            // FIXME: this is handled elsewhere temporarily. See below
-
-        case "setMacSa":
-            // FIXME: this is handled elsewhere temporarily. See below
-
-        case "setMetadata":
-            // Set Metadata instruction
-            metadataInstr := openflow13.NewInstrWriteMetadata(flowAction.metadata, 0)
-
-            // Add the instruction to flowmod
-            flowMod.AddInstruction(metadataInstr)
-
-        default:
-            log.Fatalf("Unknown action type %s", flowAction.actionType)
-        }
-    }
 
     // Based on the next elem, decide what to install
     switch (self.NextElem.Type()) {
     case "table":
         // Get the instruction set from the element
         instr := self.NextElem.GetFlowInstr()
+
+        // Check if there are any flow actions to perform
+        self.installFlowActions(flowMod, instr)
 
         // Add the instruction to flowmod
         flowMod.AddInstruction(instr)
@@ -183,36 +229,9 @@ func (self *Flow) install() error {
         // Add the instruction to flowmod if its not nil
         // a nil instruction means drop action
         if (instr != nil) {
-            switch tinstr := instr.(type) {
-            case *openflow13.InstrActions:
-                var actInstr *openflow13.InstrActions = tinstr
 
-                // Set MacDa and setMacSa actions need to go here
-                for _, flowAction := range self.flowActions {
-                    switch(flowAction.actionType) {
-                    case "setMacDa":
-                        // Set Outer MacDA field
-                        macDaField := openflow13.NewEthDstField(flowAction.macAddr)
-                        setMacDaAction := openflow13.NewActionSetField(*macDaField)
-
-                        // Add set macDa action to the instruction
-                        actInstr.AddAction(setMacDaAction)
-
-                        log.Debugf("flow install. Added setMacDa action: %+v", setMacDaAction)
-
-                    case "setMacSa":
-                        // Set Outer MacSA field
-                        macSaField := openflow13.NewEthSrcField(flowAction.macAddr)
-                        setMacSaAction := openflow13.NewActionSetField(*macSaField)
-
-                        // Add set macDa action to the instruction
-                        actInstr.AddAction(setMacSaAction)
-
-                        log.Debugf("flow install. Added setMacSa Action: %+v", setMacSaAction)
-                    }
-
-                }
-            }
+            // Check if there are any flow actions to perform
+            self.installFlowActions(flowMod, instr)
 
             flowMod.AddInstruction(instr)
 

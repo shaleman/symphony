@@ -30,10 +30,10 @@ func (self *Output) GetFlowInstr() openflow13.Instruction {
         outputAct := openflow13.NewActionOutput(openflow13.P_CONTROLLER)
         // Dont buffer the packets being sent to controller
         outputAct.MaxLen = openflow13.OFPCML_NO_BUFFER
-        outputInstr.AddAction(outputAct)
+        outputInstr.AddAction(outputAct, false)
     case "port":
         outputAct := openflow13.NewActionOutput(self.portNo)
-        outputInstr.AddAction(outputAct)
+        outputInstr.AddAction(outputAct, false)
     }
 
     return outputInstr

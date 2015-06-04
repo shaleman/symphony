@@ -29,6 +29,7 @@ type InstrHeader struct {
 
 type Instruction interface {
     util.Message
+    AddAction(act Action, prepend bool) error
 }
 
 func (a *InstrHeader) Len() (n uint16) {
@@ -114,6 +115,10 @@ func NewInstrGotoTable(tableId uint8) *InstrGotoTable {
     return instr
 }
 
+func (instr *InstrGotoTable) AddAction(act Action, prepend bool) error {
+    return errors.New("Not supported on this instrction")
+}
+
 type InstrWriteMetadata struct {
     InstrHeader
     pad             []byte  // 4 bytes
@@ -157,6 +162,10 @@ func NewInstrWriteMetadata(metadata, metadataMask uint64) *InstrWriteMetadata {
     instr.Length = instr.Len()
 
     return instr
+}
+
+func (instr *InstrWriteMetadata) AddAction(act Action, prepend bool) error {
+    return errors.New("Not supported on this instrction")
 }
 
 // *_ACTION instructions
@@ -204,10 +213,13 @@ func (instr *InstrActions) UnmarshalBinary(data []byte) error {
     return nil
 }
 
-func (instr *InstrActions) AddAction(act Action) error {
-    // FIXME: trying prepend for an experiment
-    instr.Actions = append([]Action{act}, instr.Actions...)
-    // instr.Actions = append(instr.Actions, act)
+func (instr *InstrActions) AddAction(act Action, prepend bool) error {
+    // Append or prepend to the list
+    if (prepend) {
+        instr.Actions = append([]Action{act}, instr.Actions...)
+    } else {
+        instr.Actions = append(instr.Actions, act)
+    }
 
     instr.Length = instr.Len()
     return nil
@@ -236,4 +248,8 @@ func NewInstrApplyActions() *InstrActions {
 type InstrMeter struct {
     InstrHeader
     MeterId     uint32
+}
+
+func (instr *InstrMeter) AddAction(act Action, prepend bool) error {
+    return errors.New("Not supported on this instrction")
 }

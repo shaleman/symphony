@@ -6,7 +6,7 @@ package ofnet
 //      - There is single OVS switch instance(aka bridge instance)
 //      - OVS switch's forwarding is fully controller by ofnet agent
 //
-// It also assumes OVS is configered for openflow1.3 version and configured
+// It also assumes OVS is configured for openflow1.3 version and configured
 // to connect to controller on specified port
 
 import (
@@ -17,6 +17,7 @@ import (
     "pkg/ofctrl"
     "pkg/ofctrl/libOpenflow/openflow13"
     "pkg/ofctrl/libOpenflow/protocol"
+    "pkg/rpcHub"
 
     log "github.com/Sirupsen/logrus"
 )
@@ -25,7 +26,8 @@ import (
 type OfnetAgent struct {
     ctrler      *ofctrl.Controller      // Controller instance
     ofSwitch    *ofctrl.OFSwitch        // Switch instance. Assumes single switch per agent
-    localIp      net.IP                  // Local IP to be used for tunnel end points
+    localIp     net.IP                  // Local IP to be used for tunnel end points
+    masterDb    map[string]*net.IP      // list of Master's IP address
 
     // Fgraph tables
     inputTable  *ofctrl.Table           // Packet lookup starts here
@@ -63,6 +65,7 @@ func NewOfnetAgent(portNo uint16, localIp net.IP) (*OfnetAgent, error) {
 
     // Init params
     agent.localIp = localIp
+    agent.masterDb = make(map[string]*net.IP)
     agent.portVlanMap = make(map[uint32]*uint16)
     agent.vniVlanMap = make(map[uint32]*uint16)
     agent.vlanVniMap = make(map[uint16]*uint32)
@@ -75,6 +78,10 @@ func NewOfnetAgent(portNo uint16, localIp net.IP) (*OfnetAgent, error) {
 
     // Start listening on the port
     go agent.ctrler.Listen(fmt.Sprintf(":%d", portNo))
+
+    // Create rpc server
+    rpcServ := rpcHub.NewRpcServer(9002)
+    rpcServ.Register(agent)
 
     // Return it
     return agent, nil
@@ -124,7 +131,23 @@ func (self *OfnetAgent) PacketRcvd(sw *ofctrl.OFSwitch, pkt *openflow13.PacketIn
 
 // Add a master
 // ofnet agent tries to connect to the master and download routes
-func (self *OfnetAgent) AddMaster(masterIp net.IP, masterPort uint16) error {
+func (self *OfnetAgent) AddMaster(masterAddr *string, ret *bool) error {
+    myAddr := self.localIp.String()
+    masterIp := net.ParseIP(*masterAddr)
+    var resp bool
+
+    log.Infof("Adding master: %s", *masterAddr)
+
+    // Save it in DB
+    self.masterDb[*masterAddr] = &masterIp
+
+    // Register the agent with the master
+    err := rpcHub.Client(*masterAddr, 9001).Call("OfnetMaster.RegisterNode", &myAddr, &resp)
+    if (err != nil) {
+        log.Fatalf("Failed to register with the master %s. Err: %v", masterAddr, err)
+        return err
+    }
+
     return nil
 }
 
@@ -143,8 +166,7 @@ func (self *OfnetAgent) AddLocalPort(portNo uint32, macAddr net.HardwareAddr,
     portVlanFlow.SetVlan(vlan)
     portVlanFlow.Next(self.ipTable)
 
-    // Add the IP address to route table
-    // FIXME: we need to distribute this route to all peers using master
+    // build the route to add
     route := OfnetRoute{
                 IpAddr: ipAddr,
                 VrfId: 0,       // FIXME: get a VRF
@@ -152,7 +174,9 @@ func (self *OfnetAgent) AddLocalPort(portNo uint32, macAddr net.HardwareAddr,
                 PortNo: portNo,
                 Timestamp:  time.Now(),
             }
-    self.routeTable[ipAddr.String()] = &route
+
+    // Add the route to local and master's routing table
+    self.localRouteAdd(&route)
 
     // Create the output port
     outPort, _ := self.ofSwitch.NewOutputPort(portNo)
@@ -170,15 +194,60 @@ func (self *OfnetAgent) AddLocalPort(portNo uint32, macAddr net.HardwareAddr,
     return nil
 }
 
-// Add virtual tunnel end point. This is mainly used for mapping remote vtep IP
-// to ofp port number.
-func (self *OfnetAgent) AddVtepPort(portNo uint32, remoteIp net.IP) error {
+// Remove local port
+func (self *OfnetAgent) RemoveLocalPort(portNo uint32) error {
+    // FIXME:
     return nil
 }
 
+// Add virtual tunnel end point. This is mainly used for mapping remote vtep IP
+// to ofp port number.
+func (self *OfnetAgent) AddVtepPort(portNo uint32, remoteIp net.IP) error {
+    log.Infof("Adding VTEP port(%d), Remote IP: %v", portNo, remoteIp)
+    return nil
+}
+
+// Remove a VTEP port
+func (self *OfnetAgent) RemoveVtepPort(portNo uint32) error {
+    // FIXME:
+    return nil
+}
 // Add a vlan.
 // This is mainly used for mapping vlan id to Vxlan VNI
 func (self *OfnetAgent) AddVlan(vlanId uint16, vni uint32) error {
+    return nil
+}
+
+// Add remote route RPC call from master
+func (self *OfnetAgent) RouteAdd(route *OfnetRoute, ret *bool) error {
+    log.Infof("RouteAdd callback for route: %+v", route)
+    return nil
+}
+
+// Delete remote route RPC call from master
+func (self *OfnetAgent) RouteDel(route *OfnetRoute, ret *bool) error {
+    return nil
+}
+
+// Add a local route to routing table and distribute it
+func (self *OfnetAgent) localRouteAdd(route *OfnetRoute) error {
+    // First, add the route to local routing table
+    self.routeTable[route.IpAddr.String()] = route
+
+    // Send the route to all known masters
+    for masterAddr, _ := range self.masterDb {
+        var resp bool
+
+        log.Infof("Sending route %+v to master %s", route, masterAddr)
+
+        // Make the RPC call to add the route to master
+        err := rpcHub.Client(masterAddr, 9001).Call("OfnetMaster.RouteAdd", route, &resp)
+        if (err != nil) {
+            log.Errorf("Failed to add route %+v to master %s. Err: %v", route, masterAddr, err)
+            return err
+        }
+    }
+
     return nil
 }
 
@@ -243,6 +312,8 @@ func (self *OfnetAgent) processArp(pkt protocol.Ethernet, inPort uint32) {
 
         switch arpHdr.Operation {
         case protocol.Type_Request:
+            // FIXME: Send an ARP response only we have a route
+
             // Form an ARP response
             arpResp, _ := protocol.NewARP(protocol.Type_Reply)
             arpResp.HWSrc = self.myRouterMac

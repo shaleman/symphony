@@ -31,8 +31,10 @@ type NetAgent struct {
 
     networkDb       map[string]*NetState
     vlanBitset      *bitset.BitSet  // Allocated Vlan Ids
+    peerHostDb      map[string]*string  // Remote host IP addresses
 
     currPortNum     int     // Current OVS port number
+    currVtepNum     int     // Current VTEP port number
 }
 
 // Create a new network agent
@@ -42,15 +44,22 @@ func NewNetAgent() *NetAgent {
     // Create an OVS client
     netAgent.ovsDriver = ovsdriver.NewOvsDriver()
 
+    localIpAddr, err := cStore.GetLocalAddr()
+    if (err != nil) {
+        glog.Fatalf("Could not find a local address to bind to. Err %v", err)
+    }
+
     // Create an ofnet agent
-    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(6633, localIpAddr)
+    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(6633, net.ParseIP(localIpAddr))
 
     // Initialize vlan bitset
     netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
     netAgent.vlanBitset.Set(0).Set(1)   // Cant use vlan-0, vlan-1 is for default network
     netAgent.currPortNum = 1
+    netAgent.currVtepNum = 1
 
     // Initialise the DB
+    netAgent.peerHostDb = make(map[string]*string)
     netAgent.networkDb = make(map[string]*NetState)
 
     // Create default network
@@ -132,7 +141,7 @@ func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
     }
 
     // Create the OVS port
-    err = self.ovsDriver.CreatePort(portName, "internal", nil, netState.VlanTag)
+    err = self.ovsDriver.CreatePort(portName, "internal", netState.VlanTag)
     if (err != nil) {
         glog.Errorf("Error creating a port. Err %v", err)
         return "", err
@@ -214,4 +223,86 @@ func (self *NetAgent) DeleteAltaIntf(portName string) error {
     }
 
     return err
+}
+
+// Add a peer host. Create VTEPs associated with the peer
+func (self *NetAgent) AddPeerHost(peerAddr string) error {
+    // Check if the peer already exists
+    if (self.peerHostDb[peerAddr] != nil) {
+        return errors.New("Peer exists")
+    }
+
+    // Derive a Vtep port name
+    // FIXME: We need to do better job of recycling port numbers
+    vtepName := "vtep" + strconv.Itoa(self.currVtepNum)
+    for {
+        self.currVtepNum++
+        if (!self.ovsDriver.IsPortNamePresent(vtepName)) {
+            break
+        }
+        vtepName = "vtep" + strconv.Itoa(self.currVtepNum)
+    }
+
+    // Create the OVS VTEP port
+    err := self.ovsDriver.CreateVtep(vtepName, peerAddr)
+    if (err != nil) {
+        glog.Errorf("Error creating a VTEP. Err %v", err)
+        return err
+    }
+
+    // Hack: Wait a second for the interface to show up
+    // OVS seem to take few millisecond to create the interface
+    time.Sleep(1000 * time.Millisecond)
+
+    // Get OFP port number for the VTEP
+    ofpPort, err := self.ovsDriver.GetOfpPortNo(vtepName)
+    if (err != nil) {
+        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        return err
+    }
+
+    // Inform Ofnet about the VTEP
+    err = self.ofnetAgent.AddVtepPort(ofpPort, net.ParseIP(peerAddr))
+    if (err != nil) {
+        glog.Errorf("Error adding VTEP port to ofnet. Err: ", err)
+        return err
+    }
+
+    // Add it to DB
+    self.peerHostDb[peerAddr] = &vtepName
+
+    return nil
+}
+
+// Remove peer host and remove associated VTEPs
+func (self *NetAgent) RemovePeerHost(peerAddr string) error {
+    // find the remote host in DB
+    vtepName := self.peerHostDb[peerAddr]
+    if (vtepName == nil) {
+        return errors.New("Peer does not exist")
+    }
+
+    // Get OFP port number for the VTEP
+    ofpPort, err := self.ovsDriver.GetOfpPortNo(*vtepName)
+    if (err != nil) {
+        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        return err
+    }
+
+    // remove the VTEP from ofnet
+    err = self.ofnetAgent.RemoveVtepPort(ofpPort)
+    if (err != nil) {
+        glog.Errorf("Error removing vtep port from ofnet. Err: %v", err)
+        return err
+    }
+
+    // Ask OVS driver to delete the vtep
+    err = self.ovsDriver.DeleteVtep(*vtepName)
+    if (err != nil) {
+        glog.Errorf("Error deleting vtep port %s. Err: %v", vtepName, err)
+        return err
+    }
+
+
+    return nil
 }

@@ -8,6 +8,7 @@ import (
     "zeus/rsrcMgr"
 
     "pkg/altaspec"
+    "pkg/ofnet"
 
     "github.com/golang/glog"
 )
@@ -34,6 +35,7 @@ var netCtrl struct {
     networkDb           map[string]*Network     // DB of networks
     IPv4SubnetStart     net.IP          // Starting IP subnet
     DnsAddr             []net.IP        // DNS server list
+    ofnetMaster         *ofnet.OfnetMaster  // ofnet master
 }
 
 // Initialize network controller
@@ -45,6 +47,9 @@ func Init() {
     netCtrl.IPv4SubnetStart = net.ParseIP("10.200.1.0")
     netCtrl.DnsAddr = []net.IP{net.ParseIP("4.4.4.4"), net.ParseIP("8.8.8.8")}
 
+    // Initialize ofnet master
+    netCtrl.ofnetMaster = ofnet.NewOfnetMaster()
+    
     glog.Infof("netCtrl: %#v", netCtrl)
 
     // Check if global network resources are created/restored
@@ -70,8 +75,6 @@ func Init() {
             glog.Fatalf("Error creating default network. Err: %v", err)
         }
     }
-
-
 }
 
 // Add a network resource provider
