@@ -44,6 +44,13 @@ func NewNetAgent() *NetAgent {
     // Create an OVS client
     netAgent.ovsDriver = ovsdriver.NewOvsDriver()
 
+    // Add the local controller
+    err := netAgent.ovsDriver.AddController("127.0.0.1", 6633)
+    if (err != nil) {
+        glog.Fatalf("Failed to add local controller to OVS. Err: %v", err)
+    }
+
+    // Get our local IP address
     localIpAddr, err := cStore.GetLocalAddr()
     if (err != nil) {
         glog.Fatalf("Could not find a local address to bind to. Err %v", err)
@@ -232,27 +239,31 @@ func (self *NetAgent) AddPeerHost(peerAddr string) error {
         return errors.New("Peer exists")
     }
 
-    // Derive a Vtep port name
-    // FIXME: We need to do better job of recycling port numbers
-    vtepName := "vtep" + strconv.Itoa(self.currVtepNum)
-    for {
-        self.currVtepNum++
-        if (!self.ovsDriver.IsPortNamePresent(vtepName)) {
-            break
-        }
+    // Check if the VTEP already exists
+    isPresent, vtepName := self.ovsDriver.IsVtepPresent(peerAddr)
+    if (!isPresent) {
+        // Derive a Vtep port name
+        // FIXME: We need to do better job of recycling port numbers
         vtepName = "vtep" + strconv.Itoa(self.currVtepNum)
-    }
+        for {
+            self.currVtepNum++
+            if (!self.ovsDriver.IsPortNamePresent(vtepName)) {
+                break
+            }
+            vtepName = "vtep" + strconv.Itoa(self.currVtepNum)
+        }
 
-    // Create the OVS VTEP port
-    err := self.ovsDriver.CreateVtep(vtepName, peerAddr)
-    if (err != nil) {
-        glog.Errorf("Error creating a VTEP. Err %v", err)
-        return err
-    }
+        // Create the OVS VTEP port
+        err := self.ovsDriver.CreateVtep(vtepName, peerAddr)
+        if (err != nil) {
+            glog.Errorf("Error creating a VTEP. Err %v", err)
+            return err
+        }
 
-    // Hack: Wait a second for the interface to show up
-    // OVS seem to take few millisecond to create the interface
-    time.Sleep(1000 * time.Millisecond)
+        // Hack: Wait a second for the interface to show up
+        // OVS seem to take few millisecond to create the interface
+        time.Sleep(1000 * time.Millisecond)
+    }
 
     // Get OFP port number for the VTEP
     ofpPort, err := self.ovsDriver.GetOfpPortNo(vtepName)

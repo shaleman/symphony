@@ -29,6 +29,7 @@ type FlowAction struct {
     actionType      string      // Type of action "setVlan", "setMetadata"
     vlanId          uint16      // Vlan Id in case of "setVlan"
     macAddr         net.HardwareAddr    // Mac address to set
+    tunnelId        uint64      // Tunnel Id (used for setting VNI)
     metadata        uint64      // Metadata in case of "setMetadata"
 }
 
@@ -166,6 +167,17 @@ func (self *Flow) installFlowActions(flowMod *openflow13.FlowMod,
             addActn = true
 
             log.Debugf("flow install. Added setMacSa Action: %+v", setMacSaAction)
+
+        case "setTunnelId":
+            // Set tunnelId field
+            tunnelIdField := openflow13.NewTunnelIdField(flowAction.tunnelId)
+            setTunnelAction := openflow13.NewActionSetField(*tunnelIdField)
+
+            // Add set tunnel action to the instruction
+            actInstr.AddAction(setTunnelAction, true)
+            addActn = true
+
+            log.Debugf("flow install. Added setTunnelId Action: %+v", setTunnelAction)
 
         case "setMetadata":
             // Set Metadata instruction
@@ -321,6 +333,24 @@ func (self *Flow) SetMetadata(metadata uint64) error {
     action := new(FlowAction)
     action.actionType = "setMetadata"
     action.metadata   = metadata
+
+    // Add to the action list
+    // FIXME: detect duplicates
+    self.flowActions = append(self.flowActions, action)
+
+    // If the flow entry was already installed, re-install it
+    if (self.isInstalled) {
+        self.install()
+    }
+
+    return nil
+}
+
+// Special actions on the flow to set vlan id
+func (self *Flow) SetTunnelId(tunnelId uint64) error {
+    action := new(FlowAction)
+    action.actionType = "setTunnelId"
+    action.tunnelId   = tunnelId
 
     // Add to the action list
     // FIXME: detect duplicates

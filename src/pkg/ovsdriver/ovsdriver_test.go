@@ -129,9 +129,28 @@ func TestCreateVtep(t *testing.T) {
     ovsDriver := NewOvsDriver()
 
     // Create a port
-    err := ovsDriver.CreateVtep("vtep1", "10.254.101.21")
+    err := ovsDriver.CreateVtep("vtep1", "10.10.10.10")
     if (err != nil) {
         fmt.Printf("Error creating the VTEP. Err: %v", err)
         t.Errorf("Failed to create a port")
+    }
+
+    time.After(100 * time.Millisecond)
+
+    isPresent, vtepName := ovsDriver.IsVtepPresent("10.10.10.10")
+    if ((!isPresent) || (vtepName != "vtep1")) {
+        t.Errorf("Unable to find the VTEP. present: %v, name: %s", isPresent, vtepName)
+    }
+}
+
+func TestAddController(t *testing.T) {
+    // Connect to OVS
+    ovsDriver := NewOvsDriver()
+
+    // Create a port
+    err := ovsDriver.AddController("127.0.0.1", 6666)
+    if (err != nil) {
+        fmt.Printf("Error adding controller. Err: %v", err)
+        t.Errorf("Failed to add controller")
     }
 }

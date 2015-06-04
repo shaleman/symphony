@@ -215,6 +215,7 @@ func DecodeMatchField(class uint16, field uint8, data []byte) util.Message {
         case OXM_FIELD_MPLS_BOS:
         case OXM_FIELD_PBB_ISID:
         case OXM_FIELD_TUNNEL_ID:
+            val = new(TunnelIdField)
         case OXM_FIELD_IPV6_EXTHDR:
         }
 
@@ -406,7 +407,7 @@ func (m *EthTypeField) UnmarshalBinary(data []byte) error {
     return nil
 }
 
-// Return a MatchField for Input port matching
+// Return a MatchField for ethertype matching
 func NewEthTypeField(ethType uint16) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
@@ -440,7 +441,7 @@ func (m *VlanIdField) UnmarshalBinary(data []byte) error {
     return nil
 }
 
-// Return a MatchField for Input port matching
+// Return a MatchField for vlan id matching
 func NewVlanIdField(vlanId uint16) *MatchField {
     f := new(MatchField)
     f.Class = OXM_CLASS_OPENFLOW_BASIC
@@ -519,6 +520,40 @@ func NewIpv4DstField(ipDst net.IP) *MatchField {
     ipDstField.Ipv4Dst = ipDst
     f.Value = ipDstField
     f.Length = uint8(ipDstField.Len())
+
+    return f
+}
+
+// TUNNEL_ID field
+type TunnelIdField struct {
+    TunnelId      uint64
+}
+
+func (m *TunnelIdField) Len() uint16 {
+    return 8
+}
+func (m *TunnelIdField) MarshalBinary() (data []byte, err error) {
+    data = make([]byte, m.Len())
+
+    binary.BigEndian.PutUint64(data, m.TunnelId)
+    return
+}
+func (m *TunnelIdField) UnmarshalBinary(data []byte) error {
+    m.TunnelId = binary.BigEndian.Uint64(data)
+    return nil
+}
+
+// Return a MatchField for tunel id matching
+func NewTunnelIdField(tunnelId uint64) *MatchField {
+    f := new(MatchField)
+    f.Class = OXM_CLASS_OPENFLOW_BASIC
+    f.Field = OXM_FIELD_TUNNEL_ID
+    f.HasMask = false
+
+    tunnelIdField := new(TunnelIdField)
+    tunnelIdField.TunnelId = tunnelId
+    f.Value = tunnelIdField
+    f.Length = uint8(tunnelIdField.Len())
 
     return f
 }

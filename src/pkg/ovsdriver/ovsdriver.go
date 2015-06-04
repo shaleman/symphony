@@ -38,7 +38,7 @@ func NewOvsDriver() *OvsDriver {
 
     // Setup state
     ovsDriver.ovsClient  = ovs
-    ovsDriver.ovsBridgeName = "ovsbr11"
+    ovsDriver.ovsBridgeName = "ovsbr0"
     ovsDriver.ovsdbCache = make(map[string]map[string]libovsdb.Row)
 
     go func() {
@@ -132,11 +132,19 @@ func (self *OvsDriver) ovsdbTransact(ops []libovsdb.Operation) error {
 // **************** OVS driver API ********************
 func (self *OvsDriver) CreateBridge(bridgeName string) error {
     namedUuidStr := "dummy"
+    protocols := []string{"OpenFlow10", "OpenFlow11", "OpenFlow12", "OpenFlow13"}
+
+    // If the bridge already exists, just return
+    // FIXME: should we delete the old bridge and create new one?
+    if (self.IsBridgePresent(bridgeName)) {
+        return nil
+    }
 
     // simple insert/delete operation
     brOp := libovsdb.Operation{}
     bridge := make(map[string]interface{})
     bridge["name"] = bridgeName
+    bridge["protocols"], _ = libovsdb.NewOvsSet(protocols)
     brOp = libovsdb.Operation{
         Op:       "insert",
         Table:    "Bridge",
@@ -395,6 +403,52 @@ func (self *OvsDriver) DeleteVtep(intfName string) error {
     return self.DeletePort(intfName)
 }
 
+// Add controller configuration to OVS
+func (self *OvsDriver) AddController(ipAddr string, portNo uint16) error {
+    // Format target string
+    target := fmt.Sprintf("tcp:%s:%d", ipAddr, portNo)
+    ctrlerUuidStr := fmt.Sprintf("local")
+    ctrlerUuid := []libovsdb.UUID{libovsdb.UUID{ctrlerUuidStr}}
+
+    // If controller already exists, nothing to do
+    if (self.IsControllerPresent(target)) {
+        return nil
+    }
+
+    // insert a row in Controller table
+    controller := make(map[string]interface{})
+    controller["target"] = target
+
+
+    // Add an entry in Controller table
+    ctrlerOp := libovsdb.Operation{
+        Op:       "insert",
+        Table:    "Controller",
+        Row:      controller,
+        UUIDName: ctrlerUuidStr,
+    }
+
+    // mutate the Controller column of the row in the Bridge table
+    mutateSet, _ := libovsdb.NewOvsSet(ctrlerUuid)
+    mutation := libovsdb.NewMutation("controller", "insert", mutateSet)
+    condition := libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    mutateOp := libovsdb.Operation{
+        Op:        "mutate",
+        Table:     "Bridge",
+        Mutations: []interface{}{mutation},
+        Where:     []interface{}{condition},
+    }
+
+    // Perform OVS transaction
+    operations := []libovsdb.Operation{ctrlerOp, mutateOp}
+    return self.ovsdbTransact(operations)
+}
+
+func (self *OvsDriver) RemoveController(target string) error {
+    // FIXME:
+    return nil
+}
+
 // Check the local cache and see if the portname is taken already
 // HACK alert: This is used to pick next port number instead of managing
 //    port number space actively across agent restarts
@@ -416,6 +470,76 @@ func (self *OvsDriver) IsPortNamePresent(intfName string) bool {
 
     // We could not find the interface name
     return false
+}
+
+// Check if the bridge entry already exists
+func (self *OvsDriver) IsBridgePresent(bridgeName string) bool {
+    for tName, table := range self.ovsdbCache {
+        if tName == "Bridge" {
+            for _, row := range table {
+                for fieldName, value := range row.Fields {
+                    if fieldName == "name" {
+                        if value == bridgeName {
+                            // Interface name exists.
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // We could not find the interface name
+    return false
+}
+
+// Check if Controller already exists
+func (self *OvsDriver) IsControllerPresent(target string) bool {
+    for tName, table := range self.ovsdbCache {
+        if tName == "Controller" {
+            for _, row := range table {
+                for fieldName, value := range row.Fields {
+                    if fieldName == "target" {
+                        if value == target {
+                            // Controller exists.
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // We could not find the interface name
+    return false
+}
+
+// Check if VTEP already exists
+func (self *OvsDriver) IsVtepPresent(remoteIp string) (bool, string) {
+    for tName, table := range self.ovsdbCache {
+        if tName == "Interface" {
+            for _, row := range table {
+                options := row.Fields["options"]
+                switch optMap := options.(type) {
+                case libovsdb.OvsMap:
+                    if (optMap.GoMap["remote_ip"] == remoteIp) {
+                        value := row.Fields["name"]
+                        switch t := value.(type) {
+                        case string:
+                            return true, t
+                        default:
+                            return false, ""
+                        }
+                    }
+                default:
+                    return false, ""
+                }
+            }
+        }
+    }
+
+    // We could not find the interface name
+    return false, ""
 }
 
 // Return OFP port number for an interface

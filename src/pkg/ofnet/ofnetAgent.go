@@ -13,6 +13,7 @@ import (
     "fmt"
     "net"
     "time"
+    "errors"
 
     "pkg/ofctrl"
     "pkg/ofctrl/libOpenflow/openflow13"
@@ -38,6 +39,9 @@ type OfnetAgent struct {
     portVlanMap map[uint32]*uint16       // Map port number to vlan
     vniVlanMap  map[uint32]*uint16       // Map VNI to vlan
     vlanVniMap  map[uint16]*uint32       // Map vlan to VNI
+
+    // VTEP database
+    vtepTable   map[string]*uint32      // Map vtep IP to OVS port number
 
     // Routing table
     routeTable  map[string]*OfnetRoute  // routes indexed by ip addr
@@ -70,6 +74,7 @@ func NewOfnetAgent(portNo uint16, localIp net.IP) (*OfnetAgent, error) {
     agent.vniVlanMap = make(map[uint32]*uint16)
     agent.vlanVniMap = make(map[uint16]*uint32)
     agent.routeTable = make(map[string]*OfnetRoute)
+    agent.vtepTable = make(map[string]*uint32)
 
     agent.myRouterMac, _ = net.ParseMAC("00:00:11:11:11:11")
 
@@ -204,6 +209,19 @@ func (self *OfnetAgent) RemoveLocalPort(portNo uint32) error {
 // to ofp port number.
 func (self *OfnetAgent) AddVtepPort(portNo uint32, remoteIp net.IP) error {
     log.Infof("Adding VTEP port(%d), Remote IP: %v", portNo, remoteIp)
+
+    // Store the vtep IP to port number mapping
+    self.vtepTable[remoteIp.String()] = &portNo
+
+    // Install a flow entry for default VNI/vlan and point it to IP table
+    // FIXME: Need to match on tunnelId and set good vlan id
+    portVlanFlow, _ := self.vlanTable.NewFlow(ofctrl.FlowMatch{
+                            Priority: FLOW_MATCH_PRIORITY,
+                            InputPort: portNo,
+                        })
+    portVlanFlow.SetVlan(1)
+    portVlanFlow.Next(self.ipTable)
+
     return nil
 }
 
@@ -220,7 +238,43 @@ func (self *OfnetAgent) AddVlan(vlanId uint16, vni uint32) error {
 
 // Add remote route RPC call from master
 func (self *OfnetAgent) RouteAdd(route *OfnetRoute, ret *bool) error {
-    log.Infof("RouteAdd callback for route: %+v", route)
+    log.Infof("RouteAdd rpc call for route: %+v", route)
+
+    // If this is a local route we are done
+    if (route.OriginatorIp.String() == self.localIp.String()) {
+        return nil
+    }
+
+    // First, add the route to local routing table
+    self.routeTable[route.IpAddr.String()] = route
+
+    // Lookup the VTEP for the route
+    vtepPort := self.vtepTable[route.OriginatorIp.String()]
+    if (vtepPort == nil) {
+        log.Errorf("Could not find the VTEP for route: %+v", route)
+
+        return errors.New("VTEP not found")
+    }
+
+    // Install the route in OVS
+
+    // Create an output port for the vtep
+    outPort, _ := self.ofSwitch.NewOutputPort(*vtepPort)
+
+    // Install the IP address
+    ipFlow, _ := self.ipTable.NewFlow(ofctrl.FlowMatch{
+                            Priority: FLOW_MATCH_PRIORITY,
+                            Ethertype: 0x0800,
+                            IpDa: &route.IpAddr,
+                        })
+    ipFlow.SetMacDa(self.myRouterMac)
+    // FIXME: set VNI
+    // This is strictly not required at the source OVS. Source mac will be
+    // overwritten by the dest OVS anyway. We keep the source mac for debugging purposes..
+    // ipFlow.SetMacSa(self.myRouterMac)
+    ipFlow.SetTunnelId(1)   // FIXME: hardcode VNI for now
+    ipFlow.Next(outPort)
+
     return nil
 }
 
