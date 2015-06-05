@@ -5,9 +5,9 @@ import (
     "net"
     "time"
 
-    "pkg/ofctrl/libOpenflow/common"
-    "pkg/ofctrl/libOpenflow/openflow13"
-    "pkg/ofctrl/libOpenflow/util"
+    "github.com/shaleman/libOpenflow/common"
+    "github.com/shaleman/libOpenflow/openflow13"
+    "github.com/shaleman/libOpenflow/util"
 
     log "github.com/Sirupsen/logrus"
 )
@@ -36,7 +36,7 @@ type Controller struct{
 }
 
 // Create a new controller
-func NewController(app AppInterface) *Controller {
+func NewController(bridge string, app AppInterface) *Controller {
     c := new(Controller)
 
     // for debug logs
@@ -44,6 +44,17 @@ func NewController(app AppInterface) *Controller {
 
     // Save the handler
     c.app = app
+
+    // Connect to unix socket
+    // FIXME: dont hard code bridge name to ovsbr0 here
+    conn, err := net.Dial("unix", "/var/run/openvswitch/" + bridge + ".mgmt")
+    if (err != nil) {
+        log.Fatalf("Failed to connect to unix socket. Err: %v", err)
+        return nil
+    }
+
+    // Handle the connection
+    go c.handleConnection(conn)
 
     return c
 }
@@ -56,6 +67,7 @@ func (c *Controller) Listen(port string) {
     if err != nil {
         log.Fatal(err)
     }
+
     defer sock.Close()
 
     log.Println("Listening for connections on", addr)
@@ -66,10 +78,11 @@ func (c *Controller) Listen(port string) {
         }
         go c.handleConnection(conn)
     }
+
 }
 
 // Handle TCP connection from the switch
-func (c *Controller) handleConnection(conn *net.TCPConn) {
+func (c *Controller) handleConnection(conn net.Conn) {
     stream := util.NewMessageStream(conn, c)
 
     log.Println("New connection..")

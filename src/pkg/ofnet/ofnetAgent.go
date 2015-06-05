@@ -10,14 +10,14 @@ package ofnet
 // to connect to controller on specified port
 
 import (
-    "fmt"
+    //"fmt"
     "net"
     "time"
     "errors"
 
     "pkg/ofctrl"
-    "pkg/ofctrl/libOpenflow/openflow13"
-    "pkg/ofctrl/libOpenflow/protocol"
+    "github.com/shaleman/libOpenflow/openflow13"
+    "github.com/shaleman/libOpenflow/protocol"
     "pkg/rpcHub"
 
     log "github.com/Sirupsen/logrus"
@@ -64,7 +64,7 @@ const FLOW_MISS_PRIORITY = 1        // priority for table miss flow
 
 
 // Create a new Ofnet agent and initialize it
-func NewOfnetAgent(portNo uint16, localIp net.IP) (*OfnetAgent, error) {
+func NewOfnetAgent(bridge string, localIp net.IP) (*OfnetAgent, error) {
     agent := new(OfnetAgent)
 
     // Init params
@@ -79,10 +79,8 @@ func NewOfnetAgent(portNo uint16, localIp net.IP) (*OfnetAgent, error) {
     agent.myRouterMac, _ = net.ParseMAC("00:00:11:11:11:11")
 
     // Create an openflow controller
-    agent.ctrler = ofctrl.NewController(agent)
+    agent.ctrler = ofctrl.NewController(bridge, agent)
 
-    // Start listening on the port
-    go agent.ctrler.Listen(fmt.Sprintf(":%d", portNo))
 
     // Create rpc server
     rpcServ := rpcHub.NewRpcServer(9002)

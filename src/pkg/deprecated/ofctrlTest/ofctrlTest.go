@@ -5,9 +5,9 @@ import (
     "time"
     //"flag"
 
-    "pkg/ofctrl/libOpenflow/openflow13"
     "pkg/ofctrl"
 
+    "github.com/shaleman/libOpenflow/openflow13"
     log "github.com/Sirupsen/logrus"
 )
 
@@ -143,11 +143,11 @@ func main() {
     log.SetLevel(log.DebugLevel)
 
     // Create a controller
-    ctrler := ofctrl.NewController(&ofActor)
+    ofctrl.NewController("ovsbr0", &ofActor)
 
     // go sendRequest()
     go fgraphTest()
 
     // start listening
-    ctrler.Listen(":6633")
+    // ctrler.Listen(":6633")
 }

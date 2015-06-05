@@ -4,9 +4,9 @@ import (
     "net"
     "time"
 
-    "pkg/ofctrl/libOpenflow/openflow13"
-    "pkg/ofctrl/libOpenflow/common"
-    "pkg/ofctrl/libOpenflow/util"
+    "github.com/shaleman/libOpenflow/openflow13"
+    "github.com/shaleman/libOpenflow/common"
+    "github.com/shaleman/libOpenflow/util"
 
     log "github.com/Sirupsen/logrus"
 )

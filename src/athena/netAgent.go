@@ -43,12 +43,17 @@ func NewNetAgent() *NetAgent {
 
     // Create an OVS client
     netAgent.ovsDriver = ovsdriver.NewOvsDriver()
+    bridge := netAgent.ovsDriver.OvsBridgeName
 
+    /* FIXME: This is not required since we use unix domain sockets
+     *        Uncomment it to user server mode where we listen to socket
+     *        for OVS to connect to
     // Add the local controller
     err := netAgent.ovsDriver.AddController("127.0.0.1", 6633)
     if (err != nil) {
         glog.Fatalf("Failed to add local controller to OVS. Err: %v", err)
     }
+    */
 
     // Get our local IP address
     localIpAddr, err := cStore.GetLocalAddr()
@@ -57,7 +62,7 @@ func NewNetAgent() *NetAgent {
     }
 
     // Create an ofnet agent
-    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(6633, net.ParseIP(localIpAddr))
+    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, net.ParseIP(localIpAddr))
 
     // Initialize vlan bitset
     netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094

@@ -18,7 +18,7 @@ type OvsDriver struct {
     ovsClient *libovsdb.OvsdbClient
 
     // Name of the OVS bridge
-    ovsBridgeName   string
+    OvsBridgeName   string
 
     // OVSDB cache
     ovsdbCache map[string]map[string]libovsdb.Row
@@ -38,7 +38,7 @@ func NewOvsDriver() *OvsDriver {
 
     // Setup state
     ovsDriver.ovsClient  = ovs
-    ovsDriver.ovsBridgeName = "ovsbr0"
+    ovsDriver.OvsBridgeName = "ovsbr0"
     ovsDriver.ovsdbCache = make(map[string]map[string]libovsdb.Row)
 
     go func() {
@@ -54,7 +54,7 @@ func NewOvsDriver() *OvsDriver {
     time.Sleep(1 * time.Second)
 
     // Create the default bridge instance
-    err = ovsDriver.CreateBridge(ovsDriver.ovsBridgeName)
+    err = ovsDriver.CreateBridge(ovsDriver.OvsBridgeName)
     if (err != nil) {
         glog.Errorf("Error creating the default bridge. It probably already exists")
         glog.Errorf("Error: %v", err)
@@ -268,7 +268,7 @@ func (self *OvsDriver) CreatePort(intfName, intfType string, vlanTag uint) error
     // mutate the Ports column of the row in the Bridge table
     mutateSet, _ := libovsdb.NewOvsSet(portUuid)
     mutation := libovsdb.NewMutation("ports", opStr, mutateSet)
-    condition := libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    condition := libovsdb.NewCondition("name", "==", self.OvsBridgeName)
     mutateOp := libovsdb.Operation{
         Op:        "mutate",
         Table:     "Bridge",
@@ -315,7 +315,7 @@ func (self *OvsDriver) DeletePort(intfName string) error {
     // mutate the Ports column of the row in the Bridge table
     mutateSet, _ := libovsdb.NewOvsSet(portUuid)
     mutation := libovsdb.NewMutation("ports", opStr, mutateSet)
-    condition = libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    condition = libovsdb.NewCondition("name", "==", self.OvsBridgeName)
     mutateOp := libovsdb.Operation{
         Op:        "mutate",
         Table:     "Bridge",
@@ -385,7 +385,7 @@ func (self *OvsDriver) CreateVtep(intfName string, vtepRemoteIP string) error {
     // mutate the Ports column of the row in the Bridge table
     mutateSet, _ := libovsdb.NewOvsSet(portUuid)
     mutation := libovsdb.NewMutation("ports", opStr, mutateSet)
-    condition := libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    condition := libovsdb.NewCondition("name", "==", self.OvsBridgeName)
     mutateOp := libovsdb.Operation{
         Op:        "mutate",
         Table:     "Bridge",
@@ -431,7 +431,7 @@ func (self *OvsDriver) AddController(ipAddr string, portNo uint16) error {
     // mutate the Controller column of the row in the Bridge table
     mutateSet, _ := libovsdb.NewOvsSet(ctrlerUuid)
     mutation := libovsdb.NewMutation("controller", "insert", mutateSet)
-    condition := libovsdb.NewCondition("name", "==", self.ovsBridgeName)
+    condition := libovsdb.NewCondition("name", "==", self.OvsBridgeName)
     mutateOp := libovsdb.Operation{
         Op:        "mutate",
         Table:     "Bridge",

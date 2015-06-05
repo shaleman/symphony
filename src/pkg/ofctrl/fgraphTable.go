@@ -5,7 +5,7 @@ package ofctrl
 import (
     "errors"
 
-    "pkg/ofctrl/libOpenflow/openflow13"
+    "github.com/shaleman/libOpenflow/openflow13"
 
     //log "github.com/Sirupsen/logrus"
 )

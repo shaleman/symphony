@@ -3,7 +3,7 @@ package ofctrl
 // This file defines the forwarding graph API
 
 import (
-    "pkg/ofctrl/libOpenflow/openflow13"
+    "github.com/shaleman/libOpenflow/openflow13"
 )
 
 // This implements a forwarding graph.
