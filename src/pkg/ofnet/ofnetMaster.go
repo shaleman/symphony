@@ -4,7 +4,7 @@ package ofnet
 import (
     "net/rpc"
 
-    "pkg/rpcHub"
+    "pkg/ofnet/rpcHub"
 
     log "github.com/Sirupsen/logrus"
 )
@@ -72,7 +72,8 @@ func (self *OfnetMaster) RouteAdd (route *OfnetRoute, ret *bool) error {
 
             log.Infof("Sending Route: %+v to node %s", route, node.HostAddr)
 
-            err := rpcHub.Client(node.HostAddr, 9002).Call("OfnetAgent.RouteAdd", route, &resp)
+            client := rpcHub.Client(node.HostAddr, OFNET_AGENT_PORT)
+            err := client.Call("Vrouter.RouteAdd", route, &resp)
             if (err != nil) {
                 log.Errorf("Error adding route to %s. Err: %v", node.HostAddr, err)
             }

@@ -12,6 +12,8 @@ import (
     log "github.com/Sirupsen/logrus"
 )
 
+type PacketIn openflow13.PacketIn
+
 // Note: Command to make ovs connect to controller:
 // ovs-vsctl set-controller <bridge-name> tcp:<ip-addr>:<port>
 // E.g.    sudo ovs-vsctl set-controller ovsbr0 tcp:127.0.0.1:6633
@@ -28,7 +30,7 @@ type AppInterface interface {
     SwitchDisconnected(sw *OFSwitch)
 
     // Controller received a packet from the switch
-    PacketRcvd(sw *OFSwitch, pkt *openflow13.PacketIn)
+    PacketRcvd(sw *OFSwitch, pkt *PacketIn)
 }
 
 type Controller struct{

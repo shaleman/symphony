@@ -38,3 +38,21 @@ func (self *Output) GetFlowInstr() openflow13.Instruction {
 
     return outputInstr
 }
+
+// Return an output action (Used by group mods)
+func (self *Output) GetOutAction() openflow13.Action {
+    switch (self.outputType) {
+    case "drop":
+        return nil
+    case "toController":
+        outputAct := openflow13.NewActionOutput(openflow13.P_CONTROLLER)
+        // Dont buffer the packets being sent to controller
+        outputAct.MaxLen = openflow13.OFPCML_NO_BUFFER
+
+        return outputAct
+    case "port":
+         return openflow13.NewActionOutput(self.portNo)
+    }
+
+    return nil
+}

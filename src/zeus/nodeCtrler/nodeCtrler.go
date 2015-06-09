@@ -6,7 +6,7 @@ import (
     "pkg/altaspec"
     // "pkg/confStore"
     "pkg/confStore/confStoreApi"
-    "pkg/rpcHub"
+    "pkg/ofnet/rpcHub"
 
     "github.com/golang/glog"
 )
@@ -166,7 +166,8 @@ func nodeUpBcast(nodeAddr string) error {
 
     // Ask the node to connect to master
     var resp bool
-    err = rpcHub.Client(nodeAddr, 9002).Call("OfnetAgent.AddMaster", &localIpAddr, &resp)
+    client := rpcHub.Client(nodeAddr, 9002) // FIXME: get the port number from ofnet
+    err = client.Call("OfnetAgent.AddMaster", &localIpAddr, &resp)
     if (err != nil) {
         glog.Errorf("Failed to tell node %s about the master. Err: %v", nodeAddr, err)
         return err

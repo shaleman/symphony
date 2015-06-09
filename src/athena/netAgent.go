@@ -62,7 +62,7 @@ func NewNetAgent() *NetAgent {
     }
 
     // Create an ofnet agent
-    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, net.ParseIP(localIpAddr))
+    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, "vrouter", net.ParseIP(localIpAddr))
 
     // Initialize vlan bitset
     netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
@@ -217,7 +217,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
 
     // Add local port to ofnet
     intfMac, _ := net.ParseMAC(ifSpec.IntfMacAddr)
-    err = self.ofnetAgent.AddLocalPort(ofpPort, intfMac, uint16(netState.VlanTag),
+    err = self.ofnetAgent.AddLocalEndpoint(ofpPort, intfMac, uint16(netState.VlanTag),
                                     net.ParseIP(ifSpec.IntfIpv4Addr))
     if (err != nil) {
         glog.Errorf("Error adding local port %s to ofnetAgent. Err: %v", portName, err)
@@ -229,7 +229,22 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
 
 // Delete the interface
 func (self *NetAgent) DeleteAltaIntf(portName string) error {
-    err := self.ovsDriver.DeletePort(portName)
+    // Get OFP port number
+    ofpPort, err := self.ovsDriver.GetOfpPortNo(portName)
+    if (err != nil) {
+        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        return err
+    }
+
+    // Remove the endpoint from ofnet agent
+    err = self.ofnetAgent.RemoveLocalEndpoint(ofpPort)
+    if (err != nil) {
+        glog.Errorf("Failed to remove ofnet port: %s", portName)
+        return err
+    }
+
+    // Finally delete the port in OVS
+    err = self.ovsDriver.DeletePort(portName)
     if (err != nil) {
         glog.Errorf("Error deleting port %s. Error: %v", portName, err)
     }
@@ -306,7 +321,7 @@ func (self *NetAgent) RemovePeerHost(peerAddr string) error {
     }
 
     // remove the VTEP from ofnet
-    err = self.ofnetAgent.RemoveVtepPort(ofpPort)
+    err = self.ofnetAgent.RemoveVtepPort(ofpPort, net.ParseIP(peerAddr))
     if (err != nil) {
         glog.Errorf("Error removing vtep port from ofnet. Err: %v", err)
         return err

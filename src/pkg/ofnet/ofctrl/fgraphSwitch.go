@@ -68,6 +68,7 @@ func (self *OFSwitch) DeleteTable(tableId uint8) error {
     return nil
 }
 
+
 // Return table 0 which is the starting table for all packets
 func (self *OFSwitch) DefaultTable() *Table {
     return self.tableDb[0]
@@ -92,4 +93,18 @@ func (self *OFSwitch) DropAction() *Output {
 // Return send to controller graph element
 func (self *OFSwitch) SendToController() *Output {
     return self.sendToCtrler
+}
+
+// FIXME: Unique group id for the flood entries
+var uniqueGroupId uint32 = 1
+
+// Create a new flood list
+func (self *OFSwitch) NewFlood() (*Flood, error) {
+    flood := new(Flood)
+
+    flood.Switch = self
+    flood.GroupId = uniqueGroupId
+    uniqueGroupId += 1
+
+    return flood, nil
 }

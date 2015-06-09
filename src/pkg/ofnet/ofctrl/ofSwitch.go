@@ -169,7 +169,7 @@ func (self *OFSwitch) handleMessages(dpid net.HardwareAddr, msg util.Message) {
         }
     case *openflow13.PacketIn:
         // send packet rcvd callback
-        self.app.PacketRcvd(self, t)
+        self.app.PacketRcvd(self, (*PacketIn)(t))
 
     case *openflow13.FlowRemoved:
 

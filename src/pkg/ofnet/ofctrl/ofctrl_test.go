@@ -11,7 +11,7 @@ type OfActor struct {
     Switch *OFSwitch
 }
 
-func (o *OfActor) PacketRcvd(sw *OFSwitch, packet *openflow13.PacketIn) {
+func (o *OfActor) PacketRcvd(sw *OFSwitch, packet *PacketIn) {
     log.Printf("App: Received packet: %+v", packet)
 }
 

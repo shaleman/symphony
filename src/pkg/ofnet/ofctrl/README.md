@@ -7,21 +7,19 @@ This library implements a simple Openflow1.3 controller API
     // Create a controller
     ctrler := ofctrl.NewController(&app)
 
-    // start listening on a port
-    ctrler.Listen(":6633")
-    
+
 This creates a new controller and registers the app for event callbacks. The app needs to implement following interface to get callbacks when an openflow switch connects to the controller.
 
 
     type AppInterface interface {
         // A Switch connected to the controller
         SwitchConnected(sw *OFSwitch)
-    
+
         // Switch disconnected from the controller
         SwitchDisconnected(sw *OFSwitch)
-    
+
         // Controller received a packet from the switch
-        PacketRcvd(sw *OFSwitch, pkt *openflow13.PacketIn)
+        PacketRcvd(sw *OFSwitch, pkt *PacketIn)
     }
 
 # Example app
@@ -29,32 +27,34 @@ This creates a new controller and registers the app for event callbacks. The app
     type OfApp struct {
         Switch *ofctrl.OFSwitch
     }
-    
+
     func (o *OfApp) PacketRcvd(sw *ofctrl.OFSwitch, packet *openflow13.PacketIn) {
         log.Printf("App: Received packet: %+v", packet)
     }
-    
+
     func (o *OfApp) SwitchConnected(sw *ofctrl.OFSwitch) {
         log.Printf("App: Switch connected: %v", sw.DPID())
-    
+
         // Store switch for later use
         o.Switch = sw
     }
-    
+
     func (o *OfApp) SwitchDisconnected(sw *ofctrl.OFSwitch) {
         log.Printf("App: Switch connected: %v", sw.DPID())
     }
 
     // Main app
     var app OfApp
-    
+
     // Create a controller
     ctrler := ofctrl.NewController(&app)
-    
+
     // start listening
     ctrler.Listen(":6633")
-    
+
 # Working with OpenVswitch
+
+By default ofctrl tries to connect to local OVS on the host using unix named socket located at  /var/run/openvswitch/<bridge-name>.mgmt. If you want OVS switch to connect to controller on a specified port, use following commands
 
 ### Command to make ovs connect to controller:
 `ovs-vsctl set-controller <bridge-name> tcp:<ip-addr>:<port>`
@@ -120,18 +120,18 @@ Forwarding graph is made up of forwarding elements which determine how a packet 
     +----------+  +----------+  +----------+
 ```
 
- Forwarding graph is made up of Fgraph elements. Currently there are three
+ Forwarding graph is made up of Fgraph elements. Currently there are four
  kinds of elements.
- 
+
     1. Table - Represents a flow table
-    2. Flow - Represents a specific flow 
+    2. Flow - Represents a specific flow
     3. Output - Represents an output action either drop or send it on a port
-
-In future we will support Two additional types.
-
     4. Flood - Represents flood to list of ports
+
+In future we will support an additional type.
+
     5. Multipath - Represents load balancing across a set of ports
-    
+
 Forwarding Graph elements are linked together as follows
 
  - Each Switch has a set of Tables. Switch has a special DefaultTable where all packet lookups start.
@@ -147,7 +147,7 @@ Forwarding Graph elements are linked together as follows
       3. port - sends the packet out of specified port. Tunnels like Vxlan VTEP are also represented as ports.
  - A flow can have additional actions like:
     1. Set Vlan tag
-    2. Set metadata Which is used for setting VRF for a packet 
+    2. Set metadata Which is used for setting VRF for a packet
     3. Set VNI/tunnel header etc
 
  ----------------------------------------------------------------
@@ -155,38 +155,38 @@ Forwarding Graph elements are linked together as follows
 ```
      // Find the switch we want to operate on
      switch := app.Switch
-     
+
      // Create all tables
      rxVlanTbl := switch.NewTable(1)
      macSaTable := switch.NewTable(2)
      macDaTable := switch.NewTable(3)
      ipTable := switch.NewTable(4)
      inpTable := switch.DefaultTable() // table 0. i.e starting table
-    
+
      // Discard mcast source mac
      dscrdMcastSrc := inpTable.NewFlow(FlowMatch{
                                       &McastSrc: { 0x01, 0, 0, 0, 0, 0 }
                                       &McastSrcMask: { 0x01, 0, 0, 0, 0, 0 }
                                       }, 100)
      dscrdMcastSrc.Next(switch.DropAction())
-    
+
      // All valid packets go to vlan table
      validInputPkt := inpTable.NewFlow(FlowMatch{}, 1)
      validInputPkt.Next(rxVlanTbl)
-    
+
      // Set access vlan for port 1 and go to mac lookup
      tagPort := rxVlanTbl.NewFlow(FlowMatch{
                                   InputPort: Port(1)
                                   }, 100)
      tagPort.SetVlan(10)
      tagPort.Next(macSaTable)
-    
+
      // Match on IP dest addr and forward to a port
      ipFlow := ipTable.NewFlow(FlowParams{
                                Ethertype: 0x0800,
                                IpDa: &net.IPv4("10.10.10.10")
                               }, 100)
-    
+
      outPort := switch.NewOutputPort(10)
      ipFlow.Next(outPort)
 ```

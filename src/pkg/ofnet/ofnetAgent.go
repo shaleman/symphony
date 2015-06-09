@@ -12,13 +12,11 @@ package ofnet
 import (
     //"fmt"
     "net"
-    "time"
-    "errors"
+    "net/rpc"
 
-    "pkg/ofctrl"
-    "github.com/shaleman/libOpenflow/openflow13"
-    "github.com/shaleman/libOpenflow/protocol"
-    "pkg/rpcHub"
+
+    "pkg/ofnet/ofctrl"
+    "pkg/ofnet/rpcHub"
 
     log "github.com/Sirupsen/logrus"
 )
@@ -28,12 +26,11 @@ type OfnetAgent struct {
     ctrler      *ofctrl.Controller      // Controller instance
     ofSwitch    *ofctrl.OFSwitch        // Switch instance. Assumes single switch per agent
     localIp     net.IP                  // Local IP to be used for tunnel end points
-    masterDb    map[string]*net.IP      // list of Master's IP address
 
-    // Fgraph tables
-    inputTable  *ofctrl.Table           // Packet lookup starts here
-    vlanTable   *ofctrl.Table           // Vlan Table. map port or VNI to vlan
-    ipTable     *ofctrl.Table           // IP lookup table
+    rpcServ     *rpc.Server             // jsonrpc server
+    datapath    OfnetDatapath           // Configured datapath
+
+    masterDb    map[string]*net.IP      // list of Master's IP address
 
     // Port and VNI to vlan mapping table
     portVlanMap map[uint32]*uint16       // Map port number to vlan
@@ -42,29 +39,17 @@ type OfnetAgent struct {
 
     // VTEP database
     vtepTable   map[string]*uint32      // Map vtep IP to OVS port number
-
-    // Routing table
-    routeTable  map[string]*OfnetRoute  // routes indexed by ip addr
-
-    // Router Mac to be used
-    myRouterMac net.HardwareAddr
 }
 
-// IP Route information
-type OfnetRoute struct {
-    IpAddr          net.IP      // IP address of the end point
-    VrfId           uint16      // IP address namespace
-    OriginatorIp    net.IP      // Originating switch
-    PortNo          uint32      // Port number on originating switch
-    Timestamp       time.Time   // Timestamp of the last event
-}
 
 const FLOW_MATCH_PRIORITY = 100     // Priority for all match flows
 const FLOW_MISS_PRIORITY = 1        // priority for table miss flow
 
+const OFNET_MASTER_PORT = 9001
+const OFNET_AGENT_PORT  = 9002
 
 // Create a new Ofnet agent and initialize it
-func NewOfnetAgent(bridge string, localIp net.IP) (*OfnetAgent, error) {
+func NewOfnetAgent(bridge string, datapath string, localIp net.IP) (*OfnetAgent, error) {
     agent := new(OfnetAgent)
 
     // Init params
@@ -73,18 +58,24 @@ func NewOfnetAgent(bridge string, localIp net.IP) (*OfnetAgent, error) {
     agent.portVlanMap = make(map[uint32]*uint16)
     agent.vniVlanMap = make(map[uint32]*uint16)
     agent.vlanVniMap = make(map[uint16]*uint32)
-    agent.routeTable = make(map[string]*OfnetRoute)
-    agent.vtepTable = make(map[string]*uint32)
 
-    agent.myRouterMac, _ = net.ParseMAC("00:00:11:11:11:11")
+    agent.vtepTable = make(map[string]*uint32)
 
     // Create an openflow controller
     agent.ctrler = ofctrl.NewController(bridge, agent)
 
-
     // Create rpc server
-    rpcServ := rpcHub.NewRpcServer(9002)
-    rpcServ.Register(agent)
+    // FIXME: Create this only once instead of per ofnet agent instance
+    rpcServ := rpcHub.NewRpcServer(OFNET_AGENT_PORT)
+    agent.rpcServ = rpcServ
+
+    // Create the datapath
+    switch datapath {
+    case "vrouter":
+        agent.datapath = NewVrouter(agent, rpcServ)
+    default:
+        log.Fatalf("Unknown Datapath %s", datapath)
+    }
 
     // Return it
     return agent, nil
@@ -97,39 +88,25 @@ func (self *OfnetAgent) SwitchConnected(sw *ofctrl.OFSwitch) {
     // store it for future use.
     self.ofSwitch = sw
 
-    // Init the Fgraph
-    self.initFgraph()
+    // Inform the datapath
+    self.datapath.SwitchConnected(sw)
 }
 
 // Handle switch disconnect event
 func (self *OfnetAgent) SwitchDisconnected(sw *ofctrl.OFSwitch) {
     log.Infof("Switch %v disconnected", sw.DPID())
+
+    // Inform the datapath
+    self.datapath.SwitchDisconnected(sw)
 }
 
 // Receive a packet from the switch.
-func (self *OfnetAgent) PacketRcvd(sw *ofctrl.OFSwitch, pkt *openflow13.PacketIn) {
+func (self *OfnetAgent) PacketRcvd(sw *ofctrl.OFSwitch, pkt *ofctrl.PacketIn) {
     log.Infof("Packet received from switch %v. Packet: %+v", sw.DPID(), pkt)
     log.Infof("Input Port: %+v", pkt.Match.Fields[0].Value)
-    switch(pkt.Data.Ethertype) {
-    case 0x0806:
-        if ((pkt.Match.Type == openflow13.MatchType_OXM) &&
-            (pkt.Match.Fields[0].Class == openflow13.OXM_CLASS_OPENFLOW_BASIC) &&
-            (pkt.Match.Fields[0].Field == openflow13.OXM_FIELD_IN_PORT)) {
-            // Get the input port number
-            switch t := pkt.Match.Fields[0].Value.(type) {
-            case *openflow13.InPortField:
-                var inPortFld openflow13.InPortField
-                inPortFld = *t
 
-                self.processArp(pkt.Data, inPortFld.InPort)
-            }
-
-        }
-
-    case 0x0800:
-    default:
-        log.Errorf("Received unknown ethertype: %x", pkt.Data.Ethertype)
-    }
+    // Inform the datapath
+    self.datapath.PacketRcvd(sw, pkt)
 }
 
 // Add a master
@@ -145,7 +122,7 @@ func (self *OfnetAgent) AddMaster(masterAddr *string, ret *bool) error {
     self.masterDb[*masterAddr] = &masterIp
 
     // Register the agent with the master
-    err := rpcHub.Client(*masterAddr, 9001).Call("OfnetMaster.RegisterNode", &myAddr, &resp)
+    err := rpcHub.Client(*masterAddr, OFNET_MASTER_PORT).Call("OfnetMaster.RegisterNode", &myAddr, &resp)
     if (err != nil) {
         log.Fatalf("Failed to register with the master %s. Err: %v", masterAddr, err)
         return err
@@ -154,53 +131,34 @@ func (self *OfnetAgent) AddMaster(masterAddr *string, ret *bool) error {
     return nil
 }
 
-// Add a local port.
-// This takes ofp port number, mac address, vlan and IP address of the port.
-func (self *OfnetAgent) AddLocalPort(portNo uint32, macAddr net.HardwareAddr,
-                                        vlan uint16, ipAddr net.IP) error {
-    // Add port vlan mapping
-    self.portVlanMap[portNo] = &vlan
+// Remove the master from master DB
+func (self *OfnetAgent) RemoveMaster(masterAddr *string) error {
+    log.Infof("Deleting master: %s", *masterAddr)
 
-    // Install a flow entry for vlan mapping and point it to IP table
-    portVlanFlow, _ := self.vlanTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            InputPort: portNo,
-                        })
-    portVlanFlow.SetVlan(vlan)
-    portVlanFlow.Next(self.ipTable)
-
-    // build the route to add
-    route := OfnetRoute{
-                IpAddr: ipAddr,
-                VrfId: 0,       // FIXME: get a VRF
-                OriginatorIp: self.localIp,
-                PortNo: portNo,
-                Timestamp:  time.Now(),
-            }
-
-    // Add the route to local and master's routing table
-    self.localRouteAdd(&route)
-
-    // Create the output port
-    outPort, _ := self.ofSwitch.NewOutputPort(portNo)
-
-    // Install the IP address
-    ipFlow, _ := self.ipTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            Ethertype: 0x0800,
-                            IpDa: &ipAddr,
-                        })
-    ipFlow.SetMacDa(macAddr)
-    ipFlow.SetMacSa(self.myRouterMac)
-    ipFlow.Next(outPort)
+    // Remove it from DB
+    delete(self.masterDb, *masterAddr)
 
     return nil
 }
 
-// Remove local port
-func (self *OfnetAgent) RemoveLocalPort(portNo uint32) error {
-    // FIXME:
-    return nil
+// Add a local endpoint.
+// This takes ofp port number, mac address, vlan and IP address of the port.
+func (self *OfnetAgent) AddLocalEndpoint(portNo uint32, macAddr net.HardwareAddr,
+                                        vlan uint16, ipAddr net.IP) error {
+    // Add port vlan mapping
+    self.portVlanMap[portNo] = &vlan
+
+    // Call the datapath
+    return self.datapath.AddLocalEndpoint(portNo, macAddr, vlan, ipAddr)
+}
+
+// Remove local endpoint
+func (self *OfnetAgent) RemoveLocalEndpoint(portNo uint32) error {
+    // Clear it from DB
+    delete(self.portVlanMap, portNo)
+
+    // Call the datapath
+    return self.datapath.RemoveLocalEndpoint(portNo)
 }
 
 // Add virtual tunnel end point. This is mainly used for mapping remote vtep IP
@@ -211,191 +169,36 @@ func (self *OfnetAgent) AddVtepPort(portNo uint32, remoteIp net.IP) error {
     // Store the vtep IP to port number mapping
     self.vtepTable[remoteIp.String()] = &portNo
 
-    // Install a flow entry for default VNI/vlan and point it to IP table
-    // FIXME: Need to match on tunnelId and set good vlan id
-    portVlanFlow, _ := self.vlanTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            InputPort: portNo,
-                        })
-    portVlanFlow.SetVlan(1)
-    portVlanFlow.Next(self.ipTable)
-
-    return nil
+    // Call the datapath
+    return self.datapath.AddVtepPort(portNo, remoteIp)
 }
 
 // Remove a VTEP port
-func (self *OfnetAgent) RemoveVtepPort(portNo uint32) error {
-    // FIXME:
-    return nil
+func (self *OfnetAgent) RemoveVtepPort(portNo uint32, remoteIp net.IP) error {
+    // Clear the vtep IP to port number mapping
+    delete(self.vtepTable, remoteIp.String())
+
+    // Call the datapath
+    return self.datapath.RemoveVtepPort(portNo, remoteIp)
 }
+
 // Add a vlan.
 // This is mainly used for mapping vlan id to Vxlan VNI
 func (self *OfnetAgent) AddVlan(vlanId uint16, vni uint32) error {
-    return nil
+    // store it in DB
+    self.vlanVniMap[vlanId] = &vni
+    self.vniVlanMap[vni] = &vlanId
+
+    // Call the datapath
+    return self.datapath.AddVlan(vlanId, vni)
 }
 
-// Add remote route RPC call from master
-func (self *OfnetAgent) RouteAdd(route *OfnetRoute, ret *bool) error {
-    log.Infof("RouteAdd rpc call for route: %+v", route)
+// Remove a vlan from datapath
+func (self *OfnetAgent) RemoveVlan(vlanId uint16, vni uint32) error {
+    // Clear the database
+    delete(self.vlanVniMap, vlanId)
+    delete(self.vniVlanMap, vni)
 
-    // If this is a local route we are done
-    if (route.OriginatorIp.String() == self.localIp.String()) {
-        return nil
-    }
-
-    // First, add the route to local routing table
-    self.routeTable[route.IpAddr.String()] = route
-
-    // Lookup the VTEP for the route
-    vtepPort := self.vtepTable[route.OriginatorIp.String()]
-    if (vtepPort == nil) {
-        log.Errorf("Could not find the VTEP for route: %+v", route)
-
-        return errors.New("VTEP not found")
-    }
-
-    // Install the route in OVS
-
-    // Create an output port for the vtep
-    outPort, _ := self.ofSwitch.NewOutputPort(*vtepPort)
-
-    // Install the IP address
-    ipFlow, _ := self.ipTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            Ethertype: 0x0800,
-                            IpDa: &route.IpAddr,
-                        })
-    ipFlow.SetMacDa(self.myRouterMac)
-    // FIXME: set VNI
-    // This is strictly not required at the source OVS. Source mac will be
-    // overwritten by the dest OVS anyway. We keep the source mac for debugging purposes..
-    // ipFlow.SetMacSa(self.myRouterMac)
-    ipFlow.SetTunnelId(1)   // FIXME: hardcode VNI for now
-    ipFlow.Next(outPort)
-
-    return nil
-}
-
-// Delete remote route RPC call from master
-func (self *OfnetAgent) RouteDel(route *OfnetRoute, ret *bool) error {
-    return nil
-}
-
-// Add a local route to routing table and distribute it
-func (self *OfnetAgent) localRouteAdd(route *OfnetRoute) error {
-    // First, add the route to local routing table
-    self.routeTable[route.IpAddr.String()] = route
-
-    // Send the route to all known masters
-    for masterAddr, _ := range self.masterDb {
-        var resp bool
-
-        log.Infof("Sending route %+v to master %s", route, masterAddr)
-
-        // Make the RPC call to add the route to master
-        err := rpcHub.Client(masterAddr, 9001).Call("OfnetMaster.RouteAdd", route, &resp)
-        if (err != nil) {
-            log.Errorf("Failed to add route %+v to master %s. Err: %v", route, masterAddr, err)
-            return err
-        }
-    }
-
-    return nil
-}
-
-const VLAN_TBL_ID = 1
-const IP_TBL_ID = 2
-
-// initialize Fgraph on the switch
-func (self *OfnetAgent) initFgraph() error {
-    sw := self.ofSwitch
-
-    // Create all tables
-    self.inputTable = sw.DefaultTable()
-    self.vlanTable, _ = sw.NewTable(VLAN_TBL_ID)
-    self.ipTable, _ = sw.NewTable(IP_TBL_ID)
-
-    //Create all drop entries
-    // Drop mcast source mac
-    bcastMac, _ := net.ParseMAC("01:00:00:00:00:00")
-    bcastSrcFlow, _ := self.inputTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            MacSa: &bcastMac,
-                            MacSaMask: &bcastMac,
-                        })
-    bcastSrcFlow.Next(sw.DropAction())
-
-    // Redirect ARP packets to controller
-    arpFlow, _ := self.inputTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MATCH_PRIORITY,
-                            Ethertype: 0x0806,
-                        })
-    arpFlow.Next(sw.SendToController())
-
-    // Send all valid packets to vlan table
-    // This is installed at lower priority so that all packets that miss above
-    // flows will match entry
-    validPktFlow, _ := self.inputTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MISS_PRIORITY,
-                        })
-    validPktFlow.Next(self.vlanTable)
-
-    // Drop all packets that miss Vlan lookup
-    vlanMissFlow, _ := self.vlanTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MISS_PRIORITY,
-                        })
-    vlanMissFlow.Next(sw.DropAction())
-
-    // Drop all packets that miss IP lookup
-    ipMissFlow, _ := self.ipTable.NewFlow(ofctrl.FlowMatch{
-                            Priority: FLOW_MISS_PRIORITY,
-                        })
-    ipMissFlow.Next(sw.DropAction())
-
-    return nil
-}
-
-// Process incoming packet
-func (self *OfnetAgent) processArp(pkt protocol.Ethernet, inPort uint32) {
-    log.Debugf("processing ARP packet on port %d", inPort)
-    switch t := pkt.Data.(type) {
-    case *protocol.ARP:
-        log.Debugf("ARP packet: %+v", *t)
-        var arpHdr protocol.ARP = *t
-
-        switch arpHdr.Operation {
-        case protocol.Type_Request:
-            // FIXME: Send an ARP response only we have a route
-
-            // Form an ARP response
-            arpResp, _ := protocol.NewARP(protocol.Type_Reply)
-            arpResp.HWSrc = self.myRouterMac
-            arpResp.IPSrc = arpHdr.IPDst
-            arpResp.HWDst = arpHdr.HWSrc
-            arpResp.IPDst = arpHdr.IPSrc
-
-            log.Infof("Sending ARP response: %+v", arpResp)
-
-            // build the ethernet packet
-            ethPkt := protocol.NewEthernet()
-            ethPkt.HWDst = arpResp.HWDst
-            ethPkt.HWSrc = arpResp.HWSrc
-            ethPkt.Ethertype = 0x0806
-            ethPkt.Data = arpResp
-
-            log.Infof("Sending ARP response Ethernet: %+v", ethPkt)
-
-            // Packet out
-            pktOut := openflow13.NewPacketOut()
-            pktOut.Data = ethPkt
-            pktOut.AddAction(openflow13.NewActionOutput(inPort))
-
-            log.Infof("Sending ARP response packet: %+v", pktOut)
-
-            // Send it out
-            self.ofSwitch.Send(pktOut)
-        default:
-            log.Infof("Dropping ARP response packet from port %d", inPort)
-        }
-    }
+    // Call the datapath
+    return self.datapath.RemoveVlan(vlanId, vni)
 }
