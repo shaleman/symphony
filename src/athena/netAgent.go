@@ -10,7 +10,7 @@ import (
     "pkg/ovsdriver"
     "pkg/altaspec"
     "pkg/netutils"
-    "pkg/ofnet"
+    "github.com/contiv/ofnet"
 
     "github.com/jainvipin/bitset"
     "github.com/golang/glog"

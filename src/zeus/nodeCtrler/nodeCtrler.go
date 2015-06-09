@@ -6,7 +6,7 @@ import (
     "pkg/altaspec"
     // "pkg/confStore"
     "pkg/confStore/confStoreApi"
-    "pkg/ofnet/rpcHub"
+    "github.com/contiv/ofnet/rpcHub"
 
     "github.com/golang/glog"
 )

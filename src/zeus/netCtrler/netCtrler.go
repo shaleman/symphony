@@ -8,7 +8,7 @@ import (
     "zeus/rsrcMgr"
 
     "pkg/altaspec"
-    "pkg/ofnet"
+    "github.com/contiv/ofnet"
 
     "github.com/golang/glog"
 )
@@ -49,7 +49,7 @@ func Init() {
 
     // Initialize ofnet master
     netCtrl.ofnetMaster = ofnet.NewOfnetMaster()
-    
+
     glog.Infof("netCtrl: %#v", netCtrl)
 
     // Check if global network resources are created/restored
