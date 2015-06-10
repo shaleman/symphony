@@ -13,7 +13,7 @@ import (
     "github.com/contiv/ofnet"
 
     "github.com/jainvipin/bitset"
-    "github.com/golang/glog"
+    log "github.com/Sirupsen/logrus"
 )
 
 const USABLE_VLAN_START = 2
@@ -45,20 +45,16 @@ func NewNetAgent() *NetAgent {
     netAgent.ovsDriver = ovsdriver.NewOvsDriver()
     bridge := netAgent.ovsDriver.OvsBridgeName
 
-    /* FIXME: This is not required since we use unix domain sockets
-     *        Uncomment it to user server mode where we listen to socket
-     *        for OVS to connect to
     // Add the local controller
     err := netAgent.ovsDriver.AddController("127.0.0.1", 6633)
     if (err != nil) {
-        glog.Fatalf("Failed to add local controller to OVS. Err: %v", err)
+        log.Fatalf("Failed to add local controller to OVS. Err: %v", err)
     }
-    */
 
     // Get our local IP address
     localIpAddr, err := cStore.GetLocalAddr()
     if (err != nil) {
-        glog.Fatalf("Could not find a local address to bind to. Err %v", err)
+        log.Fatalf("Could not find a local address to bind to. Err %v", err)
     }
 
     // Create an ofnet agent
@@ -89,7 +85,7 @@ func (self *NetAgent) CreateNetwork(name string) error {
     // FIXME: Move Vlan allocation to Zeus since we dont want any state here
     vlanTag, found := self.vlanBitset.NextClear(USABLE_VLAN_START)
     if (!found) {
-        glog.Errorf("No available vlan Id for network %s", name)
+        log.Errorf("No available vlan Id for network %s", name)
         return errors.New("Vlan range full")
     }
 
@@ -106,7 +102,7 @@ func (self *NetAgent) CreateNetwork(name string) error {
 func (self *NetAgent) DeleteNetwork(name string) error {
     // Check if the network exists
     if (self.networkDb[name] == nil) {
-        glog.Errorf("Network %s not found", name)
+        log.Errorf("Network %s not found", name)
         return errors.New("Network not found")
     }
 
@@ -124,7 +120,7 @@ func (self *NetAgent) DeleteNetwork(name string) error {
 func (self *NetAgent) GetNetwork(name string) (*NetState, error) {
     // Check if the network exists
     if (self.networkDb[name] == nil) {
-        glog.Errorf("Network %s not found", name)
+        log.Errorf("Network %s not found", name)
         return nil, errors.New("Network not found")
     }
 
@@ -137,7 +133,7 @@ func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
     // First get the vlanTag for the network
     netState, err := self.GetNetwork(NetworkName)
     if (err != nil) {
-        glog.Errorf("Network %s does not exist", NetworkName)
+        log.Errorf("Network %s does not exist", NetworkName)
         return "", err
     }
 
@@ -155,7 +151,7 @@ func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
     // Create the OVS port
     err = self.ovsDriver.CreatePort(portName, "internal", netState.VlanTag)
     if (err != nil) {
-        glog.Errorf("Error creating a port. Err %v", err)
+        log.Errorf("Error creating a port. Err %v", err)
         return "", err
     }
 
@@ -168,7 +164,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     // Create the port
     portName, err := self.createNetIntf(ifSpec.NetworkName)
     if (err != nil) {
-        glog.Errorf("Error creating network intf %+v\n. Error: %v\n", err)
+        log.Errorf("Error creating network intf %+v\n. Error: %v\n", err)
         return "", err
     }
 
@@ -179,7 +175,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     // Move it to container namespace
     err = netutils.MoveIntfToNetns(portName, contPid)
     if (err != nil) {
-        glog.Errorf("Error moving network intf %s to contPid %d\n. Error: %v\n",
+        log.Errorf("Error moving network intf %s to contPid %d\n. Error: %v\n",
                     portName, contPid, err)
         return "", err
     }
@@ -196,7 +192,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     // Rename the intf inside the namespace and assign Mac and IP address
     err = netutils.SetNetnsIntfIdentity(contPid, portName, intfIdentity)
     if (err != nil){
-        glog.Errorf("Error Setting intf %s identity: %+v\n. Error: %v\n",
+        log.Errorf("Error Setting intf %s identity: %+v\n. Error: %v\n",
                     portName, intfIdentity, err)
         return "", err
     }
@@ -204,23 +200,29 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     // Get OFP port number
     ofpPort, err := self.ovsDriver.GetOfpPortNo(portName)
     if (err != nil) {
-        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        log.Errorf("Error getting OFP port number from OVS. Err: %v", err)
         return "", err
     }
 
     // First get the vlanTag for the network
     netState, err := self.GetNetwork(ifSpec.NetworkName)
     if (err != nil) {
-        glog.Errorf("Network %s does not exist", ifSpec.NetworkName)
+        log.Errorf("Network %s does not exist", ifSpec.NetworkName)
         return "", err
     }
 
-    // Add local port to ofnet
     intfMac, _ := net.ParseMAC(ifSpec.IntfMacAddr)
-    err = self.ofnetAgent.AddLocalEndpoint(ofpPort, intfMac, uint16(netState.VlanTag),
-                                    net.ParseIP(ifSpec.IntfIpv4Addr))
+    endpoint := ofnet.EndpointInfo{
+        PortNo: ofpPort,
+        MacAddr: intfMac,
+        Vlan: uint16(netState.VlanTag),
+        IpAddr: net.ParseIP(ifSpec.IntfIpv4Addr),
+    }
+
+    // Add local port to ofnet
+    err = self.ofnetAgent.AddLocalEndpoint(endpoint)
     if (err != nil) {
-        glog.Errorf("Error adding local port %s to ofnetAgent. Err: %v", portName, err)
+        log.Errorf("Error adding local port %s to ofnetAgent. Err: %v", portName, err)
         return "", err
     }
 
@@ -232,21 +234,21 @@ func (self *NetAgent) DeleteAltaIntf(portName string) error {
     // Get OFP port number
     ofpPort, err := self.ovsDriver.GetOfpPortNo(portName)
     if (err != nil) {
-        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        log.Errorf("Error getting OFP port number from OVS. Err: %v", err)
         return err
     }
 
     // Remove the endpoint from ofnet agent
     err = self.ofnetAgent.RemoveLocalEndpoint(ofpPort)
     if (err != nil) {
-        glog.Errorf("Failed to remove ofnet port: %s", portName)
+        log.Errorf("Failed to remove ofnet port: %s", portName)
         return err
     }
 
     // Finally delete the port in OVS
     err = self.ovsDriver.DeletePort(portName)
     if (err != nil) {
-        glog.Errorf("Error deleting port %s. Error: %v", portName, err)
+        log.Errorf("Error deleting port %s. Error: %v", portName, err)
     }
 
     return err
@@ -276,7 +278,7 @@ func (self *NetAgent) AddPeerHost(peerAddr string) error {
         // Create the OVS VTEP port
         err := self.ovsDriver.CreateVtep(vtepName, peerAddr)
         if (err != nil) {
-            glog.Errorf("Error creating a VTEP. Err %v", err)
+            log.Errorf("Error creating a VTEP. Err %v", err)
             return err
         }
 
@@ -288,14 +290,14 @@ func (self *NetAgent) AddPeerHost(peerAddr string) error {
     // Get OFP port number for the VTEP
     ofpPort, err := self.ovsDriver.GetOfpPortNo(vtepName)
     if (err != nil) {
-        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        log.Errorf("Error getting OFP port number from OVS. Err: %v", err)
         return err
     }
 
     // Inform Ofnet about the VTEP
     err = self.ofnetAgent.AddVtepPort(ofpPort, net.ParseIP(peerAddr))
     if (err != nil) {
-        glog.Errorf("Error adding VTEP port to ofnet. Err: ", err)
+        log.Errorf("Error adding VTEP port to ofnet. Err: ", err)
         return err
     }
 
@@ -316,21 +318,21 @@ func (self *NetAgent) RemovePeerHost(peerAddr string) error {
     // Get OFP port number for the VTEP
     ofpPort, err := self.ovsDriver.GetOfpPortNo(*vtepName)
     if (err != nil) {
-        glog.Errorf("Error getting OFP port number from OVS. Err: %v", err)
+        log.Errorf("Error getting OFP port number from OVS. Err: %v", err)
         return err
     }
 
     // remove the VTEP from ofnet
     err = self.ofnetAgent.RemoveVtepPort(ofpPort, net.ParseIP(peerAddr))
     if (err != nil) {
-        glog.Errorf("Error removing vtep port from ofnet. Err: %v", err)
+        log.Errorf("Error removing vtep port from ofnet. Err: %v", err)
         return err
     }
 
     // Ask OVS driver to delete the vtep
     err = self.ovsDriver.DeleteVtep(*vtepName)
     if (err != nil) {
-        glog.Errorf("Error deleting vtep port %s. Err: %v", vtepName, err)
+        log.Errorf("Error deleting vtep port %s. Err: %v", vtepName, err)
         return err
     }
 

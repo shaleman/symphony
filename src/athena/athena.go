@@ -9,7 +9,7 @@ import (
     "pkg/confStore"
     "pkg/confStore/confStoreApi"
 
-    "github.com/golang/glog"
+    log "github.com/Sirupsen/logrus"
 )
 
 const API_PORT   = 8100     // Athena listens for REST api on this port
@@ -31,12 +31,14 @@ var localIpAddr net.IP
 // Register the node with registry
 func registerNode() {
     // Wait for everything to be initialized before advertizing ourselves
-    time.Sleep(time.Second * 1)
+    // FIXME: we need OVS to be connected before we connect to zeus. OVS can take up
+    // to 10 second to connect to controller
+    time.Sleep(time.Second * 10)
 
     // Get the local address to bind to
     localIpAddr, err := cStore.GetLocalAddr()
     if (err != nil) {
-        glog.Fatalf("Could not find a local address to bind to. Err %v", err)
+        log.Fatalf("Could not find a local address to bind to. Err %v", err)
     }
 
     srvInfo := confStoreApi.ServiceInfo {
@@ -48,10 +50,10 @@ func registerNode() {
     // Register the node with service registry
     err = cStore.RegisterService(srvInfo)
     if (err != nil) {
-        glog.Fatalf("Error registering service. Err: %v", err)
+        log.Fatalf("Error registering service. Err: %v", err)
     }
 
-    glog.Infof("Registered athena service with registry")
+    log.Infof("Registered athena service with registry")
 }
 
 // Main function
@@ -62,7 +64,7 @@ func main() {
     // Make sure we are running as root
     usr, _ := user.Current()
     if (usr.Username != "root") {
-        glog.Fatalf("This process can only be run as root")
+        log.Fatalf("This process can only be run as root")
     }
 
     // create conf store

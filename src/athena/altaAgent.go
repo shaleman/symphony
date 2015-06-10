@@ -7,7 +7,7 @@ import (
     "pkg/libdocker"
     "pkg/altaspec"
 
-    "github.com/golang/glog"
+    log "github.com/Sirupsen/logrus"
 )
 
 // State of Alta instance
@@ -59,7 +59,7 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec)  (*AltaState, error)
         // Get host directory where volume is mounted
         hostDir, err := volumeAgent.GetBindVolumeDir(volBind)
         if (err != nil) {
-            glog.Errorf("Error getting mount point for %+v. Err: %v", volBind, err)
+            log.Errorf("Error getting mount point for %+v. Err: %v", volBind, err)
         } else {
             // Form string in the form hostDir:bindMountDir
             volOptStr := hostDir + ":" + volBind.BindMountPoint
@@ -69,7 +69,7 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec)  (*AltaState, error)
         }
     }
 
-    glog.Infof("Volume spec: %+v\n, Volume binds: %+v\n", altaSpec.Volumes, volumeBinds)
+    log.Infof("Volume spec: %+v\n, Volume binds: %+v\n", altaSpec.Volumes, volumeBinds)
 
     // Convert Alta spec to container spec
     containerSpec := libdocker.ContainerSpec{
@@ -97,7 +97,7 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec)  (*AltaState, error)
     // Create the docker container
     dockerCtx, err := libdocker.CreateContainer(&containerSpec)
     if (err != nil) {
-        glog.Errorf("Error creating docker container %+v. Error %v", containerSpec, err)
+        log.Errorf("Error creating docker container %+v. Error %v", containerSpec, err)
         return nil, err
     }
 
@@ -138,14 +138,14 @@ func (self *AltaMgr) StartAlta(altaId string) error {
     // find the alta in DB
     altaState := self.altaDb[altaId]
     if (altaState == nil) {
-        glog.Errorf("Could not find Alta %s", altaId)
+        log.Errorf("Could not find Alta %s", altaId)
         return errors.New("Alta does not exists")
     }
 
     // Start the container
     err := altaState.containerCtx.StartContainer()
     if (err != nil) {
-        glog.Errorf("Error starting the container %s, Error %v", altaState.ContainerId, err)
+        log.Errorf("Error starting the container %s, Error %v", altaState.ContainerId, err)
         return err
     }
 
@@ -159,7 +159,7 @@ func (self *AltaMgr) StartAlta(altaId string) error {
         // Create interface
         portName, err := netAgent.CreateAltaIntf(contPid, ifNum, &ifSpec)
         if (err != nil) {
-            glog.Errorf("Error creating network interface. %+v\n. Error: %v\n", ifSpec, err)
+            log.Errorf("Error creating network interface. %+v\n. Error: %v\n", ifSpec, err)
         } else {
             // Save the port names for later cleanup
             // FIXME: This is another state that exists on athena
@@ -175,14 +175,14 @@ func (self *AltaMgr) StopAlta(altaId string) error {
     // find the alta in DB
     altaState := self.altaDb[altaId]
     if (altaState == nil) {
-        glog.Errorf("Could not find Alta %s", altaId)
+        log.Errorf("Could not find Alta %s", altaId)
         return errors.New("Alta does not exists")
     }
 
     // Stop the container
     err := altaState.containerCtx.StopContainer()
     if (err != nil) {
-        glog.Errorf("Error stopping the container %s, Error %v", altaState.ContainerId, err)
+        log.Errorf("Error stopping the container %s, Error %v", altaState.ContainerId, err)
         return err
     }
 
@@ -204,14 +204,14 @@ func (self *AltaMgr) RemoveAlta(altaId string) error {
     // find the alta in DB
     altaState := self.altaDb[altaId]
     if (altaState == nil) {
-        glog.Errorf("Could not find Alta %s", altaId)
+        log.Errorf("Could not find Alta %s", altaId)
         return errors.New("Alta does not exists")
     }
 
     // Stop the container
     err := altaState.containerCtx.RemoveContainer()
     if (err != nil) {
-        glog.Errorf("Error removing the container %s, Error %v", altaState.ContainerId, err)
+        log.Errorf("Error removing the container %s, Error %v", altaState.ContainerId, err)
         return err
     }
 

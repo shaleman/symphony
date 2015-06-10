@@ -7,7 +7,7 @@ import (
     "pkg/altaspec"
     "pkg/cephdriver"
 
-    "github.com/golang/glog"
+    log "github.com/Sirupsen/logrus"
 )
 
 type VolumeAgent struct {
@@ -33,12 +33,12 @@ func (self *VolumeAgent) createHostVolume(volumeName string) error {
     // Create the directories
     err := os.Mkdir(dataStoreDir, 0700)
     if err != nil && !os.IsExist(err) {
-        glog.Errorf("error creating '%s' direcotry \n", dataStoreDir)
+        log.Errorf("error creating '%s' direcotry \n", dataStoreDir)
         return err
     }
     err = os.Mkdir(volumeDir, 0777)
     if err != nil && !os.IsExist(err) {
-        glog.Errorf("error creating '%s' direcotry \n", volumeDir)
+        log.Errorf("error creating '%s' direcotry \n", volumeDir)
         return err
     }
 
@@ -54,7 +54,7 @@ func (self *VolumeAgent) deleteHostVolume(volumeName string) error {
     // Remove the mounted directory
     err := os.Remove(volumeDir)
     if err != nil {
-        glog.Errorf("error removing '%s' direcotry \n", volumeDir)
+        log.Errorf("error removing '%s' direcotry \n", volumeDir)
     }
 
     return nil
@@ -81,7 +81,7 @@ func (self *VolumeAgent) CreateVolume(volumeSpec altaspec.AltaVolumeSpec) error 
         return nil
 
     default:
-        glog.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
+        log.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
         return errors.New("Unknown datastore type")
     }
 }
@@ -99,7 +99,7 @@ func (self *VolumeAgent) MountVolume(volumeSpec altaspec.AltaVolumeSpec) error {
         return self.createHostVolume(volumeSpec.DatastoreVolumeId)
 
     default:
-        glog.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
+        log.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
         return errors.New("Unknown datastore type")
     }
 }
@@ -117,7 +117,7 @@ func (self *VolumeAgent) UnmountVolume(volumeSpec altaspec.AltaVolumeSpec) error
         return self.deleteHostVolume(volumeSpec.DatastoreVolumeId)
 
     default:
-        glog.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
+        log.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
         return errors.New("Unknown datastore type")
     }
 }
@@ -134,7 +134,7 @@ func (self *VolumeAgent) DeleteVolume(volumeSpec altaspec.AltaVolumeSpec) error 
         return nil
 
     default:
-        glog.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
+        log.Errorf("Unknown datastore type %s", volumeSpec.DatastoreType)
         return errors.New("Unknown datastore type")
     }
 }
@@ -151,7 +151,7 @@ func (self *VolumeAgent) GetBindVolumeDir(volumeBind altaspec.AltaVolumeBind) (s
         return "/mnt/hostvols/" + volumeBind.DatastoreVolumeId, nil
 
     default:
-        glog.Errorf("Unknown datastore type %s", volumeBind.DatastoreType)
+        log.Errorf("Unknown datastore type %s", volumeBind.DatastoreType)
         return "", errors.New("Unknown datastore type")
     }
 }

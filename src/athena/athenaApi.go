@@ -3,7 +3,6 @@ package main
 import (
     "os"
     // "fmt"
-    "log"
     // "time"
     "strconv"
     "net/http"
@@ -13,7 +12,7 @@ import (
     "pkg/altaspec"
     "pkg/psutil"
 
-    "github.com/golang/glog"
+    log "github.com/Sirupsen/logrus"
     "github.com/gorilla/mux"
 )
 
@@ -27,7 +26,7 @@ func createServer(port int) {
     // Create a router
     router := createRouter()
 
-    glog.Infof("HTTP server listening on %s", listenAddr)
+    log.Infof("HTTP server listening on %s", listenAddr)
 
     // Start the HTTP server
     log.Fatal(http.ListenAndServe(listenAddr, router))
@@ -69,7 +68,7 @@ func createRouter() *mux.Router {
     // Register each method/path
     for method, routes := range routeMap {
         for route, funct := range routes {
-            glog.Infof("Registering %s %s", method, route)
+            log.Infof("Registering %s %s", method, route)
 
             // NOTE: scope issue, make sure the variables are local and won't be changed
             localRoute := route
@@ -92,20 +91,20 @@ func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiF
     // Create a closure and return an anonymous function
     return func(w http.ResponseWriter, r *http.Request) {
         // log the request
-        glog.Infof("Calling %s %s", localMethod, localRoute)
-        glog.Infof("%s %s", r.Method, r.RequestURI)
+        log.Infof("Calling %s %s", localMethod, localRoute)
+        log.Infof("%s %s", r.Method, r.RequestURI)
 
         // Call the handler
         resp, err := handlerFunc(w, r, mux.Vars(r));
         if (err != nil) {
             // Log error
-            glog.Errorf("Handler for %s %s returned error: %s", localMethod, localRoute, err)
+            log.Errorf("Handler for %s %s returned error: %s", localMethod, localRoute, err)
 
             // Send HTTP response
             http.Error(w, err.Error(), http.StatusInternalServerError)
         } else {
             respJson, _ := json.Marshal(resp)
-            glog.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+            log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
 
             // Send HTTP response as Json
             writeJSON(w, http.StatusOK, resp)
@@ -132,12 +131,12 @@ func writeJSON(w http.ResponseWriter, code int, v interface{}) error {
 
 // Check if an image present on the host
 func httpGetIsImagePresent(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    glog.Infof("Received GET isImagePresent: %+v", vars)
+    log.Infof("Received GET isImagePresent: %+v", vars)
 
     imgName := vars["imgName"]
     isPresent, err := libdocker.IsImagePresent(imgName)
     if (err != nil) {
-        glog.Errorf("Error checking if image present. Err %v", err)
+        log.Errorf("Error checking if image present. Err %v", err)
     }
 
     // Create a struct to return
@@ -151,7 +150,7 @@ func httpGetIsImagePresent(w http.ResponseWriter, r *http.Request, vars map[stri
 
 // Get a list of all running Alta containers
 func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    glog.Infof("Received GET alta list: %+v", vars)
+    log.Infof("Received GET alta list: %+v", vars)
 
     altaList := make([]*AltaState, 0)
     altaMap := altaMgr.ListAlta()
@@ -163,14 +162,14 @@ func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]str
 
 // Get info about specific Alta container
 func httpGetAltaInfo(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    glog.Infof("Received GET alta info: %+v", vars)
+    log.Infof("Received GET alta info: %+v", vars)
 
     return nil, nil
 }
 
 // Pull an image from the registry
 func httpPostImagePull(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    glog.Infof("Received POST image pull request. params: %+v", vars)
+    log.Infof("Received POST image pull request. params: %+v", vars)
     success := true
 
     imgName := vars["imgName"]
@@ -178,7 +177,7 @@ func httpPostImagePull(w http.ResponseWriter, r *http.Request, vars map[string]s
     // Ask docker to pull the image
     err := libdocker.PullImage(imgName)
     if (err != nil) {
-        glog.Errorf("Error pulling image %s, err %v", imgName, err)
+        log.Errorf("Error pulling image %s, err %v", imgName, err)
         success = false
     }
 
@@ -198,14 +197,14 @@ func httpPostAltaCreate(w http.ResponseWriter, r *http.Request, vars map[string]
     decoder := json.NewDecoder(r.Body)
     err := decoder.Decode(&createReq)
     if (err != nil) {
-        glog.Errorf("Error decoding create request. Err %v", err)
+        log.Errorf("Error decoding create request. Err %v", err)
         return nil, err
     }
 
     // Ask altaMgr to create it
     alta, err := altaMgr.CreateAlta(createReq)
     if (err != nil) {
-        glog.Errorf("Error creating Alta %+v. Error %v", createReq, err)
+        log.Errorf("Error creating Alta %+v. Error %v", createReq, err)
         return nil, err
     }
 
@@ -220,7 +219,7 @@ func httpPostAltaStart(w http.ResponseWriter, r *http.Request, vars map[string]s
     // Start the alta
     err := altaMgr.StartAlta(altaId)
     if (err != nil) {
-        glog.Errorf("Error starting Alta %s, Error: %v", altaId, err)
+        log.Errorf("Error starting Alta %s, Error: %v", altaId, err)
         return nil, err
     }
 
@@ -241,7 +240,7 @@ func httpPostAltaStop(w http.ResponseWriter, r *http.Request, vars map[string]st
     // Stop the alta
     err := altaMgr.StopAlta(altaId)
     if (err != nil) {
-        glog.Errorf("Error starting Alta %s, Error: %v", altaId, err)
+        log.Errorf("Error starting Alta %s, Error: %v", altaId, err)
         return nil, err
     }
 
@@ -262,7 +261,7 @@ func httpRemoveAlta(w http.ResponseWriter, r *http.Request, vars map[string]stri
     // Remove the alta
     err := altaMgr.RemoveAlta(altaId)
     if (err != nil) {
-        glog.Errorf("Error removing Alta %s, Error: %v", altaId, err)
+        log.Errorf("Error removing Alta %s, Error: %v", altaId, err)
         return nil, err
     }
 
@@ -289,7 +288,7 @@ func httpPostNetworkCreate(w http.ResponseWriter, r *http.Request, vars map[stri
     // Create the network
     err := netAgent.CreateNetwork(networkName)
     if (err != nil) {
-        glog.Errorf("Error creating network %s, Error: %v", networkName, err)
+        log.Errorf("Error creating network %s, Error: %v", networkName, err)
         return nil, err
     }
 
@@ -310,7 +309,7 @@ func httpRemoveNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
     // Create the network
     err := netAgent.DeleteNetwork(networkName)
     if (err != nil) {
-        glog.Errorf("Error deleting network %s, Error: %v", networkName, err)
+        log.Errorf("Error deleting network %s, Error: %v", networkName, err)
         return nil, err
     }
 
@@ -331,14 +330,14 @@ func httpPostVolumeCreate(w http.ResponseWriter, r *http.Request, vars map[strin
     decoder := json.NewDecoder(r.Body)
     err := decoder.Decode(&volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error decoding create volume request. Err %v", err)
+        log.Errorf("Error decoding create volume request. Err %v", err)
         return nil, err
     }
 
     // Ask altaMgr to create it
     err = volumeAgent.CreateVolume(volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error creating volume %+v. Error %v", volumeSpec, err)
+        log.Errorf("Error creating volume %+v. Error %v", volumeSpec, err)
         return nil, err
     }
 
@@ -358,14 +357,14 @@ func httpPostVolumeMount(w http.ResponseWriter, r *http.Request, vars map[string
     decoder := json.NewDecoder(r.Body)
     err := decoder.Decode(&volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error decoding mount volume request. Err %v", err)
+        log.Errorf("Error decoding mount volume request. Err %v", err)
         return nil, err
     }
 
     // Ask altaMgr to create it
     err = volumeAgent.MountVolume(volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error mounting volume %+v. Error %v", volumeSpec, err)
+        log.Errorf("Error mounting volume %+v. Error %v", volumeSpec, err)
         return nil, err
     }
 
@@ -385,14 +384,14 @@ func httpPostVolumeUnmount(w http.ResponseWriter, r *http.Request, vars map[stri
     decoder := json.NewDecoder(r.Body)
     err := decoder.Decode(&volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error decoding unmount volume request. Err %v", err)
+        log.Errorf("Error decoding unmount volume request. Err %v", err)
         return nil, err
     }
 
     // Ask altaMgr to create it
     err = volumeAgent.UnmountVolume(volumeSpec)
     if (err != nil) {
-        glog.Errorf("Error unmounting volume %+v. Error %v", volumeSpec, err)
+        log.Errorf("Error unmounting volume %+v. Error %v", volumeSpec, err)
         return nil, err
     }
 
@@ -406,7 +405,7 @@ func httpPostVolumeUnmount(w http.ResponseWriter, r *http.Request, vars map[stri
 
 // Check if an image present on the host
 func httpGetNodeInfo(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    glog.Infof("Received GET node info")
+    log.Infof("Received GET node info")
 
     // Get the number of CPU
     numCpu, _ := psutil.CPUCounts(true)
@@ -440,7 +439,7 @@ func httpPostPeerAdd(w http.ResponseWriter, r *http.Request, vars map[string]str
 
     err := netAgent.AddPeerHost(peerAddr)
     if (err != nil) {
-        glog.Errorf("Error adding peer host %s. Err: %v", peerAddr, err)
+        log.Errorf("Error adding peer host %s. Err: %v", peerAddr, err)
         return nil, err
     }
 
@@ -458,7 +457,7 @@ func httpRemovePeer(w http.ResponseWriter, r *http.Request, vars map[string]stri
 
     err := netAgent.RemovePeerHost(peerAddr)
     if (err != nil) {
-        glog.Errorf("Error removing peer host %s. Err: %v", peerAddr, err)
+        log.Errorf("Error removing peer host %s. Err: %v", peerAddr, err)
         return nil, err
     }
 
