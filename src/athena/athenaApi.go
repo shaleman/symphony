@@ -50,7 +50,7 @@ func createRouter() *mux.Router {
             "/alta/create":                  httpPostAltaCreate,
             "/alta/{altaId}/start":          httpPostAltaStart,
             "/alta/{altaId}/stop":           httpPostAltaStop,
-            "/network/{networkName}/create": httpPostNetworkCreate,
+            "/network/create":               httpPostNetworkCreate,
             "/peer/{peerAddr}":              httpPostPeerAdd,
             "/volume/create":                httpPostVolumeCreate,
             "/volume/mount":                 httpPostVolumeMount,
@@ -282,13 +282,19 @@ func httpRemoveImage(w http.ResponseWriter, r *http.Request, vars map[string]str
 
 // Create a network
 func httpPostNetworkCreate(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-    // Get the network name
-    networkName := vars["networkName"]
+    var netReq altaspec.AltaNetSpec
+
+    // Get Alta parameters from the request
+    err := json.NewDecoder(r.Body).Decode(&netReq)
+    if (err != nil) {
+        log.Errorf("Error decoding network create request. Err %v", err)
+        return nil, err
+    }
 
     // Create the network
-    err := netAgent.CreateNetwork(networkName)
+    err = netAgent.CreateNetwork(netReq)
     if (err != nil) {
-        log.Errorf("Error creating network %s, Error: %v", networkName, err)
+        log.Errorf("Error creating network %s, Error: %v", netReq.NetworkName, err)
         return nil, err
     }
 

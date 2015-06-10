@@ -6,6 +6,7 @@ import (
     "strconv"
 
     "zeus/rsrcMgr"
+    "zeus/nodeCtrler"
 
     "pkg/altaspec"
     "github.com/contiv/ofnet"
@@ -28,6 +29,7 @@ type Network struct {
     IPv4Subnet      net.IPNet       // IP Subnet for this network
     IPv4Gateway     net.IP          // Default IPv4 gateway
     DnsAddr         []net.IP        // DNS addresses
+    NetSpec         altaspec.AltaNetSpec    // Network parameters
     EndPoints       map[string]*EndPoint // List of end points in this network
 }
 
@@ -140,6 +142,14 @@ func NewNetwork(name string) (*Network, error) {
         return nil, err
     }
 
+    // Initialize Netspec
+    // FIXME: initialize both Vlan and VNI to be same as networkId
+    network.NetSpec = altaspec.AltaNetSpec{
+        NetworkName: name,
+        VlanId: uint16(network.NetworkId),
+        Vni: uint32(network.NetworkId),
+    }
+
     // Create subnet address resource for the network
     // assuming /24 and reserve .0, .1 & .255 addresses
     err = addNetRsrcProvider("subnetAddr", name, 253)
@@ -151,7 +161,7 @@ func NewNetwork(name string) (*Network, error) {
     // WARNING: there is a dangerous assumption on IP addresses here
     netLsb := byte(network.NetworkId % 256)
     netMsb := byte(network.NetworkId / 256)
-    netSubnet := netCtrl.IPv4SubnetStart
+    netSubnet:= net.ParseIP(netCtrl.IPv4SubnetStart.String())   // copy the slice
     netSubnet[13] += netMsb; netSubnet[14] += netLsb;
     network.IPv4Subnet = net.IPNet{
         IP: netSubnet,
@@ -173,6 +183,9 @@ func NewNetwork(name string) (*Network, error) {
 
     glog.Infof("Created network: %+v", network)
 
+    // Send network info to all nodes
+    nodeCtrler.NetSpecBcast(network.NetSpec)
+
     // done
     return network, nil
 }
@@ -186,6 +199,16 @@ func FindNetwork(name string) (*Network, error) {
     return netCtrl.networkDb[name], nil
 }
 
+// Return a list of all existing networks
+func ListNetwork(name string) []*Network {
+    netList := make([]*Network, 0)
+
+    for _, net := range netCtrl.networkDb {
+        netList = append(netList, net)
+    }
+
+    return netList
+}
 // Create a new network end point
 func (self *Network) NewEndPoint(epKey string) (*EndPoint, error) {
     // If the end point already exists, just return it
@@ -247,7 +270,7 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
 
     epKey := altaId + "." + strconv.Itoa(ifNum)
 
-    // Create an end point on the networ
+    // Create an end point on the network
     endPoint, err := network.NewEndPoint(epKey)
     if (err != nil) {
         glog.Errorf("Error creating end point %s/%s", netName, epKey)
@@ -262,6 +285,8 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
         IntfIpv4Masklen: 24,
         Ipv4Gateway:     network.IPv4Gateway.String(),
     }
+
+    glog.Infof("Created Alta interface: %+v", altaNetIf)
 
     // done
     return &altaNetIf, nil

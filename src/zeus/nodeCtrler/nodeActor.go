@@ -236,3 +236,17 @@ func (self *Node) NodePostReq(path string, req interface{}, resp interface{}) er
 
     return nil
 }
+
+// Push network info to node
+func (self *Node) PushNetwork(netSpec altaspec.AltaNetSpec) error {
+    var resp altaspec.ReqSuccess
+    url := "/network/create"
+    err := self.NodePostReq(url, netSpec, &resp)
+    if (err != nil) {
+        glog.Errorf("Error sending network %s to node %s. Err: %v",
+                    netSpec.NetworkName, self.HostAddr, err)
+        return err
+    }
+
+    return nil
+}

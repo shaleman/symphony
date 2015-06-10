@@ -4,6 +4,7 @@ import (
     // "fmt"
 )
 
+// Volume parameters
 type AltaVolumeSpec struct {
     DatastoreType       string  // host volumes, Ceph/gluster/nfs/FC etc
     DatastoreVolumeId   string  // Volume identifier on the datastore device name/directory etc
@@ -15,6 +16,13 @@ type AltaVolumeBind struct {
     DatastoreType       string  // host volumes, Ceph/gluster/nfs/FC etc
     DatastoreVolumeId   string  // Volume identifier on the datastore device name/directory etc
     BindMountPoint      string  // Where to mount it on the container
+}
+
+// Network parameters
+type AltaNetSpec struct {
+    NetworkName     string      // Name of the network
+    VlanId          uint16      // Vlan Id
+    Vni             uint32      // Virtual network id(Vxlan VNI)
 }
 
 // Network interface definition

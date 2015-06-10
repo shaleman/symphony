@@ -20,16 +20,11 @@ const USABLE_VLAN_START = 2
 const USABLE_VLAN_END = 4094
 
 
-type NetState struct {
-    Name        string
-    VlanTag     uint
-}
-
 type NetAgent struct {
     ovsDriver       *ovsdriver.OvsDriver
     ofnetAgent      *ofnet.OfnetAgent
 
-    networkDb       map[string]*NetState
+    networkDb       map[string]*altaspec.AltaNetSpec
     vlanBitset      *bitset.BitSet  // Allocated Vlan Ids
     peerHostDb      map[string]*string  // Remote host IP addresses
 
@@ -68,32 +63,22 @@ func NewNetAgent() *NetAgent {
 
     // Initialise the DB
     netAgent.peerHostDb = make(map[string]*string)
-    netAgent.networkDb = make(map[string]*NetState)
+    netAgent.networkDb = make(map[string]*altaspec.AltaNetSpec)
 
     // Create default network
-    netAgent.networkDb["default"] = &NetState{
-        Name:       "default",
-        VlanTag:    1,
+    netAgent.networkDb["default"] = &altaspec.AltaNetSpec{
+        NetworkName:    "default",
+        VlanId:         1,
+        Vni:            1,
     }
 
     return netAgent
 }
 
 // Create a network
-func (self *NetAgent) CreateNetwork(name string) error {
-    // find the next available vlan
-    // FIXME: Move Vlan allocation to Zeus since we dont want any state here
-    vlanTag, found := self.vlanBitset.NextClear(USABLE_VLAN_START)
-    if (!found) {
-        log.Errorf("No available vlan Id for network %s", name)
-        return errors.New("Vlan range full")
-    }
-
+func (self *NetAgent) CreateNetwork(netSpec altaspec.AltaNetSpec) error {
     // Add it to the DB
-    self.networkDb[name] = &NetState{
-        Name:       name,
-        VlanTag:    vlanTag,
-    }
+    self.networkDb[netSpec.NetworkName] = &netSpec
 
     return nil
 }
@@ -106,10 +91,6 @@ func (self *NetAgent) DeleteNetwork(name string) error {
         return errors.New("Network not found")
     }
 
-    // Free the vlanTag
-    netState := self.networkDb[name]
-    self.vlanBitset.Clear(netState.VlanTag)
-
     // Remove it from the DB
     delete(self.networkDb, name)
 
@@ -117,7 +98,7 @@ func (self *NetAgent) DeleteNetwork(name string) error {
 }
 
 // Return info about a network
-func (self *NetAgent) GetNetwork(name string) (*NetState, error) {
+func (self *NetAgent) GetNetwork(name string) (*altaspec.AltaNetSpec, error) {
     // Check if the network exists
     if (self.networkDb[name] == nil) {
         log.Errorf("Network %s not found", name)
@@ -149,7 +130,7 @@ func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
     }
 
     // Create the OVS port
-    err = self.ovsDriver.CreatePort(portName, "internal", netState.VlanTag)
+    err = self.ovsDriver.CreatePort(portName, "internal", uint(netState.VlanId))
     if (err != nil) {
         log.Errorf("Error creating a port. Err %v", err)
         return "", err
@@ -215,7 +196,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
     endpoint := ofnet.EndpointInfo{
         PortNo: ofpPort,
         MacAddr: intfMac,
-        Vlan: uint16(netState.VlanTag),
+        Vlan: uint16(netState.VlanId),
         IpAddr: net.ParseIP(ifSpec.IntfIpv4Addr),
     }
 

@@ -176,6 +176,20 @@ func nodeUpBcast(nodeAddr string) error {
     return nil
 }
 
+// Send network spec to all nodes
+func NetSpecBcast(netSpec altaspec.AltaNetSpec) error {
+    // Inform all nodes
+    for _, node := range nodeCtrl.nodeDb {
+        err := node.PushNetwork(netSpec)
+        if (err != nil) {
+            glog.Errorf("Error sending network info to node %s. Err: %v",
+                        node.HostAddr, err)
+        }
+    }
+
+    return nil
+}
+
 // Perform Get request on a node
 func NodeGetReq(nodeAddr string, path string, data interface{}) error {
     // Make sure noe exists
