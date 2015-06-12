@@ -53,7 +53,7 @@ func NewNetAgent() *NetAgent {
     }
 
     // Create an ofnet agent
-    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, "vrouter", net.ParseIP(localIpAddr))
+    netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, "vxlan", net.ParseIP(localIpAddr))
 
     // Initialize vlan bitset
     netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
@@ -77,8 +77,20 @@ func NewNetAgent() *NetAgent {
 
 // Create a network
 func (self *NetAgent) CreateNetwork(netSpec altaspec.AltaNetSpec) error {
+    // Default network is already created
+    if netSpec.NetworkName == "default" {
+        return nil
+    }
+    
     // Add it to the DB
     self.networkDb[netSpec.NetworkName] = &netSpec
+
+    // Add vlan mapping
+    err := netAgent.ofnetAgent.AddVlan(netSpec.VlanId, netSpec.Vni)
+    if err != nil {
+        log.Errorf("Error adding vlan for net %+v. Err: %v", netSpec, err)
+        return err
+    }
 
     return nil
 }
@@ -89,6 +101,13 @@ func (self *NetAgent) DeleteNetwork(name string) error {
     if (self.networkDb[name] == nil) {
         log.Errorf("Network %s not found", name)
         return errors.New("Network not found")
+    }
+
+    // Remove the VLAN mapping
+    network := self.networkDb[name]
+    err := netAgent.ofnetAgent.RemoveVlan(network.VlanId, network.Vni)
+    if err != nil {
+        log.Errorf("Error removing vlan for net %+v. Err: %v", network, err)
     }
 
     // Remove it from the DB

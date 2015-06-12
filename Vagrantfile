@@ -113,6 +113,15 @@ start_etcd_script = <<SCRIPT
 -initial-cluster #{node_peers} \
 -initial-cluster-state new 0<&- &>/tmp/etcd.log &) || exit 1
 
+#Echo the command into a file for later use
+(echo etcd -name #{node_name} -data-dir /opt/etcd \
+-peer-heartbeat-interval=200 -peer-election-timeout=1000 \
+-listen-client-urls http://0.0.0.0:2379,http://0.0.0.0:4001 \
+-advertise-client-urls http://#{node_ip}:2379,http://#{node_ip}:4001 \
+-initial-advertise-peer-urls http://#{node_ip}:2380 \
+-listen-peer-urls http://#{node_ip}:2380 \
+-initial-cluster #{node_peers} \
+-initial-cluster-state new >/tmp/etcd_cmd.sh &) || exit 1
 SCRIPT
 
 configure_ceph = <<SCRIPT

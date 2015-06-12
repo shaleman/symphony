@@ -146,8 +146,8 @@ func NewNetwork(name string) (*Network, error) {
     // FIXME: initialize both Vlan and VNI to be same as networkId
     network.NetSpec = altaspec.AltaNetSpec{
         NetworkName: name,
-        VlanId: uint16(network.NetworkId),
-        Vni: uint32(network.NetworkId),
+        VlanId: uint16(network.NetworkId + 1),
+        Vni: uint32(network.NetworkId + 1),
     }
 
     // Create subnet address resource for the network
