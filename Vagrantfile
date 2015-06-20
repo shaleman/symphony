@@ -13,14 +13,29 @@ else # sorry Windows folks, I can't help you
   $vm_cpus = 2
 end
 
+netplugin_synced_gopath="/opt/golang"
+host_gobin_path="/opt/go/bin"
+host_goroot_path="/opt/go/root"
+
 provision_common = <<SCRIPT
+echo Args passed: [[ $@ ]]
+echo 'export GOPATH=#{netplugin_synced_gopath}' > /etc/profile.d/envvar.sh
+echo 'export GOBIN=$GOPATH/bin' >> /etc/profile.d/envvar.sh
+echo 'export GOSRC=$GOPATH/src' >> /etc/profile.d/envvar.sh
+echo 'export GOROOT=#{host_goroot_path}' >> /etc/profile.d/envvar.sh
+echo 'export PATH=$PATH:#{host_gobin_path}:$GOBIN' >> /etc/profile.d/envvar.sh
+if [ $# -gt 0 ]; then
+    echo "export $@" >> /etc/profile.d/envvar.sh
+fi
+
+source /etc/profile.d/envvar.sh
+
 ### install basic packages
-(apt-get update -qq > /dev/null && apt-get install -y vim curl python-software-properties git ntp ceph > /dev/null) || exit 1
+export DEBIAN_FRONTEND=noninteractive
+(apt-get update -qq && apt-get install -y vim curl python-software-properties git ntp ceph) || exit 1
 
 ### install Go 1.4
-(cd /usr/local/ && \
-curl -L https://storage.googleapis.com/golang/go1.4.linux-amd64.tar.gz -o go1.4.linux-amd64.tar.gz && \
-tar -xzf go1.4.linux-amd64.tar.gz) || exit 1
+(curl -sL https://storage.googleapis.com/golang/go1.4.2.linux-amd64.tar.gz 2>/dev/null | tar -xvz -C /usr/local) || exit 1
 
 (echo export PATH=$PATH:/usr/local/go/bin >> /home/vagrant/.bashrc &&
  echo export GOROOT=/usr/local/go >> /home/vagrant/.bashrc)
@@ -34,7 +49,7 @@ ln -s /usr/local/etcd-v2.0.10-linux-amd64/etcd && \
 ln -s /usr/local/etcd-v2.0.10-linux-amd64/etcdctl) || exit 1
 
 ### install and start docker
-(curl -sSL https://get.docker.com/ubuntu/ | sh > /dev/null) || exit 1
+(curl -sSL https://get.docker.com/ubuntu/ | sh) || exit 1
 
 ## pass the env-var args to docker and restart the service. This helps passing
 ## stuff like http-proxy etc
@@ -44,13 +59,12 @@ if [ $# -gt 0 ]; then
 fi
 
 ## install openvswitch and enable ovsdb-server to listen for incoming requests
-(apt-get install -y openvswitch-switch > /dev/null) || exit 1
+(apt-get install -y openvswitch-switch) || exit 1
 (ovs-vsctl set-manager tcp:127.0.0.1:6640 && \
  ovs-vsctl set-manager ptcp:6640) || exit 1
 
 ## add vagrant user to docker group
 (usermod -a -G docker vagrant)
-
 SCRIPT
 
 
@@ -98,6 +112,24 @@ Vagrant.configure(2) do |config|
                 vb.customize ["modifyvm", :id, "--nictype2", "virtio"]
                 vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
             end
+
+            # mount the host directories
+            symphony.vm.synced_folder ".", "/vagrant"
+            # godep modifies the host's GOPATH env variable, CONTIV_HOST_GOPATH
+            # contains the unmodified path passed from the Makefile, use that
+            # when it is defined.
+            if ENV['CONTIV_HOST_GOPATH'] != nil
+                symphony.vm.synced_folder ENV['CONTIV_HOST_GOPATH'], netplugin_synced_gopath
+            else
+                symphony.vm.synced_folder ENV['GOPATH'], netplugin_synced_gopath
+            end
+            if ENV['CONTIV_HOST_GOBIN'] != nil
+                symphony.vm.synced_folder ENV['CONTIV_HOST_GOBIN'], host_gobin_path
+            end
+            if ENV['CONTIV_HOST_GOROOT'] != nil
+                symphony.vm.synced_folder ENV['CONTIV_HOST_GOROOT'], host_goroot_path
+            end
+
             symphony.vm.provision "shell" do |s|
                 s.inline = provision_common
             end

@@ -1,14 +1,20 @@
 .PHONY: all build clean default
 
-TO_BUILD := ./src/athena ./src/zeus
-export GOPATH := $(shell pwd)/src/godeps:$(shell pwd)
+TO_BUILD := ./athena/ ./zeus/
+TO_TEST := ./zeus/... ./pkg/...
 
 default: build
 
 all: build
 
-build:
-	go install -v $(TO_BUILD)
+godep:
+	go get github.com/kr/godep
 
-clean:
-	go clean -i -v ./...
+build: godep
+	godep go install -v $(TO_BUILD)
+
+clean: godep
+	godep go clean -i -v ./...
+
+test: godep
+	godep go test -v $(TO_TEST)

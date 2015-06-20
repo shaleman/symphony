@@ -1,0 +1,88 @@
+{
+	"ImportPath": "github.com/contiv/symphony",
+	"GoVersion": "go1.4.2",
+	"Packages": [
+		"./athena",
+		"./zeus"
+	],
+	"Deps": [
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.7.3-13-g81e2611",
+			"Rev": "81e2611f37acccd8cb5e4e1a5a4a5f6c9c7f4537"
+		},
+		{
+			"ImportPath": "github.com/cenkalti/hub",
+			"Comment": "v1.0.0-12-g7be60e1",
+			"Rev": "7be60e186e66cd86db2d50ef2ca3778e281c87b4"
+		},
+		{
+			"ImportPath": "github.com/cenkalti/rpc2",
+			"Rev": "44d0d95e4f529a0fe230c90d2126bd597c61148c"
+		},
+		{
+			"ImportPath": "github.com/contiv/libovsdb",
+			"Comment": "v0.1-1-g49d499e",
+			"Rev": "49d499e670493116d607cf59274e6c378479c3b8"
+		},
+		{
+			"ImportPath": "github.com/contiv/ofnet",
+			"Rev": "ca9799294094499675c6a1f75038cd699064bb58"
+		},
+		{
+			"ImportPath": "github.com/coreos/go-etcd/etcd",
+			"Comment": "v2.0.0-9-ge99e689",
+			"Rev": "e99e689993cfe602c9f174a7b99771f738fc6858"
+		},
+		{
+			"ImportPath": "github.com/docker/docker/pkg/parsers",
+			"Comment": "v1.4.1-4206-g67f9bbc",
+			"Rev": "67f9bbcbd4d741e22e61b21a411cd904dcd4329c"
+		},
+		{
+			"ImportPath": "github.com/fsouza/go-dockerclient",
+			"Rev": "ef07a30edc7949ee0f420b5640f2da843bce9cce"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "44145f04b68cf362d9c4df2182967c2275eaefed"
+		},
+		{
+			"ImportPath": "github.com/gorilla/context",
+			"Rev": "215affda49addc4c8ef7e2534915df2c8c35c6cd"
+		},
+		{
+			"ImportPath": "github.com/gorilla/mux",
+			"Rev": "47e8f450ef38c857cdd922ec08862ca9d65a1c6d"
+		},
+		{
+			"ImportPath": "github.com/jainvipin/bitset",
+			"Comment": "v1.0.0-12-g1f0c6de",
+			"Rev": "1f0c6de81a62732e75f6c97f1e28e5a009b5df68"
+		},
+		{
+			"ImportPath": "github.com/shaleman/libOpenflow/common",
+			"Rev": "3b4ab325776eb099387325b2af9ffa3f87ce1156"
+		},
+		{
+			"ImportPath": "github.com/shaleman/libOpenflow/openflow13",
+			"Rev": "3b4ab325776eb099387325b2af9ffa3f87ce1156"
+		},
+		{
+			"ImportPath": "github.com/shaleman/libOpenflow/protocol",
+			"Rev": "3b4ab325776eb099387325b2af9ffa3f87ce1156"
+		},
+		{
+			"ImportPath": "github.com/shaleman/libOpenflow/util",
+			"Rev": "3b4ab325776eb099387325b2af9ffa3f87ce1156"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netlink",
+			"Rev": "ae3e7dba57271b4e976c4f91637861ee477135e2"
+		},
+		{
+			"ImportPath": "github.com/vishvananda/netns",
+			"Rev": "5478c060110032f972e86a1f844fdb9a2f008f2c"
+		}
+	]
+}
