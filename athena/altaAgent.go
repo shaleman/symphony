@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "fmt"
 	"errors"
 
 	"github.com/contiv/symphony/pkg/altaspec"

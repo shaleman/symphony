@@ -1,13 +1,7 @@
 package volumesCtrler
 
 import (
-	//"time"
 	"errors"
-	//"strings"
-	//"io/ioutil"
-	//"strconv"
-	//"net/http"
-	//"encoding/json"
 
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 

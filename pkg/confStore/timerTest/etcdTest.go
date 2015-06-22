@@ -2,24 +2,18 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"time"
-	//"strconv"
 
 	"github.com/contiv/symphony/pkg/confStore"
 	api "github.com/contiv/symphony/pkg/confStore/confStoreApi"
 )
 
 func main() {
-	// FIXME: Temporary hack for testing
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	cStore := confStore.NewConfStore()
 
 	hostName, _ := os.Hostname()
-	//myId :=  hostName + "." + strconv.Itoa(os.Getpid())
 	myId := hostName
 	fmt.Printf("My Identifier: %s\n", myId)
 

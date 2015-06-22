@@ -74,9 +74,6 @@ func (self *EtcdPlugin) GetService(name string) ([]api.ServiceInfo, error) {
 		return nil, err
 	}
 
-	// log.Infof("Got Resp: %+v", resp)
-	// log.Infof("Node: %+v", resp.Node)
-
 	if !resp.Node.Dir {
 		log.Errorf("Err. Response is not a directory: %+v", resp.Node)
 		return nil, errors.New("Invalid Response from etcd")

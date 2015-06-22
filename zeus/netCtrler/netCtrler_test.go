@@ -37,5 +37,4 @@ func TestAddNetwork(t *testing.T) {
 	}
 
 	log.Infof("Successfully Created endpoint: %+v", ep)
-
 }

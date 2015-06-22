@@ -1,16 +1,12 @@
 package main
 
 import (
-	"flag"
 	"time"
 
 	"github.com/contiv/symphony/pkg/ovsdriver"
 )
 
 func main() {
-	// FIXME: Temporary hack for testing
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// Connect to OVS
 	ovsDriver := ovsdriver.NewOvsDriver()
 
@@ -19,5 +15,4 @@ func main() {
 
 	// Dump the cache contents
 	ovsDriver.PrintCache()
-
 }

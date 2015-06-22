@@ -1,9 +1,5 @@
 package altaspec
 
-import (
-// "fmt"
-)
-
 // Volume parameters
 type AltaVolumeSpec struct {
 	DatastoreType     string // host volumes, Ceph/gluster/nfs/FC etc

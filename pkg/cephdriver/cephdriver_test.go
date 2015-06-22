@@ -1,15 +1,12 @@
 package cephdriver
 
 import (
-	//"fmt"
-	"testing"
-	//"time"
-	"flag"
-	"os"
-	//"os/exec"
 	"errors"
+	"flag"
 	"io"
+	"os"
 	"strings"
+	"testing"
 
 	log "github.com/Sirupsen/logrus"
 )

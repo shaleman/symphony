@@ -12,7 +12,6 @@ import (
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 	"github.com/contiv/symphony/zeus/volumesCtrler"
 
-	//"pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 

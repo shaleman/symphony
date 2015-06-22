@@ -50,9 +50,6 @@ func CheckImageExists(imgName string) bool {
 		return false
 	}
 
-	// DEBUG: Print the response we got
-	// fmt.Printf("Image List: \n %+v\n", imgList)
-
 	// Walk the array of images
 	for _, img := range imgList {
 		// walk each repo tag

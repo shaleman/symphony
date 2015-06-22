@@ -1,11 +1,9 @@
 package main
 
 import (
-	"os"
-	// "fmt"
-	// "time"
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/contiv/symphony/pkg/altaspec"

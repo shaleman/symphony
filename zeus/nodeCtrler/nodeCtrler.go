@@ -3,9 +3,9 @@ package nodeCtrler
 import (
 	"errors"
 
-	"github.com/contiv/symphony/pkg/altaspec"
-	// "pkg/confStore"
 	"github.com/contiv/ofnet/rpcHub"
+
+	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
 	log "github.com/Sirupsen/logrus"
