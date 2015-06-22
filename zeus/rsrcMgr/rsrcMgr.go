@@ -5,7 +5,7 @@ import (
 
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/jainvipin/bitset"
 )
 
@@ -115,32 +115,32 @@ func Init(cStore confStoreApi.ConfStorePlugin) {
 // Restore resource manager state
 func Restore() error {
 
-	glog.Infof("Restoring resources..")
+	log.Infof("Restoring resources..")
 
 	// Get the list of resource providers
 	jsonArr, err := rsrcMgr.cStore.ListDir("resource")
 	if err != nil {
-		glog.Errorf("Error getting resources from cstore. Err: %v", err)
+		log.Errorf("Error getting resources from cstore. Err: %v", err)
 		return err
 	}
 
 	// Loop thru each provider
 	for _, elemStr := range jsonArr {
 
-		glog.Infof("Restoring resource provider: %s", elemStr)
+		log.Infof("Restoring resource provider: %s", elemStr)
 
 		// Parse the json model
 		var provider RsrcProvider
 		err = json.Unmarshal([]byte(elemStr), &provider)
 		if err != nil {
-			glog.Errorf("Error parsing object %s, Err %v", elemStr, err)
+			log.Errorf("Error parsing object %s, Err %v", elemStr, err)
 			return err
 		}
 
 		// Restore the provider
 		err := rsrcProviderRestore(&provider)
 		if err != nil {
-			glog.Errorf("Error restoring provider %+v. Err: %v", provider, err)
+			log.Errorf("Error restoring provider %+v. Err: %v", provider, err)
 			return err
 		}
 	}
@@ -219,7 +219,7 @@ func AllocResources(rsrcList []ResourceUse) ([]ResourceUseResp, error) {
 	// Block on the response
 	resp := <-respChan
 
-	glog.Infof("Received allc resource Resp: %+v", resp)
+	log.Infof("Received allc resource Resp: %+v", resp)
 
 	return resp.ResourceList, resp.Error
 }
@@ -257,7 +257,7 @@ func cstoreSaveProvider(provider *RsrcProvider) error {
 	storeKey := "resource/" + provider.Type + "/" + provider.Provider
 	err := rsrcMgr.cStore.SetObj(storeKey, provider)
 	if err != nil {
-		glog.Errorf("Error storing object %+v. Err: %v", provider, err)
+		log.Errorf("Error storing object %+v. Err: %v", provider, err)
 		return err
 	}
 
@@ -275,7 +275,7 @@ func cstoreDelProvider(provider *RsrcProvider) error {
 	storeKey := "resource/" + provider.Type + "/" + provider.Provider
 	err := rsrcMgr.cStore.DelObj(storeKey)
 	if err != nil {
-		glog.Errorf("Error deleting object %+v. Err: %v", storeKey, err)
+		log.Errorf("Error deleting object %+v. Err: %v", storeKey, err)
 		return err
 	}
 

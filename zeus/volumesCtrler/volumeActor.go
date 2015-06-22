@@ -14,7 +14,7 @@ import (
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Volume model to be persisted
@@ -83,12 +83,12 @@ func (self *VolumeActor) createVolume(e libfsm.Event) error {
 	// Ask the node to create the volume
 	err := nodeCtrler.NodePostReq(nodeAddr, urlPath, self.Model.Spec, &resp)
 	if err != nil {
-		glog.Errorf("Error creating volume %v, Err: %v", self.Model.Spec, err)
+		log.Errorf("Error creating volume %v, Err: %v", self.Model.Spec, err)
 		return err
 	}
 
 	if !resp.Success {
-		glog.Errorf("Failure response while creating volume: %v. Err: %v", self.Model.Spec, err)
+		log.Errorf("Failure response while creating volume: %v. Err: %v", self.Model.Spec, err)
 		return errors.New("Volume create failed")
 	}
 
@@ -104,12 +104,12 @@ func (self *VolumeActor) mountVolume(e libfsm.Event) error {
 	// Ask the node to create the volume
 	err := nodeCtrler.NodePostReq(nodeAddr, urlPath, self.Model.Spec, &resp)
 	if err != nil {
-		glog.Errorf("Error mounting volume %v, Err: %v", self.Model.Spec, err)
+		log.Errorf("Error mounting volume %v, Err: %v", self.Model.Spec, err)
 		return err
 	}
 
 	if !resp.Success {
-		glog.Errorf("Failure response while mounting volume: %v. Err: %v", self.Model.Spec, err)
+		log.Errorf("Failure response while mounting volume: %v. Err: %v", self.Model.Spec, err)
 		return errors.New("Volume mount failed")
 	}
 
@@ -127,12 +127,12 @@ func (self *VolumeActor) unmountVolume() error {
 	// Ask the node to create the volume
 	err := nodeCtrler.NodePostReq(self.Model.CurrNode, urlPath, self.Model.Spec, &resp)
 	if err != nil {
-		glog.Errorf("Error unmounting volume %v, Err: %v", self.Model.Spec, err)
+		log.Errorf("Error unmounting volume %v, Err: %v", self.Model.Spec, err)
 		return err
 	}
 
 	if !resp.Success {
-		glog.Errorf("Failure response while unmounting volume: %v. Err: %v", self.Model.Spec, err)
+		log.Errorf("Failure response while unmounting volume: %v. Err: %v", self.Model.Spec, err)
 		return errors.New("Volume unmount failed")
 	}
 
@@ -152,7 +152,7 @@ func (self *VolumeActor) saveModel() error {
 	// Save it to conf store
 	err := ctrler.cStore.SetObj(storeKey, self.Model)
 	if err != nil {
-		glog.Errorf("Error storing object %+v. Err: %v", self.Model, err)
+		log.Errorf("Error storing object %+v. Err: %v", self.Model, err)
 		return err
 	}
 

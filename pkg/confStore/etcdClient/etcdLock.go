@@ -5,8 +5,8 @@ import (
 
 	api "github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/golang/glog"
 )
 
 // Etcd error codes
@@ -77,9 +77,9 @@ func (self *Lock) Release() error {
 		// Update TTL on the lock
 		resp, err := self.client.CompareAndDelete(keyName, self.myId, self.modifiedIndex)
 		if err != nil {
-			glog.Errorf("Error Deleting key. Err: %v", err)
+			log.Errorf("Error Deleting key. Err: %v", err)
 		} else {
-			glog.Infof("Deleted key lock %s, Resp: %+v", keyName, resp)
+			log.Infof("Deleted key lock %s, Resp: %+v", keyName, resp)
 
 			// Update modifiedIndex
 			self.modifiedIndex = resp.Node.ModifiedIndex
@@ -128,26 +128,26 @@ func (self *Lock) acquireLock() {
 
 	// Wait in this loop forever till lock times out or released
 	for {
-		glog.Infof("Getting the lock %s to see if its acquired", keyName)
+		log.Infof("Getting the lock %s to see if its acquired", keyName)
 		// Get the key and see if we or someone else has already acquired the lock
 		resp, err := self.client.Get(keyName, false, false)
 		if err != nil {
 			if err.(*etcd.EtcdError).ErrorCode != EtcdErrorCodeNotFound {
-				glog.Errorf("Error getting the key %s. Err: %v", keyName, err)
+				log.Errorf("Error getting the key %s. Err: %v", keyName, err)
 			} else {
-				glog.Infof("Lock %s does not exist. trying to acquire it", keyName)
+				log.Infof("Lock %s does not exist. trying to acquire it", keyName)
 			}
 
 			// Try to acquire the lock
 			resp, err := self.client.Create(keyName, self.myId, self.ttl)
 			if err != nil {
 				if err.(*etcd.EtcdError).ErrorCode != EtcdErrorCodeKeyExists {
-					glog.Errorf("Error creating key %s. Err: %v", keyName, err)
+					log.Errorf("Error creating key %s. Err: %v", keyName, err)
 				} else {
-					glog.Infof("Lock %s acquired by someone else", keyName)
+					log.Infof("Lock %s acquired by someone else", keyName)
 				}
 			} else {
-				glog.Infof("Acquired lock %s. Resp: %#v, Node: %+v", keyName, resp, resp.Node)
+				log.Infof("Acquired lock %s. Resp: %#v, Node: %+v", keyName, resp, resp.Node)
 
 				// Successfully acquired the lock
 				self.isAcquired = true
@@ -166,7 +166,7 @@ func (self *Lock) acquireLock() {
 				}
 			}
 		} else if resp.Node.Value == self.myId {
-			glog.Infof("Already Acquired key %s. Resp: %#v, Node: %+v", keyName, resp, resp.Node)
+			log.Infof("Already Acquired key %s. Resp: %#v, Node: %+v", keyName, resp, resp.Node)
 
 			// We have already acquired the lock. just keep refreshing it
 			self.isAcquired = true
@@ -184,7 +184,7 @@ func (self *Lock) acquireLock() {
 				return
 			}
 		} else if resp.Node.Value != self.myId {
-			glog.Infof("Lock already acquired by someone else. Resp: %+v, Node: %+v", resp, resp.Node)
+			log.Infof("Lock already acquired by someone else. Resp: %+v, Node: %+v", resp, resp.Node)
 
 			// Set the current holder's Id
 			self.holderId = resp.Node.Value
@@ -207,7 +207,7 @@ func (self *Lock) waitForLock() {
 		timeoutIntvl = time.Second * time.Duration(self.timeout)
 	}
 
-	glog.Infof("Waiting to acquire lock (%s/%s)", self.name, self.myId)
+	log.Infof("Waiting to acquire lock (%s/%s)", self.name, self.myId)
 
 	// Create a timer
 	timer := time.NewTimer(timeoutIntvl)
@@ -219,11 +219,11 @@ func (self *Lock) waitForLock() {
 		select {
 		case <-timer.C:
 			if self.timeout != 0 {
-				glog.Infof("Lock timeout on lock %s/%s", self.name, self.myId)
+				log.Infof("Lock timeout on lock %s/%s", self.name, self.myId)
 
 				self.eventChan <- api.LockEvent{EventType: api.LockAcquireTimeout}
 
-				glog.Infof("Lock acquire timed out. Stopping lock")
+				log.Infof("Lock acquire timed out. Stopping lock")
 
 				self.watchStopCh <- true
 
@@ -234,16 +234,16 @@ func (self *Lock) waitForLock() {
 			}
 		case watchResp := <-self.watchCh:
 			if watchResp != nil {
-				glog.V(2).Infof("Received watch notification(%s/%s): %+v", self.name, self.myId, watchResp)
+				log.Infof("Received watch notification(%s/%s): %+v", self.name, self.myId, watchResp)
 
 				if watchResp.Action == "expire" || watchResp.Action == "delete" ||
 					watchResp.Action == "compareAndDelete" {
-					glog.Infof("Retrying to acquire lock")
+					log.Infof("Retrying to acquire lock")
 					return
 				}
 			}
 		case <-self.stopChan:
-			glog.Infof("Stopping lock")
+			log.Infof("Stopping lock")
 			self.watchStopCh <- true
 
 			return
@@ -269,7 +269,7 @@ func (self *Lock) refreshLock() {
 			resp, err := self.client.CompareAndSwap(keyName, self.myId, self.ttl,
 				self.myId, self.modifiedIndex)
 			if err != nil {
-				glog.Errorf("Error updating TTl. Err: %v", err)
+				log.Errorf("Error updating TTl. Err: %v", err)
 
 				// We are not master anymore
 				self.isAcquired = false
@@ -280,7 +280,7 @@ func (self *Lock) refreshLock() {
 				// FIXME: trigger a lock lost event
 				return
 			} else {
-				glog.V(2).Infof("Refreshed TTL on lock %s, Resp: %+v", keyName, resp)
+				log.Infof("Refreshed TTL on lock %s, Resp: %+v", keyName, resp)
 
 				// Update modifiedIndex
 				self.modifiedIndex = resp.Node.ModifiedIndex
@@ -289,11 +289,11 @@ func (self *Lock) refreshLock() {
 			// Since we already acquired the lock, nothing to do here
 			// FIXME: see if we lost the lock
 			if watchResp != nil {
-				glog.V(2).Infof("Received watch notification for(%s/%s): %+v",
+				log.Infof("Received watch notification for(%s/%s): %+v",
 					self.name, self.myId, watchResp)
 			}
 		case <-self.stopChan:
-			glog.Infof("Stopping lock")
+			log.Infof("Stopping lock")
 			self.watchStopCh <- true
 			return
 		}
@@ -308,12 +308,12 @@ func (self *Lock) watchLock() {
 		resp, err := self.client.Watch(keyName, 0, false, self.watchCh, self.watchStopCh)
 		if err != nil {
 			if err != etcd.ErrWatchStoppedByUser {
-				glog.Errorf("Error watching the key %s, Err %v", keyName, err)
+				log.Errorf("Error watching the key %s, Err %v", keyName, err)
 			} else {
-				glog.Infof("Watch stopped for lock %s", keyName)
+				log.Infof("Watch stopped for lock %s", keyName)
 			}
 		} else {
-			glog.Infof("Got Watch Resp: %+v", resp)
+			log.Infof("Got Watch Resp: %+v", resp)
 		}
 
 		// If the lock is released, we are done

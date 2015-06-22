@@ -6,9 +6,8 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	api "github.com/contiv/symphony/pkg/confStore/confStoreApi"
-
-	"github.com/golang/glog"
 )
 
 type JsonObj struct {
@@ -156,20 +155,20 @@ func TestServiceRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error registering service. Err: %+v\n", err)
 	}
-	glog.Infof("Registered service: %+v", service1Info)
+	log.Infof("Registered service: %+v", service1Info)
 
 	err = cStore.RegisterService(service2Info)
 	if err != nil {
 		t.Errorf("Error registering service. Err: %+v\n", err)
 	}
-	glog.Infof("Registered service: %+v", service2Info)
+	log.Infof("Registered service: %+v", service2Info)
 
 	resp, err := cStore.GetService("athena")
 	if err != nil {
 		t.Errorf("Error getting service. Err: %+v\n", err)
 	}
 
-	glog.Infof("Got service list: %+v\n", resp)
+	log.Infof("Got service list: %+v\n", resp)
 
 	if (len(resp) < 2) || (resp[0] != service1Info) || (resp[1] != service2Info) {
 		t.Errorf("Resp service list did not match input")
@@ -204,7 +203,7 @@ func TestServiceWatch(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error registering service. Err: %+v\n", err)
 	}
-	glog.Infof("Registered service: %+v", service1Info)
+	log.Infof("Registered service: %+v", service1Info)
 
 	// Create event channel
 	eventChan := make(chan api.WatchServiceEvent, 1)
@@ -220,7 +219,7 @@ func TestServiceWatch(t *testing.T) {
 	for {
 		select {
 		case srvEvent := <-eventChan:
-			glog.Infof("\n----\nReceived event: %+v\n----", srvEvent)
+			log.Infof("\n----\nReceived event: %+v\n----", srvEvent)
 		case <-time.After(time.Second * time.Duration(10)):
 			service2Info := api.ServiceInfo{"athena", "10.10.10.11", 4567}
 			if cnt == 1 {
@@ -229,14 +228,14 @@ func TestServiceWatch(t *testing.T) {
 				if err != nil {
 					t.Errorf("Error registering service. Err: %+v\n", err)
 				}
-				glog.Infof("Registered service: %+v", service2Info)
+				log.Infof("Registered service: %+v", service2Info)
 			} else if cnt == 5 {
 				// deregister it
 				err := cStore.DeregisterService(service2Info)
 				if err != nil {
 					t.Errorf("Error deregistering service. Err: %+v\n", err)
 				}
-				glog.Infof("Dregistered service: %+v", service2Info)
+				log.Infof("Dregistered service: %+v", service2Info)
 			} else if cnt == 7 {
 				// Stop the watch
 				stopChan <- true

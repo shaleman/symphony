@@ -1,8 +1,6 @@
 package libfsm
 
-import (
-	"github.com/golang/glog"
-)
+import log "github.com/Sirupsen/logrus"
 
 // Finite state machines
 // Library to implement FSMs.
@@ -48,19 +46,19 @@ func NewFsm(fsmTable *FsmTable, initState string) *Fsm {
 
 // Handle a new event for the fsm
 func (self *Fsm) FsmEvent(event Event) {
-	glog.Infof("Processing event %s in state %s", event.EventName, self.FsmState)
+	log.Infof("Processing event %s in state %s", event.EventName, self.FsmState)
 
 	// find the <currState,event> pair in the transition table
 	for _, trans := range *self.transitions {
 		if (trans.CurrState == self.FsmState) && (trans.EventName == event.EventName) {
 			err := trans.Callback(event)
 			if err != nil {
-				glog.Errorf("Processing event %s failed in state %s", event.EventName, self.FsmState)
+				log.Errorf("Processing event %s failed in state %s", event.EventName, self.FsmState)
 
 				return
 			} else {
 				if self.FsmState != trans.NewState {
-					glog.Infof("Transitioning to state %s", trans.NewState)
+					log.Infof("Transitioning to state %s", trans.NewState)
 					self.FsmState = trans.NewState
 				}
 
@@ -70,7 +68,7 @@ func (self *Fsm) FsmEvent(event Event) {
 	}
 
 	// If we reached here, we did not find a valid transition
-	glog.Errorf("Invalid event %s in state %s", event.EventName, self.FsmState)
+	log.Errorf("Invalid event %s in state %s", event.EventName, self.FsmState)
 
 	return
 }

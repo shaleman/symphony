@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 
@@ -18,10 +18,10 @@ func CreateServer(port int) {
 	// Create a router
 	router := createRouter()
 
-	glog.Infof("HTTP server listening on %s", listenAddr)
+	log.Infof("HTTP server listening on %s", listenAddr)
 
 	// Start the HTTP server
-	glog.Fatal(http.ListenAndServe(listenAddr, router))
+	log.Fatal(http.ListenAndServe(listenAddr, router))
 }
 
 // Create a router and initialize the routes
@@ -54,7 +54,7 @@ func createRouter() *mux.Router {
 	// Register each method/path
 	for method, routes := range routeMap {
 		for route, funct := range routes {
-			glog.Infof("Registering %s %s", method, route)
+			log.Infof("Registering %s %s", method, route)
 
 			// NOTE: scope issue, make sure the variables are local and won't be changed
 			localRoute := route
@@ -77,23 +77,23 @@ func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiF
 	// Create a closure and return an anonymous function
 	return func(w http.ResponseWriter, r *http.Request) {
 		// log the request
-		glog.V(2).Infof("Calling %s %s", localMethod, localRoute)
-		glog.V(2).Infof("%s %s", r.Method, r.RequestURI)
+		log.Infof("Calling %s %s", localMethod, localRoute)
+		log.Infof("%s %s", r.Method, r.RequestURI)
 
 		// Call the handler
 		resp, err := handlerFunc(w, r, mux.Vars(r))
 		if err != nil {
 			// Log error
-			glog.Errorf("Handler for %s %s returned error: %s", localMethod, localRoute, err)
+			log.Errorf("Handler for %s %s returned error: %s", localMethod, localRoute, err)
 
 			// Send HTTP response
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			respJson, _ := json.Marshal(resp)
 			if localMethod == "GET" {
-				glog.V(2).Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+				log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
 			} else {
-				glog.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+				log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
 			}
 
 			// Send HTTP response as Json

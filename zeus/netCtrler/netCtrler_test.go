@@ -6,7 +6,7 @@ import (
 
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Simple test to create a network and add an end point
@@ -27,7 +27,7 @@ func TestAddNetwork(t *testing.T) {
 		return
 	}
 
-	glog.Infof("Successfully Created network: %+v", network)
+	log.Infof("Successfully Created network: %+v", network)
 
 	// Create new endpoint
 	ep, err := network.NewEndPoint("alta1234.0")
@@ -36,6 +36,6 @@ func TestAddNetwork(t *testing.T) {
 		return
 	}
 
-	glog.Infof("Successfully Created endpoint: %+v", ep)
+	log.Infof("Successfully Created endpoint: %+v", ep)
 
 }

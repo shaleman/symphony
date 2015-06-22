@@ -5,7 +5,7 @@ import (
 
 	"github.com/contiv/symphony/pkg/altaspec"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Responsible for scheduling Alta containers on a node
@@ -43,7 +43,7 @@ func Scheduler(schedPolicy string) SchedulerIntf {
 	}
 
 	// Error case
-	glog.Fatal("Scheduler policy not found")
+	log.Fatal("Scheduler policy not found")
 	return nil
 }
 
@@ -83,7 +83,7 @@ func (self *leastUsedSched) GetNodeForAlta(spec *altaspec.AltaSpec) (string, err
 		}
 	}
 
-	glog.Infof("Cpu provider list: %+v", cpuProviderList)
+	log.Infof("Cpu provider list: %+v", cpuProviderList)
 
 	// Check who has the least used memory
 	var maxFreeMem float64 = 0
@@ -99,7 +99,7 @@ func (self *leastUsedSched) GetNodeForAlta(spec *altaspec.AltaSpec) (string, err
 		memProvider := rsrcMgr.rsrcDb["memory"].Providers[cpuProvider.Provider]
 		if (memProvider.FreeRsrc >= reqMem) && (memProvider.FreeRsrc >= maxFreeMem) {
 			// We can use this provider. reserve the resource
-			glog.Infof("Picking node %s for Alta: %s", memProvider.Provider, spec.AltaId)
+			log.Infof("Picking node %s for Alta: %s", memProvider.Provider, spec.AltaId)
 
 			// resource list
 			rsrcList := []ResourceUse{
@@ -120,7 +120,7 @@ func (self *leastUsedSched) GetNodeForAlta(spec *altaspec.AltaSpec) (string, err
 			// Allocate the resource
 			_, err := AllocResources(rsrcList)
 			if err != nil {
-				glog.Errorf("Error allocating cpu/mem resource. Err: %v", err)
+				log.Errorf("Error allocating cpu/mem resource. Err: %v", err)
 				return "", errors.New("Error allocating resource")
 			}
 

@@ -14,7 +14,7 @@ import (
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Resources on the node
@@ -39,7 +39,7 @@ type Node struct {
 func NewNode(hostAddr string, port int) (*Node, error) {
 	node := new(Node)
 
-	glog.Infof("Adding node: %s:%d", hostAddr, port)
+	log.Infof("Adding node: %s:%d", hostAddr, port)
 
 	// Initialize the values
 	node.HostAddr = hostAddr
@@ -95,12 +95,12 @@ func (self *Node) NodeEvent(eventName string) {
 
 // Handle node up event
 func (self *Node) nodeUpEvent() error {
-	glog.Infof("Getting node info")
+	log.Infof("Getting node info")
 
 	var nodeSpec altaspec.NodeSpec
 	err := self.NodeGetReq("/node", &nodeSpec)
 	if err != nil {
-		glog.Errorf("Error getting node info. Err: %v", err)
+		log.Errorf("Error getting node info. Err: %v", err)
 		return err
 	}
 
@@ -112,7 +112,7 @@ func (self *Node) nodeUpEvent() error {
 		MemTotal:    nodeSpec.MemTotal,
 	}
 
-	glog.Infof("Got node info: %+v\n Node: %+v", nodeSpec, self)
+	log.Infof("Got node info: %+v\n Node: %+v", nodeSpec, self)
 
 	// Add Node resources
 	rsrcProvider := []rsrcMgr.ResourceProvide{
@@ -135,21 +135,21 @@ func (self *Node) nodeUpEvent() error {
 	// Add the resource provider
 	err = rsrcMgr.AddResourceProvider(rsrcProvider)
 	if err != nil {
-		glog.Errorf("Error adding provider %+v. Err: %v", rsrcProvider, err)
+		log.Errorf("Error adding provider %+v. Err: %v", rsrcProvider, err)
 		return err
 	}
 
 	// Inform all node about the new node and new node about all existing nodes
 	err = nodeUpBcast(self.HostAddr)
 	if err != nil {
-		glog.Errorf("Error sending nod up broadcast. Err: %v", err)
+		log.Errorf("Error sending nod up broadcast. Err: %v", err)
 	}
 
 	return nil
 }
 
 func (self *Node) nodeAliveTicker() error {
-	glog.Infof("Current state of the node %s is %s", self.HostAddr, self.Fsm.FsmState)
+	log.Infof("Current state of the node %s is %s", self.HostAddr, self.Fsm.FsmState)
 
 	return nil
 }
@@ -158,36 +158,36 @@ func (self *Node) nodeAliveTicker() error {
 func (self *Node) NodeGetReq(path string, data interface{}) error {
 	url := "http://" + self.HostAddr + ":" + strconv.Itoa(self.Port) + path
 
-	glog.Infof("Making REST request to url: %s", url)
+	log.Infof("Making REST request to url: %s", url)
 
 	// perform Get request
 	res, err := http.Get(url)
 	if err != nil {
-		glog.Errorf("Error during http get. Err: %v", err)
+		log.Errorf("Error during http get. Err: %v", err)
 		return err
 	}
 
 	// Check response code
 	if res.StatusCode != http.StatusOK {
-		glog.Errorf("HTTP error response. Status: %s, StatusCode: %d", res.Status, res.StatusCode)
+		log.Errorf("HTTP error response. Status: %s, StatusCode: %d", res.Status, res.StatusCode)
 		return errors.New("HTTP Error response")
 	}
 
 	// Read the entire resp
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		glog.Errorf("Error during ioutil readall. Err: %v", err)
+		log.Errorf("Error during ioutil readall. Err: %v", err)
 		return err
 	}
 
 	// Json to struct
 	err = json.Unmarshal(body, data)
 	if err != nil {
-		glog.Errorf("Error during json unmarshall. Err: %v", err)
+		log.Errorf("Error during json unmarshall. Err: %v", err)
 		return err
 	}
 
-	glog.Infof("Results for (%s): %+v\n", url, data)
+	log.Infof("Results for (%s): %+v\n", url, data)
 
 	return nil
 }
@@ -196,43 +196,43 @@ func (self *Node) NodeGetReq(path string, data interface{}) error {
 func (self *Node) NodePostReq(path string, req interface{}, resp interface{}) error {
 	url := "http://" + self.HostAddr + ":" + strconv.Itoa(self.Port) + path
 
-	glog.Infof("Making REST request to url: %s", url)
+	log.Infof("Making REST request to url: %s", url)
 
 	// Convert the req to json
 	jsonStr, err := json.Marshal(req)
 	if err != nil {
-		glog.Errorf("Error converting request data(%#v) to Json. Err: %v", req, err)
+		log.Errorf("Error converting request data(%#v) to Json. Err: %v", req, err)
 		return err
 	}
 
 	// Perform HTTP POST operation
 	res, err := http.Post(url, "application/json", strings.NewReader(string(jsonStr)))
 	if err != nil {
-		glog.Errorf("Error during http get. Err: %v", err)
+		log.Errorf("Error during http get. Err: %v", err)
 		return err
 	}
 
 	// Check the response code
 	if res.StatusCode != http.StatusOK {
-		glog.Errorf("HTTP error response. Status: %s, StatusCode: %d", res.Status, res.StatusCode)
+		log.Errorf("HTTP error response. Status: %s, StatusCode: %d", res.Status, res.StatusCode)
 		return errors.New("HTTP Error response")
 	}
 
 	// Read the entire response
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		glog.Errorf("Error during ioutil readall. Err: %v", err)
+		log.Errorf("Error during ioutil readall. Err: %v", err)
 		return err
 	}
 
 	// Convert response json to struct
 	err = json.Unmarshal(body, resp)
 	if err != nil {
-		glog.Errorf("Error during json unmarshall. Err: %v", err)
+		log.Errorf("Error during json unmarshall. Err: %v", err)
 		return err
 	}
 
-	glog.Infof("Results for (%s): %+v\n", url, resp)
+	log.Infof("Results for (%s): %+v\n", url, resp)
 
 	return nil
 }
@@ -243,7 +243,7 @@ func (self *Node) PushNetwork(netSpec altaspec.AltaNetSpec) error {
 	url := "/network/create"
 	err := self.NodePostReq(url, netSpec, &resp)
 	if err != nil {
-		glog.Errorf("Error sending network %s to node %s. Err: %v",
+		log.Errorf("Error sending network %s to node %s. Err: %v",
 			netSpec.NetworkName, self.HostAddr, err)
 		return err
 	}

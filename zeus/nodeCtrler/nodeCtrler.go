@@ -8,7 +8,7 @@ import (
 	"github.com/contiv/ofnet/rpcHub"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Node manager
@@ -58,16 +58,16 @@ func (self *NodeCtrler) nodeMgrLoop() {
 	// Start a watch on athena service so that we dont miss any
 	err := self.cStore.WatchService("athena", self.nodeEventCh, self.watchStopCh)
 	if err != nil {
-		glog.Fatalf("Could not start a watch on athena service. Err: %v", err)
+		log.Fatalf("Could not start a watch on athena service. Err: %v", err)
 	}
 
 	// Get a list of all existing athena nodes
 	nodeList, err := self.cStore.GetService("athena")
 	if err != nil {
-		glog.Errorf("Error getting node list from cstore. Err: %v", err)
+		log.Errorf("Error getting node list from cstore. Err: %v", err)
 	}
 
-	glog.Infof("Got service list: %+v", nodeList)
+	log.Infof("Got service list: %+v", nodeList)
 
 	// Create a node for each entry
 	for _, nodeInfo := range nodeList {
@@ -75,7 +75,7 @@ func (self *NodeCtrler) nodeMgrLoop() {
 
 		node, err := NewNode(nodeInfo.HostAddr, nodeInfo.Port)
 		if err != nil {
-			glog.Errorf("Error creating new node %s. Err: %v", nodeKey, err)
+			log.Errorf("Error creating new node %s. Err: %v", nodeKey, err)
 		}
 
 		// Save it in the DB
@@ -86,7 +86,7 @@ func (self *NodeCtrler) nodeMgrLoop() {
 	for {
 		select {
 		case srvEvent := <-self.nodeEventCh:
-			glog.Infof("Received athena service watch event: %+v", srvEvent)
+			log.Infof("Received athena service watch event: %+v", srvEvent)
 
 			// collect the info about the node
 			nodeInfo := srvEvent.ServiceInfo
@@ -96,12 +96,12 @@ func (self *NodeCtrler) nodeMgrLoop() {
 			if srvEvent.EventType == confStoreApi.WatchServiceEventAdd {
 				// Add the node if we dont know about it
 				if self.nodeDb[nodeKey] == nil {
-					glog.Infof("Received Node add event for: %s", nodeKey)
+					log.Infof("Received Node add event for: %s", nodeKey)
 
 					// Add the node
 					node, err := NewNode(nodeInfo.HostAddr, nodeInfo.Port)
 					if err != nil {
-						glog.Errorf("Error creating new node %s. Err: %v", nodeKey, err)
+						log.Errorf("Error creating new node %s. Err: %v", nodeKey, err)
 					}
 
 					// Save it in the DB
@@ -115,14 +115,14 @@ func (self *NodeCtrler) nodeMgrLoop() {
 			} else if srvEvent.EventType == confStoreApi.WatchServiceEventDel {
 
 				if self.nodeDb[nodeKey] != nil {
-					glog.Infof("Received Node delete event for: %s", nodeKey)
+					log.Infof("Received Node delete event for: %s", nodeKey)
 
 					node := self.nodeDb[nodeKey]
 
 					// Queue the up event
 					node.NodeEvent("down")
 				} else {
-					glog.Errorf("Received delete on an unknown node: %s", nodeKey)
+					log.Errorf("Received delete on an unknown node: %s", nodeKey)
 				}
 			}
 		}
@@ -137,7 +137,7 @@ func nodeUpBcast(nodeAddr string) error {
 			var resp altaspec.ReqSuccess
 			err := node.NodePostReq("/peer/"+nodeAddr, "", &resp)
 			if err != nil {
-				glog.Errorf("Error informing %s about node %s. Err: %v",
+				log.Errorf("Error informing %s about node %s. Err: %v",
 					node.HostAddr, nodeAddr, err)
 			}
 		}
@@ -149,7 +149,7 @@ func nodeUpBcast(nodeAddr string) error {
 			var resp altaspec.ReqSuccess
 			err := NodePostReq(nodeAddr, "/peer/"+node.HostAddr, "", &resp)
 			if err != nil {
-				glog.Errorf("Error informing %s about node %s. Err: %v",
+				log.Errorf("Error informing %s about node %s. Err: %v",
 					nodeAddr, node.HostAddr, err)
 			}
 		}
@@ -158,7 +158,7 @@ func nodeUpBcast(nodeAddr string) error {
 	// Get my address
 	localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
 	if err != nil {
-		glog.Fatalf("Could not find a local address. Err %v", err)
+		log.Fatalf("Could not find a local address. Err %v", err)
 		return err
 	}
 
@@ -167,7 +167,7 @@ func nodeUpBcast(nodeAddr string) error {
 	client := rpcHub.Client(nodeAddr, 9002) // FIXME: get the port number from ofnet
 	err = client.Call("OfnetAgent.AddMaster", &localIpAddr, &resp)
 	if err != nil {
-		glog.Errorf("Failed to tell node %s about the master. Err: %v", nodeAddr, err)
+		log.Errorf("Failed to tell node %s about the master. Err: %v", nodeAddr, err)
 		return err
 	}
 
@@ -180,7 +180,7 @@ func NetSpecBcast(netSpec altaspec.AltaNetSpec) error {
 	for _, node := range nodeCtrl.nodeDb {
 		err := node.PushNetwork(netSpec)
 		if err != nil {
-			glog.Errorf("Error sending network info to node %s. Err: %v",
+			log.Errorf("Error sending network info to node %s. Err: %v",
 				node.HostAddr, err)
 		}
 	}
@@ -192,7 +192,7 @@ func NetSpecBcast(netSpec altaspec.AltaNetSpec) error {
 func NodeGetReq(nodeAddr string, path string, data interface{}) error {
 	// Make sure noe exists
 	if nodeCtrl.nodeDb[nodeAddr] == nil {
-		glog.Errorf("Node %s not found", nodeAddr)
+		log.Errorf("Node %s not found", nodeAddr)
 		return errors.New("Node not found")
 	}
 
@@ -206,7 +206,7 @@ func NodeGetReq(nodeAddr string, path string, data interface{}) error {
 func NodePostReq(nodeAddr string, path string, req interface{}, resp interface{}) error {
 	// Make sure noe exists
 	if nodeCtrl.nodeDb[nodeAddr] == nil {
-		glog.Errorf("Node %s not found", nodeAddr)
+		log.Errorf("Node %s not found", nodeAddr)
 		return errors.New("Node not found")
 	}
 

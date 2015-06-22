@@ -5,9 +5,9 @@ import (
 	"flag"
 	"fmt"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/parsers"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/golang/glog"
 )
 
 const (
@@ -30,7 +30,7 @@ func newClient() *docker.Client {
 	// Connect to docker
 	client, err := docker.NewClient(endpoint)
 	if err != nil {
-		glog.Fatal("Could not connect to docker")
+		log.Fatal("Could not connect to docker")
 	}
 
 	// HACK: temporary hack to log to console
@@ -45,7 +45,7 @@ func CheckImageExists(imgName string) bool {
 	// Get the list of images from docker
 	imgList, err := dockerClient.ListImages(docker.ListImagesOptions{All: false})
 	if err != nil {
-		glog.Error("Error Getting image list %s", err)
+		log.Error("Error Getting image list %s", err)
 
 		return false
 	}
@@ -59,7 +59,7 @@ func CheckImageExists(imgName string) bool {
 		for _, repoTag := range img.RepoTags {
 			// Check if the image or image:latest exists
 			if (repoTag == imgName) || (repoTag == (imgName + ":latest")) {
-				glog.Infof("Image %s exists as %s\n", imgName, repoTag)
+				log.Infof("Image %s exists as %s\n", imgName, repoTag)
 
 				// Yes, exists
 				return true
@@ -67,7 +67,7 @@ func CheckImageExists(imgName string) bool {
 		}
 	}
 
-	glog.Infof("Image %s does not exist\n", imgName)
+	log.Infof("Image %s does not exist\n", imgName)
 	return false
 }
 
@@ -109,7 +109,7 @@ func PullImage(imgName string) error {
 	// Ask docker to pull the image
 	err := dockerClient.PullImage(opts, docker.AuthConfiguration{})
 	if err != nil {
-		glog.Errorf("Error pulling image: %v", err)
+		log.Errorf("Error pulling image: %v", err)
 		return err
 	}
 

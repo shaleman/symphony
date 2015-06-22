@@ -4,7 +4,7 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 func TestAddProvider(t *testing.T) {
@@ -36,9 +36,9 @@ func TestAddProvider(t *testing.T) {
 		t.Errorf("Error adding provider %+v. Err: %v", provider, err)
 	}
 
-	glog.Infof("Added provider: %+v", provider)
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
+	log.Infof("Added provider: %+v", provider)
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
 
 	// provider to add
 	provider = []ResourceProvide{
@@ -56,9 +56,9 @@ func TestAddProvider(t *testing.T) {
 		t.Errorf("Error adding provider %+v. Err: %v", provider, err)
 	}
 
-	glog.Infof("Added provider: %+v", provider)
-	glog.Infof("Resource State: %#v", rsrcMgr.rsrcDb["vlan"])
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
+	log.Infof("Added provider: %+v", provider)
+	log.Infof("Resource State: %#v", rsrcMgr.rsrcDb["vlan"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
 
 }
 
@@ -85,9 +85,9 @@ func TestAllocResource(t *testing.T) {
 		t.Errorf("Error allocating cpu/mem resource. Err: %v", err)
 	}
 
-	glog.Infof("Got alloc Resp: %+v", respRsrsList)
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
+	log.Infof("Got alloc Resp: %+v", respRsrsList)
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
 
 	// Vlan resource to allocate
 	rsrcList = []ResourceUse{
@@ -105,8 +105,8 @@ func TestAllocResource(t *testing.T) {
 		t.Errorf("Error allocating vlan resource. Err: %v", err)
 	}
 
-	glog.Infof("Got alloc Resp: %+v", respRsrsList)
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
+	log.Infof("Got alloc Resp: %+v", respRsrsList)
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
 }
 
 func TestAllocResourceFail(t *testing.T) {
@@ -129,12 +129,12 @@ func TestAllocResourceFail(t *testing.T) {
 	// Allocate the resource
 	respRsrsList, err := AllocResources(rsrcList)
 	if err == nil {
-		glog.Errorf("Got unexpected alloc Resp: %+v", respRsrsList)
+		log.Errorf("Got unexpected alloc Resp: %+v", respRsrsList)
 		t.Errorf("No Error allocating cpu/mem resource")
 	}
 
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["cpu"].Providers["host1"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["memory"].Providers["host1"])
 
 	// Vlan resource to allocate
 	rsrcList = []ResourceUse{
@@ -149,9 +149,9 @@ func TestAllocResourceFail(t *testing.T) {
 	// Allocate the resource
 	respRsrsList, err = AllocResources(rsrcList)
 	if err == nil {
-		glog.Infof("Got unexpected alloc Resp: %+v", respRsrsList)
+		log.Infof("Got unexpected alloc Resp: %+v", respRsrsList)
 		t.Errorf("No Error allocating vlan resource")
 	}
 
-	glog.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
+	log.Infof("Provider State: %#v", rsrcMgr.rsrcDb["vlan"].Providers["global"])
 }
