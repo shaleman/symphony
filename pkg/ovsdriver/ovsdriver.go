@@ -8,8 +8,8 @@ import (
 	// "strings"
 	"errors"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/contiv/libovsdb"
-	"github.com/golang/glog"
 )
 
 // OVS driver state
@@ -31,7 +31,7 @@ func NewOvsDriver() *OvsDriver {
 	// connect to OVS
 	ovs, err := libovsdb.Connect("localhost", 6640)
 	if err != nil {
-		glog.Fatal("Failed to connect to ovsdb")
+		log.Fatal("Failed to connect to ovsdb")
 	}
 
 	// Setup state
@@ -54,8 +54,8 @@ func NewOvsDriver() *OvsDriver {
 	// Create the default bridge instance
 	err = ovsDriver.CreateBridge(ovsDriver.OvsBridgeName)
 	if err != nil {
-		glog.Errorf("Error creating the default bridge. It probably already exists")
-		glog.Errorf("Error: %v", err)
+		log.Errorf("Error creating the default bridge. It probably already exists")
+		log.Errorf("Error: %v", err)
 	}
 
 	// Return the new OVS driver
@@ -111,7 +111,7 @@ func (self *OvsDriver) ovsdbTransact(ops []libovsdb.Operation) error {
 	reply, _ := self.ovsClient.Transact("Open_vSwitch", ops...)
 
 	if len(reply) < len(ops) {
-		glog.Errorf("Unexpected number of replies. Expected: %d, Recvd: %d", len(ops), len(reply))
+		log.Errorf("Unexpected number of replies. Expected: %d, Recvd: %d", len(ops), len(reply))
 		return errors.New("OVS transaction failed. Unexpected number of replies")
 	}
 
@@ -344,7 +344,7 @@ func (self *OvsDriver) CreateVtep(intfName string, vtepRemoteIP string) error {
 
 	intf["options"], err = libovsdb.NewOvsMap(intfOptions)
 	if err != nil {
-		glog.Errorf("error '%s' creating options from %v \n", err, intfOptions)
+		log.Errorf("error '%s' creating options from %v \n", err, intfOptions)
 		return err
 	}
 
@@ -564,7 +564,7 @@ func (self *OvsDriver) Update(context interface{}, tableUpdates libovsdb.TableUp
 	self.populateCache(tableUpdates)
 }
 func (self *OvsDriver) Disconnected(ovsClient *libovsdb.OvsdbClient) {
-	glog.Errorf("OVS BD client disconnected")
+	log.Errorf("OVS BD client disconnected")
 }
 func (self *OvsDriver) Locked([]interface{}) {
 }

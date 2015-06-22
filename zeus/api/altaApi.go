@@ -8,7 +8,7 @@ import (
 
 	"github.com/contiv/symphony/pkg/altaspec"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
@@ -28,14 +28,14 @@ func httpPostAltaCreate(w http.ResponseWriter, r *http.Request, vars map[string]
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&altaConfig)
 	if err != nil {
-		glog.Errorf("Error decoding create request. Err %v", err)
+		log.Errorf("Error decoding create request. Err %v", err)
 		return nil, err
 	}
 
 	// Create the alta container
 	alta, err := altaCtrler.CreateAlta(&altaConfig)
 	if err != nil {
-		glog.Errorf("Error creating alta container(%+v), Err: %v", altaConfig, err)
+		log.Errorf("Error creating alta container(%+v), Err: %v", altaConfig, err)
 		return nil, err
 	}
 

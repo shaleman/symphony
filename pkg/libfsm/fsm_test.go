@@ -4,7 +4,7 @@ import (
 	"flag"
 	"testing"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Desired API
@@ -60,7 +60,7 @@ func TestFsmTransition(t *testing.T) {
 	// Queue an event
 	testFsm.Fsm.FsmEvent(Event{"start", nil})
 
-	glog.Infof("TestFsm: %#v", testFsm)
+	log.Infof("TestFsm: %#v", testFsm)
 
 	if testFsm.TestState != "started state" {
 		t.Errorf("FSM event failed")
@@ -69,7 +69,7 @@ func TestFsmTransition(t *testing.T) {
 	// Queue an event
 	testFsm.Fsm.FsmEvent(Event{"stop", nil})
 
-	glog.Infof("TestFsm: %#v", testFsm)
+	log.Infof("TestFsm: %#v", testFsm)
 
 	if testFsm.TestState != "stopped state" {
 		t.Errorf("FSM event failed")

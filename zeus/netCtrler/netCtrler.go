@@ -12,7 +12,7 @@ import (
 
 	"github.com/contiv/ofnet"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // network endpoint state, aka network interface state
@@ -53,7 +53,7 @@ func Init() {
 	// Initialize ofnet master
 	netCtrl.ofnetMaster = ofnet.NewOfnetMaster()
 
-	glog.Infof("netCtrl: %#v", netCtrl)
+	log.Infof("netCtrl: %#v", netCtrl)
 
 	// Check if global network resources are created/restored
 	rsrcProvider := rsrcMgr.FindResourceProvider("network", "global")
@@ -62,20 +62,20 @@ func Init() {
 		// Support 1K networks for now
 		err := addNetRsrcProvider("network", "global", 1024)
 		if err != nil {
-			glog.Fatalf("Error adding global network resource. Err: %v", err)
+			log.Fatalf("Error adding global network resource. Err: %v", err)
 		}
 
 		// Add global mac address resource
 		// Support 20K mac addresses for now
 		err = addNetRsrcProvider("macaddr", "global", 20000)
 		if err != nil {
-			glog.Fatalf("Error adding global macaddr resource. Err: %v", err)
+			log.Fatalf("Error adding global macaddr resource. Err: %v", err)
 		}
 
 		// Create the default network
 		_, err = NewNetwork("default")
 		if err != nil {
-			glog.Fatalf("Error creating default network. Err: %v", err)
+			log.Fatalf("Error creating default network. Err: %v", err)
 		}
 	}
 }
@@ -132,14 +132,14 @@ func NewNetwork(name string) (*Network, error) {
 
 	// Check if the named network already exists
 	if netCtrl.networkDb[name] != nil {
-		glog.Errorf("Network %s already exists", name)
+		log.Errorf("Network %s already exists", name)
 		return nil, errors.New("Network already exists")
 	}
 
 	// Allocate a new network Id
 	network.NetworkId, err = allocNetRsrc("network", "global", name)
 	if err != nil {
-		glog.Errorf("Error allocating network id for %s. Err: %v", name, err)
+		log.Errorf("Error allocating network id for %s. Err: %v", name, err)
 		return nil, err
 	}
 
@@ -155,7 +155,7 @@ func NewNetwork(name string) (*Network, error) {
 	// assuming /24 and reserve .0, .1 & .255 addresses
 	err = addNetRsrcProvider("subnetAddr", name, 253)
 	if err != nil {
-		glog.Fatalf("Error adding global subnet resource. Err: %v", err)
+		log.Fatalf("Error adding global subnet resource. Err: %v", err)
 	}
 
 	// Derive subnet IP addr. netmask is always set to /24
@@ -183,7 +183,7 @@ func NewNetwork(name string) (*Network, error) {
 	// Store it in global DB
 	netCtrl.networkDb[name] = network
 
-	glog.Infof("Created network: %+v", network)
+	log.Infof("Created network: %+v", network)
 
 	// Send network info to all nodes
 	nodeCtrler.NetSpecBcast(network.NetSpec)
@@ -227,7 +227,7 @@ func (self *Network) NewEndPoint(epKey string) (*EndPoint, error) {
 	// Allocate mac address
 	macId, err := allocNetRsrc("macaddr", "global", epKey)
 	if err != nil {
-		glog.Errorf("Error allocating mac address for %s/%s", self.Name, epKey)
+		log.Errorf("Error allocating mac address for %s/%s", self.Name, epKey)
 		return nil, err
 	}
 	// Our grand mac addr allocation scheme is to allocate a unique id and then
@@ -239,7 +239,7 @@ func (self *Network) NewEndPoint(epKey string) (*EndPoint, error) {
 	// Allocate IPv4 address from our subnet
 	ipId, err := allocNetRsrc("subnetAddr", self.Name, epKey)
 	if err != nil {
-		glog.Errorf("Error allocating IP address for %s/%s", self.Name, epKey)
+		log.Errorf("Error allocating IP address for %s/%s", self.Name, epKey)
 		return nil, err
 	}
 
@@ -266,7 +266,7 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
 		// Network doesnt exist, create it
 		network, err = NewNetwork(netName)
 		if err != nil {
-			glog.Errorf("Error creating network %s. Err: %v", netName, err)
+			log.Errorf("Error creating network %s. Err: %v", netName, err)
 			return nil, err
 		}
 	}
@@ -276,7 +276,7 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
 	// Create an end point on the network
 	endPoint, err := network.NewEndPoint(epKey)
 	if err != nil {
-		glog.Errorf("Error creating end point %s/%s", netName, epKey)
+		log.Errorf("Error creating end point %s/%s", netName, epKey)
 		return nil, err
 	}
 
@@ -289,7 +289,7 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
 		Ipv4Gateway:     network.IPv4Gateway.String(),
 	}
 
-	glog.Infof("Created Alta interface: %+v", altaNetIf)
+	log.Infof("Created Alta interface: %+v", altaNetIf)
 
 	// done
 	return &altaNetIf, nil

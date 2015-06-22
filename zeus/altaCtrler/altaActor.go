@@ -11,7 +11,7 @@ import (
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Model to be persisted
@@ -62,7 +62,7 @@ func NewAlta(altaSpec *altaspec.AltaSpec) (*AltaActor, error) {
 	// Debug: timer to print state periodically
 	alta.ticker = time.NewTicker(time.Second * 15)
 
-	glog.Infof("Created Alta: %#v", alta)
+	log.Infof("Created Alta: %#v", alta)
 
 	return alta, nil
 }
@@ -79,7 +79,7 @@ func (self *AltaActor) runLoop() {
 			self.saveModel()
 		case <-self.ticker.C:
 			// FIXME: Use this timer to perform retries when things fail
-			glog.V(2).Infof("Alta: %s, FSM state: %s, state: %#v", self.Model.Spec.AltaName,
+			log.Infof("Alta: %s, FSM state: %s, state: %#v", self.Model.Spec.AltaName,
 				self.Model.Fsm.FsmState, self)
 		}
 	}
@@ -96,7 +96,7 @@ func (self *AltaActor) scheduleAlta() error {
 	// Ask the scheduler to assign a node
 	nodeAddr, err := rsrcMgr.Scheduler("default").GetNodeForAlta(&self.Model.Spec)
 	if err != nil {
-		glog.Errorf("Failed to schedule node. Error: %v", err)
+		log.Errorf("Failed to schedule node. Error: %v", err)
 		return err
 	}
 
@@ -122,12 +122,12 @@ func (self *AltaActor) createNetwork() error {
 func (self *AltaActor) mountVolume() error {
 	// For each volume
 	for _, volume := range self.Model.Spec.Volumes {
-		glog.Infof("Mounting volume: %+v", volume)
+		log.Infof("Mounting volume: %+v", volume)
 
 		// Mount the volume. create it if it doesnt exist
 		err := volumesCtrler.MountVolume(volume, self.Model.CurrNode)
 		if err != nil {
-			glog.Errorf("Error mounting volume. Err: %v", err)
+			log.Errorf("Error mounting volume. Err: %v", err)
 			return err
 		}
 
@@ -141,14 +141,14 @@ func (self *AltaActor) mountVolume() error {
 
 // Pull required image
 func (self *AltaActor) pullImg() error {
-	glog.Infof("Checking if image %s exists on host %s", self.Model.Spec.Image, self.Model.CurrNode)
+	log.Infof("Checking if image %s exists on host %s", self.Model.Spec.Image, self.Model.CurrNode)
 
 	// Check if the image exists
 	imgPath := "/image/" + self.Model.Spec.Image + "/ispresent"
 	var resp altaspec.ReqSuccess
 	err := nodeCtrler.NodeGetReq(self.Model.CurrNode, imgPath, &resp)
 	if err != nil {
-		glog.Errorf("Error checking image presence. Err: %v", err)
+		log.Errorf("Error checking image presence. Err: %v", err)
 		return err
 	}
 
@@ -158,13 +158,13 @@ func (self *AltaActor) pullImg() error {
 		return nil
 	}
 
-	glog.Infof("Pulling image: %s", self.Model.Spec.Image)
+	log.Infof("Pulling image: %s", self.Model.Spec.Image)
 
 	imgPullPath := "/image/" + self.Model.Spec.Image + "/pull"
 	dummy := struct{ dummy string }{dummy: "dummy"}
 	err = nodeCtrler.NodePostReq(self.Model.CurrNode, imgPullPath, dummy, &resp)
 	if err != nil {
-		glog.Errorf("Error pulling image. Err: %v", err)
+		log.Errorf("Error pulling image. Err: %v", err)
 		return err
 	}
 
@@ -177,17 +177,17 @@ func (self *AltaActor) pullImg() error {
 
 // Create the container
 func (self *AltaActor) createAltaCntr() error {
-	glog.Infof("Creating container %+v on host %s", self.Model.Spec, self.Model.CurrNode)
+	log.Infof("Creating container %+v on host %s", self.Model.Spec, self.Model.CurrNode)
 
 	// Create the container
 	var resp altaspec.AltaContext
 	err := nodeCtrler.NodePostReq(self.Model.CurrNode, "/alta/create", self.Model.Spec, &resp)
 	if err != nil {
-		glog.Errorf("Error creating container. Err: %v", err)
+		log.Errorf("Error creating container. Err: %v", err)
 		return err
 	}
 
-	glog.Infof("Got create response: %+v", resp)
+	log.Infof("Got create response: %+v", resp)
 
 	self.AltaEvent("start")
 
@@ -196,7 +196,7 @@ func (self *AltaActor) createAltaCntr() error {
 
 // Start the container
 func (self *AltaActor) startAltaCntr() error {
-	glog.Infof("Starting container %s on host %s", self.AltaId, self.Model.CurrNode)
+	log.Infof("Starting container %s on host %s", self.AltaId, self.Model.CurrNode)
 
 	startPath := "/alta/" + self.AltaId + "/start"
 	dummy := struct{ dummy string }{dummy: "dummy"}
@@ -205,7 +205,7 @@ func (self *AltaActor) startAltaCntr() error {
 	// Start the container
 	err := nodeCtrler.NodePostReq(self.Model.CurrNode, startPath, dummy, &resp)
 	if err != nil {
-		glog.Errorf("Error starting container. Err: %v", err)
+		log.Errorf("Error starting container. Err: %v", err)
 		return err
 	}
 
@@ -214,7 +214,7 @@ func (self *AltaActor) startAltaCntr() error {
 
 // Stop the container
 func (self *AltaActor) stopAltaCntr() error {
-	glog.Infof("Stopping container %s on host %s", self.AltaId, self.Model.CurrNode)
+	log.Infof("Stopping container %s on host %s", self.AltaId, self.Model.CurrNode)
 
 	stopPath := "/alta/" + self.AltaId + "/stop"
 	dummy := struct{ dummy string }{dummy: "dummy"}
@@ -223,7 +223,7 @@ func (self *AltaActor) stopAltaCntr() error {
 	// Stop the container
 	err := nodeCtrler.NodePostReq(self.Model.CurrNode, stopPath, dummy, &resp)
 	if err != nil {
-		glog.Errorf("Error stopping container. Err: %v", err)
+		log.Errorf("Error stopping container. Err: %v", err)
 		return err
 	}
 
@@ -237,7 +237,7 @@ func (self *AltaActor) saveModel() error {
 	// Save it to conf store
 	err := altaCtrl.cStore.SetObj(storeKey, self.Model)
 	if err != nil {
-		glog.Errorf("Error storing object %+v. Err: %v", self.Model, err)
+		log.Errorf("Error storing object %+v. Err: %v", self.Model, err)
 		return err
 	}
 

@@ -5,7 +5,7 @@ import (
 	"flag"
 	"time"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 var counter uint64 = 0
@@ -21,9 +21,9 @@ func waitLoop(obj *Obj) {
 	for {
 		select {
 		case <-obj.WaitChan:
-			glog.Infof("Received on wait Loop for %d\n", obj.Val)
+			log.Infof("Received on wait Loop for %d\n", obj.Val)
 		case <-time.After(time.Second * time.Duration(7)):
-			glog.Infof("Timeout on wait Loop for %d\n", obj.Val)
+			log.Infof("Timeout on wait Loop for %d\n", obj.Val)
 			obj.EventChan <- true
 		}
 	}
@@ -37,9 +37,9 @@ func runLoop(obj *Obj) {
 	for {
 		select {
 		case <-obj.WaitChan:
-			glog.Infof("Received on wait chan for %d\n", obj.Val)
+			log.Infof("Received on wait chan for %d\n", obj.Val)
 		case <-time.After(time.Second * time.Duration(7)):
-			glog.Infof("Timeout on wait chan for %d\n", obj.Val)
+			log.Infof("Timeout on wait chan for %d\n", obj.Val)
 		}
 	}
 }
@@ -60,7 +60,7 @@ func init() {
 	// Hack to log output
 	flag.Lookup("logtostderr").Value.Set("true")
 
-	glog.Infof("Running timer test\n")
+	log.Infof("Running timer test\n")
 
 	obj1 := NewLoop()
 	obj2 := NewLoop()
@@ -68,11 +68,11 @@ func init() {
 	for {
 		select {
 		case <-obj1.EventChan:
-			glog.Infof("Received event on Obj1\n")
+			log.Infof("Received event on Obj1\n")
 		case <-obj2.EventChan:
-			glog.Infof("Received event on Obj2\n")
+			log.Infof("Received event on Obj2\n")
 		case <-time.After(time.Second * time.Duration(5)):
-			glog.Infof("Received timer Event\n")
+			log.Infof("Received timer Event\n")
 		}
 	}
 }

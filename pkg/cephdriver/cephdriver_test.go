@@ -11,7 +11,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 func TestCreateVolume(t *testing.T) {
@@ -29,7 +29,7 @@ func TestCreateVolume(t *testing.T) {
 	// Create a volume
 	err := cephDriver.CreateVolume(volumeSpec)
 	if err != nil {
-		glog.Errorf("Error creating the volume. Err: %v", err)
+		log.Errorf("Error creating the volume. Err: %v", err)
 		t.Errorf("Failed to create a volume")
 	}
 }
@@ -38,21 +38,21 @@ func readWriteTest(mountDir string) error {
 	// Write a file and verify you can read it
 	file, err := os.Create(mountDir + "/test.txt")
 	if err != nil {
-		glog.Errorf("Error creating file. Err: %v", err)
+		log.Errorf("Error creating file. Err: %v", err)
 		return errors.New("Failed to create a file")
 	}
 	defer file.Close()
 
 	num, err := file.WriteString("Test string\n")
 	if err != nil {
-		glog.Errorf("Error writing file. Err: %v", err)
+		log.Errorf("Error writing file. Err: %v", err)
 		return errors.New("Failed to write a file")
 	}
 	file.Sync()
 
 	file, err = os.Open(mountDir + "/test.txt")
 	if err != nil {
-		glog.Errorf("Error opening file. Err: %v", err)
+		log.Errorf("Error opening file. Err: %v", err)
 		return errors.New("Failed to open a file")
 	}
 	defer file.Close()
@@ -61,10 +61,10 @@ func readWriteTest(mountDir string) error {
 	_, err = io.ReadAtLeast(file, rb, num)
 	var rbs string = string(rb)
 	if (err != nil) || (!strings.Contains(rbs, "Test string")) {
-		glog.Errorf("Error reading back file(Got %s). Err: %v", rbs, err)
+		log.Errorf("Error reading back file(Got %s). Err: %v", rbs, err)
 		return errors.New("Failed to read back a file")
 	}
-	glog.Infof("Read back: %s", string(rb))
+	log.Infof("Read back: %s", string(rb))
 
 	return nil
 }
@@ -76,13 +76,13 @@ func TestMountVolume(t *testing.T) {
 	// mount the volume
 	err := cephDriver.MountVolume("rbd", "pithos1234")
 	if err != nil {
-		glog.Errorf("Error mounting the volume. Err: %v", err)
+		log.Errorf("Error mounting the volume. Err: %v", err)
 		t.Errorf("Failed to mount a volume")
 	}
 
 	err = readWriteTest("/mnt/ceph/rbd/pithos1234")
 	if err != nil {
-		glog.Errorf("Error during read/write test. Err: %v", err)
+		log.Errorf("Error during read/write test. Err: %v", err)
 		t.Errorf("Failed read/write test")
 	}
 }
@@ -94,7 +94,7 @@ func TestUnmountVolume(t *testing.T) {
 	// unmount the volume
 	err := cephDriver.UnmountVolume("rbd", "pithos1234")
 	if err != nil {
-		glog.Errorf("Error unmounting the volume. Err: %v", err)
+		log.Errorf("Error unmounting the volume. Err: %v", err)
 		t.Errorf("Failed to unmount a volume")
 	}
 }
@@ -106,7 +106,7 @@ func TestDeleteVolume(t *testing.T) {
 	// delete the volume
 	err := cephDriver.DeleteVolume("rbd", "pithos1234")
 	if err != nil {
-		glog.Errorf("Error deleting the volume. Err: %v", err)
+		log.Errorf("Error deleting the volume. Err: %v", err)
 		t.Errorf("Failed to delete a volume")
 	}
 }
@@ -123,7 +123,7 @@ func TestRepeatedMountUnmout(t *testing.T) {
 	// Create a volume
 	err := cephDriver.CreateVolume(volumeSpec)
 	if err != nil {
-		glog.Errorf("Error creating the volume. Err: %v", err)
+		log.Errorf("Error creating the volume. Err: %v", err)
 		t.Errorf("Failed to create a volume")
 	}
 
@@ -132,20 +132,20 @@ func TestRepeatedMountUnmout(t *testing.T) {
 		// mount the volume
 		err := cephDriver.MountVolume("rbd", "pithos1234")
 		if err != nil {
-			glog.Errorf("Error mounting the volume. Err: %v", err)
+			log.Errorf("Error mounting the volume. Err: %v", err)
 			t.Errorf("Failed to mount a volume")
 		}
 
 		err = readWriteTest("/mnt/ceph/rbd/pithos1234")
 		if err != nil {
-			glog.Errorf("Error during read/write test. Err: %v", err)
+			log.Errorf("Error during read/write test. Err: %v", err)
 			t.Errorf("Failed read/write test")
 		}
 
 		// unmount the volume
 		err = cephDriver.UnmountVolume("rbd", "pithos1234")
 		if err != nil {
-			glog.Errorf("Error unmounting the volume. Err: %v", err)
+			log.Errorf("Error unmounting the volume. Err: %v", err)
 			t.Errorf("Failed to unmount a volume")
 		}
 	}
@@ -153,7 +153,7 @@ func TestRepeatedMountUnmout(t *testing.T) {
 	// delete the volume
 	err = cephDriver.DeleteVolume("rbd", "pithos1234")
 	if err != nil {
-		glog.Errorf("Error deleting the volume. Err: %v", err)
+		log.Errorf("Error deleting the volume. Err: %v", err)
 		t.Errorf("Failed to delete a volume")
 	}
 }

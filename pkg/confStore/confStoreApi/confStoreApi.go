@@ -1,7 +1,7 @@
 package confStoreApi
 
 import (
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Lock event types
@@ -117,8 +117,8 @@ func RegisterPlugin(name string, plugin ConfStorePlugin) error {
 func GetPlugin(name string) ConfStorePlugin {
 	// Find the conf store
 	if pluginList[name] == nil {
-		glog.Errorf("Confstore Plugin %s not registered", name)
-		glog.Fatal("Confstore plugin not registered")
+		log.Errorf("Confstore Plugin %s not registered", name)
+		log.Fatal("Confstore plugin not registered")
 	}
 
 	return pluginList[name]

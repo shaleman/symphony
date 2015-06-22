@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"strconv"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netns"
 )
@@ -21,7 +21,7 @@ func MoveIntfToNetns(portName string, contPid int) error {
 	// Create /var/run/netns directory if it doesnt exist
 	err := os.Mkdir(netnsDir, 0700)
 	if err != nil && !os.IsExist(err) {
-		glog.Errorf("error creating '%s' direcotry \n", netnsDir)
+		log.Errorf("error creating '%s' direcotry \n", netnsDir)
 		return err
 	}
 
@@ -30,7 +30,7 @@ func MoveIntfToNetns(portName string, contPid int) error {
 	fmt.Printf("netnsPidFile: %s\n", netnsPidFile)
 	err = os.Remove(netnsPidFile)
 	if err != nil && !os.IsNotExist(err) {
-		glog.Errorf("error removing file '%s' \n", netnsPidFile)
+		log.Errorf("error removing file '%s' \n", netnsPidFile)
 		return err
 	}
 
@@ -38,27 +38,27 @@ func MoveIntfToNetns(portName string, contPid int) error {
 	procNetNs := path.Join("/proc", strconv.Itoa(contPid), "ns/net")
 	err = os.Symlink(procNetNs, netnsPidFile)
 	if err != nil {
-		glog.Errorf("error symlink file '%s' with '%s' \n", netnsPidFile)
+		log.Errorf("error symlink file '%s' with '%s' \n", netnsPidFile)
 		return err
 	}
 
 	// Change namespace
 	err = SetInterfaceNamespace(portName, contPid)
 	if err != nil {
-		glog.Errorf("unable to move interface '%s' to pid %d. Err:%v \n", portName, contPid, err)
+		log.Errorf("unable to move interface '%s' to pid %d. Err:%v \n", portName, contPid, err)
 		return err
 	}
 
 	/* // Note: This is another variation of changing namespace
 	   targetns, err := netns.GetFromName(strconv.Itoa(contPid))
 	   if err != nil {
-	       glog.Errorf("Error getting targetns. Err %v\n", err)
+	       log.Errorf("Error getting targetns. Err %v\n", err)
 	       return err
 	   }
 	   defer targetns.Close()
 
 	   if err = SetInterfaceInNamespaceFd(portName, uintptr(int(targetns))); err != nil {
-	       glog.Errorf("Unable to move interface '%s' to pid %d. Err:%v \n", portName, contPid, err)
+	       log.Errorf("Unable to move interface '%s' to pid %d. Err:%v \n", portName, contPid, err)
 	       return err
 	   }
 	*/
@@ -82,26 +82,26 @@ func SetNetnsIntfIdentity(nsPid int, portName string, identity NetnsIntfIdentify
 
 	origns, err := netns.Get()
 	if err != nil {
-		glog.Errorf("Error getting current network namespace")
+		log.Errorf("Error getting current network namespace")
 		return err
 	}
 	defer origns.Close()
 
 	targetns, err := netns.GetFromName(strconv.Itoa(nsPid))
 	if err != nil {
-		glog.Errorf("Error getting network namespace for container")
+		log.Errorf("Error getting network namespace for container")
 		return err
 	}
 	defer targetns.Close()
 
 	if err = netns.Set(targetns); err != nil {
-		glog.Errorf("Error switching network namespace")
+		log.Errorf("Error switching network namespace")
 		return err
 	}
 	defer netns.Set(origns)
 
 	if err = InterfaceDown(portName); err != nil {
-		glog.Errorf("Error bringing down interface")
+		log.Errorf("Error bringing down interface")
 		return err
 	}
 
@@ -115,22 +115,22 @@ func SetNetnsIntfIdentity(nsPid int, portName string, identity NetnsIntfIdentify
 
 	ipAddrMask := identity.IPAddr + "/" + strconv.Itoa(identity.NetmaskLen)
 	if err = SetInterfaceIp(newPortName, ipAddrMask); err != nil {
-		glog.Errorf("Error setting interface IP")
+		log.Errorf("Error setting interface IP")
 		return err
 	}
 
 	if err = SetInterfaceMac(newPortName, identity.MacAddr); err != nil {
-		glog.Errorf("Error setting interface Mac")
+		log.Errorf("Error setting interface Mac")
 		return err
 	}
 
 	if err = InterfaceUp(newPortName); err != nil {
-		glog.Errorf("Error setting interface Up")
+		log.Errorf("Error setting interface Up")
 		return err
 	}
 
 	if err = SetDefaultGateway(identity.DefaultGw, newPortName); err != nil {
-		glog.Errorf("Error setting default GW")
+		log.Errorf("Error setting default GW")
 		// FIXME: setting default gw fails if container has more than one intf
 		// return err
 	}

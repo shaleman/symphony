@@ -9,8 +9,8 @@ import (
 
 	api "github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/golang/glog"
 )
 
 const SERVICE_TTL = 60
@@ -32,19 +32,19 @@ func (self *EtcdPlugin) RegisterService(serviceInfo api.ServiceInfo) error {
 	keyName := "/contiv.io/service/" + serviceInfo.ServiceName + "/" +
 		serviceInfo.HostAddr + ":" + strconv.Itoa(serviceInfo.Port)
 
-	glog.Infof("Registering service key: %s, value: %+v", keyName, serviceInfo)
+	log.Infof("Registering service key: %s, value: %+v", keyName, serviceInfo)
 
 	// JSON format the object
 	jsonVal, err := json.Marshal(serviceInfo)
 	if err != nil {
-		glog.Errorf("Json conversion error. Err %v", err)
+		log.Errorf("Json conversion error. Err %v", err)
 		return err
 	}
 
 	// Set it via etcd client
 	_, err = self.client.Set(keyName, string(jsonVal[:]), SERVICE_TTL)
 	if err != nil {
-		glog.Errorf("Error setting key %s, Err: %v", keyName, err)
+		log.Errorf("Error setting key %s, Err: %v", keyName, err)
 		return err
 	}
 
@@ -70,15 +70,15 @@ func (self *EtcdPlugin) GetService(name string) ([]api.ServiceInfo, error) {
 	// Get the object from etcd client
 	resp, err := self.client.Get(keyName, true, true)
 	if err != nil {
-		glog.Errorf("Error getting key %s. Err: %v", keyName, err)
+		log.Errorf("Error getting key %s. Err: %v", keyName, err)
 		return nil, err
 	}
 
-	// glog.Infof("Got Resp: %+v", resp)
-	// glog.Infof("Node: %+v", resp.Node)
+	// log.Infof("Got Resp: %+v", resp)
+	// log.Infof("Node: %+v", resp.Node)
 
 	if !resp.Node.Dir {
-		glog.Errorf("Err. Response is not a directory: %+v", resp.Node)
+		log.Errorf("Err. Response is not a directory: %+v", resp.Node)
 		return nil, errors.New("Invalid Response from etcd")
 	}
 
@@ -90,7 +90,7 @@ func (self *EtcdPlugin) GetService(name string) ([]api.ServiceInfo, error) {
 		// Parse JSON response
 		err = json.Unmarshal([]byte(node.Value), &respSrvc)
 		if err != nil {
-			glog.Errorf("Error parsing object %s, Err %v", node.Value, err)
+			log.Errorf("Error parsing object %s, Err %v", node.Value, err)
 			return nil, err
 		}
 
@@ -111,16 +111,16 @@ func (self *EtcdPlugin) WatchService(name string,
 
 	// Start the watch thread
 	go func() {
-		glog.Infof("Watching for service: %s", keyName)
+		log.Infof("Watching for service: %s", keyName)
 		// Start the watch
 		_, err := self.client.Watch(keyName, 0, true, watchCh, watchStopCh)
 		if (err != nil) && (err != etcd.ErrWatchStoppedByUser) {
-			glog.Errorf("Error watching service %s. Err: %v", keyName, err)
+			log.Errorf("Error watching service %s. Err: %v", keyName, err)
 
 			// Emit the event
 			eventCh <- api.WatchServiceEvent{EventType: api.WatchServiceEventError}
 		}
-		glog.Infof("Watch thread exiting..")
+		log.Infof("Watch thread exiting..")
 	}()
 
 	// handle messages from watch service
@@ -128,7 +128,7 @@ func (self *EtcdPlugin) WatchService(name string,
 		for {
 			select {
 			case watchResp := <-watchCh:
-				glog.V(2).Infof("Received event %#v\n Node: %#v", watchResp, watchResp.Node)
+				log.Infof("Received event %#v\n Node: %#v", watchResp, watchResp.Node)
 
 				// derive service info from key
 				srvKey := strings.TrimPrefix(watchResp.Node.Key, "/contiv.io/service/")
@@ -149,7 +149,7 @@ func (self *EtcdPlugin) WatchService(name string,
 				// If a service restarts and re-registers before it expired, we'll
 				// receive set again. receivers need to handle this case
 				if watchResp.Action == "set" {
-					glog.Infof("Sending service add event: %+v", srvInfo)
+					log.Infof("Sending service add event: %+v", srvInfo)
 					// Send Add event
 					eventCh <- api.WatchServiceEvent{
 						EventType:   api.WatchServiceEventAdd,
@@ -158,7 +158,7 @@ func (self *EtcdPlugin) WatchService(name string,
 				} else if (watchResp.Action == "delete") ||
 					(watchResp.Action == "expire") {
 
-					glog.Infof("Sending service del event: %+v", srvInfo)
+					log.Infof("Sending service del event: %+v", srvInfo)
 
 					// Send Delete event
 					eventCh <- api.WatchServiceEvent{
@@ -169,7 +169,7 @@ func (self *EtcdPlugin) WatchService(name string,
 			case stopReq := <-stopCh:
 				if stopReq {
 					// Stop watch and return
-					glog.Infof("Stopping watch on %s", keyName)
+					log.Infof("Stopping watch on %s", keyName)
 					watchStopCh <- true
 					return
 				}
@@ -189,7 +189,7 @@ func (self *EtcdPlugin) DeregisterService(serviceInfo api.ServiceInfo) error {
 	// Find it in the database
 	srvState := self.serviceDb[keyName]
 	if srvState == nil {
-		glog.Errorf("Could not find the service in db %s", keyName)
+		log.Errorf("Could not find the service in db %s", keyName)
 		return errors.New("Service not found")
 	}
 
@@ -200,7 +200,7 @@ func (self *EtcdPlugin) DeregisterService(serviceInfo api.ServiceInfo) error {
 	// Delete the service instance
 	_, err := self.client.Delete(keyName, false)
 	if err != nil {
-		glog.Errorf("Error getting key %s. Err: %v", keyName, err)
+		log.Errorf("Error getting key %s. Err: %v", keyName, err)
 		return err
 	}
 
@@ -212,15 +212,15 @@ func refreshService(client *etcd.Client, keyName string, keyVal string, stopChan
 	for {
 		select {
 		case <-time.After(time.Second * time.Duration(SERVICE_TTL/3)):
-			glog.V(2).Infof("Refreshing key: %s", keyName)
+			log.Infof("Refreshing key: %s", keyName)
 
 			_, err := client.Update(keyName, keyVal, SERVICE_TTL)
 			if err != nil {
-				glog.Errorf("Error updating key %s, Err: %v", keyName, err)
+				log.Errorf("Error updating key %s, Err: %v", keyName, err)
 			}
 
 		case <-stopChan:
-			glog.Infof("Stop refreshing key: %s", keyName)
+			log.Infof("Stop refreshing key: %s", keyName)
 			return
 		}
 	}

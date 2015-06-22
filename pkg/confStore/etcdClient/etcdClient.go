@@ -9,8 +9,8 @@ import (
 
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/coreos/go-etcd/etcd"
-	"github.com/golang/glog"
 )
 
 type EtcdPlugin struct {
@@ -32,7 +32,7 @@ func (self *EtcdPlugin) Init(machines []string) error {
 	// Create a new client
 	self.client = etcd.NewClient(machines)
 	if self.client == nil {
-		glog.Fatal("Error creating etcd client.")
+		log.Fatal("Error creating etcd client.")
 		return errors.New("Error creating etcd client")
 	}
 
@@ -52,14 +52,14 @@ func (self *EtcdPlugin) GetObj(key string, retVal interface{}) error {
 	// Get the object from etcd client
 	resp, err := self.client.Get(keyName, false, false)
 	if err != nil {
-		glog.Errorf("Error getting key %s. Err: %v", keyName, err)
+		log.Errorf("Error getting key %s. Err: %v", keyName, err)
 		return err
 	}
 
 	// Parse JSON response
 	err = json.Unmarshal([]byte(resp.Node.Value), retVal)
 	if err != nil {
-		glog.Errorf("Error parsing object %s, Err %v", resp.Node.Value, err)
+		log.Errorf("Error parsing object %s, Err %v", resp.Node.Value, err)
 		return err
 	}
 
@@ -87,12 +87,12 @@ func (self *EtcdPlugin) ListDir(key string) ([]string, error) {
 	// Get the object from etcd client
 	resp, err := self.client.Get(keyName, true, true)
 	if err != nil {
-		glog.Errorf("Error getting key %s. Err: %v", keyName, err)
+		log.Errorf("Error getting key %s. Err: %v", keyName, err)
 		return nil, err
 	}
 
 	if !resp.Node.Dir {
-		glog.Errorf("ListDir response is not a directory")
+		log.Errorf("ListDir response is not a directory")
 		return nil, errors.New("Response is not directory")
 	}
 
@@ -113,14 +113,14 @@ func (self *EtcdPlugin) SetObj(key string, value interface{}) error {
 	// JSON format the object
 	jsonVal, err := json.Marshal(value)
 	if err != nil {
-		glog.Errorf("Json conversion error. Err %v", err)
+		log.Errorf("Json conversion error. Err %v", err)
 		return err
 	}
 
 	// Set it via etcd client
 	_, err = self.client.Set(keyName, string(jsonVal[:]), 0)
 	if err != nil {
-		glog.Errorf("Error setting key %s, Err: %v", keyName, err)
+		log.Errorf("Error setting key %s, Err: %v", keyName, err)
 		return err
 	}
 
@@ -134,7 +134,7 @@ func (self *EtcdPlugin) DelObj(key string) error {
 	// Remove it via etcd client
 	_, err := self.client.Delete(keyName, false)
 	if err != nil {
-		glog.Errorf("Error removing key %s, Err: %v", keyName, err)
+		log.Errorf("Error removing key %s, Err: %v", keyName, err)
 		return err
 	}
 
@@ -145,22 +145,22 @@ func (self *EtcdPlugin) DelObj(key string) error {
 func httpGetJson(url string, data interface{}) (interface{}, error) {
 	res, err := http.Get(url)
 	if err != nil {
-		glog.Errorf("Error during http get. Err: %v", err)
+		log.Errorf("Error during http get. Err: %v", err)
 		return nil, err
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		glog.Errorf("Error during ioutil readall. Err: %v", err)
+		log.Errorf("Error during ioutil readall. Err: %v", err)
 		return nil, err
 	}
 
 	err = json.Unmarshal(body, data)
 	if err != nil {
-		glog.Errorf("Error during json unmarshall. Err: %v", err)
+		log.Errorf("Error during json unmarshall. Err: %v", err)
 		return nil, err
 	}
 
-	glog.Infof("Results for (%s): %+v\n", url, data)
+	log.Infof("Results for (%s): %+v\n", url, data)
 
 	return data, nil
 }
@@ -174,7 +174,7 @@ func (self *EtcdPlugin) GetLocalAddr() (string, error) {
 	// Get self state from etcd
 	_, err := httpGetJson("http://localhost:2379/v2/stats/self", &selfData)
 	if err != nil {
-		glog.Errorf("Error getting self state. Err: %v", err)
+		log.Errorf("Error getting self state. Err: %v", err)
 		return "", errors.New("Error getting self state")
 	}
 
@@ -189,7 +189,7 @@ func (self *EtcdPlugin) GetLocalAddr() (string, error) {
 	// Get member list from etcd
 	_, err = httpGetJson("http://localhost:2379/v2/members", &memData)
 	if err != nil {
-		glog.Errorf("Error getting self state. Err: %v", err)
+		log.Errorf("Error getting self state. Err: %v", err)
 		return "", errors.New("Error getting self state")
 	}
 
@@ -201,7 +201,7 @@ func (self *EtcdPlugin) GetLocalAddr() (string, error) {
 			for _, clientUrl := range mem.ClientURLs {
 				hostStr := strings.TrimPrefix(clientUrl, "http://")
 				hostAddr := strings.Split(hostStr, ":")[0]
-				glog.Infof("Got host addr: %s", hostAddr)
+				log.Infof("Got host addr: %s", hostAddr)
 				return hostAddr, nil
 			}
 		}

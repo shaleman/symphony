@@ -4,7 +4,7 @@ import (
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 	"github.com/contiv/symphony/pkg/confStore/etcdClient"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Create a new conf store
@@ -20,8 +20,8 @@ func NewConfStore() confStoreApi.ConfStorePlugin {
 	// Initialize the conf store
 	err := confStore.Init([]string{})
 	if err != nil {
-		glog.Errorf("Error initializing confstore plugin. Err: %v", err)
-		glog.Fatal("Error initializing confstore plugin")
+		log.Errorf("Error initializing confstore plugin. Err: %v", err)
+		log.Fatal("Error initializing confstore plugin")
 	}
 
 	return confStore

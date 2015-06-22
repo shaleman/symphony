@@ -3,7 +3,7 @@ package rsrcMgr
 import (
 	"errors"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/jainvipin/bitset"
 )
 
@@ -27,7 +27,7 @@ func rsrcProvideMsg(prvdMsg ResourceProvideMsg) {
 			// Add a new provider
 			err := rsrcProviderAdd(rsrcPrvd)
 			if err != nil {
-				glog.Errorf("Error adding resource provider: %+v", rsrcPrvd)
+				log.Errorf("Error adding resource provider: %+v", rsrcPrvd)
 
 				// Send an error response
 				rsrcProvideResp(prvdMsg, err)
@@ -37,14 +37,14 @@ func rsrcProvideMsg(prvdMsg ResourceProvideMsg) {
 			// Remove an existing provider
 			err := rsrcProviderRemove(rsrcPrvd)
 			if err != nil {
-				glog.Errorf("Error removing resource provider: %+v", rsrcPrvd)
+				log.Errorf("Error removing resource provider: %+v", rsrcPrvd)
 
 				// Send an error response
 				rsrcProvideResp(prvdMsg, err)
 				return
 			}
 		} else {
-			glog.Fatalf("Unknown resource Op: %s in %+v", prvdMsg.RsrcOp, rsrcPrvd)
+			log.Fatalf("Unknown resource Op: %s in %+v", prvdMsg.RsrcOp, rsrcPrvd)
 		}
 	}
 
@@ -59,7 +59,7 @@ func rsrcProvideResp(prvdMsg ResourceProvideMsg, err error) {
 		Error: err,
 	}
 
-	glog.Infof("Sending response: %+v to message: %+v", resp, prvdMsg)
+	log.Infof("Sending response: %+v to message: %+v", resp, prvdMsg)
 
 	// Send it on resp channel
 	prvdMsg.RespChan <- resp
@@ -78,7 +78,7 @@ func rsrcProviderAdd(rsrcPrvd ResourceProvide) error {
 			Providers: make(map[string]*RsrcProvider),
 		}
 
-		glog.Infof("Added Resource: %+v", rsrcMgr.rsrcDb[rsrcType])
+		log.Infof("Added Resource: %+v", rsrcMgr.rsrcDb[rsrcType])
 	}
 
 	rsrc := rsrcMgr.rsrcDb[rsrcType]
@@ -105,12 +105,12 @@ func rsrcProviderAdd(rsrcPrvd ResourceProvide) error {
 		rsrc.Providers[rcrcProvider].rsrcBitset = bitset.New(uint(rsrcPrvd.NumRsrc))
 	}
 
-	glog.Infof("Added Resource Provider: %+v", rsrc.Providers[rcrcProvider])
+	log.Infof("Added Resource Provider: %+v", rsrc.Providers[rcrcProvider])
 
 	// Store the resource onto confStore
 	err := cstoreSaveProvider(rsrc.Providers[rcrcProvider])
 	if err != nil {
-		glog.Errorf("Error saving provider to conf store")
+		log.Errorf("Error saving provider to conf store")
 		return err
 	}
 
@@ -129,7 +129,7 @@ func rsrcProviderRestore(provider *RsrcProvider) error {
 			Providers: make(map[string]*RsrcProvider),
 		}
 
-		glog.Infof("Added Resource: %+v", rsrcMgr.rsrcDb[rsrcType])
+		log.Infof("Added Resource: %+v", rsrcMgr.rsrcDb[rsrcType])
 	}
 
 	// Add the provider to the DB
@@ -148,7 +148,7 @@ func rsrcProviderRestore(provider *RsrcProvider) error {
 		}
 	}
 
-	glog.Infof("Restored Resource Provider: %+v", rsrc.Providers[rcrcProvider])
+	log.Infof("Restored Resource Provider: %+v", rsrc.Providers[rcrcProvider])
 
 	return nil
 }
@@ -163,24 +163,24 @@ func rsrcProviderRemove(rsrcPrvd ResourceProvide) error {
 	// Make sure resource type exists
 	rsrc := rsrcMgr.rsrcDb[rsrcType]
 	if rsrc == nil {
-		glog.Fatalf("resource type %s does not exist", rsrcType)
+		log.Fatalf("resource type %s does not exist", rsrcType)
 	}
 
 	// Make sure provider exists
 	if rsrc.Providers[rcrcProvider] == nil {
-		glog.Fatalf("Resource provider %s/%s does not exist", rsrcType, rcrcProvider)
+		log.Fatalf("Resource provider %s/%s does not exist", rsrcType, rcrcProvider)
 	}
 
 	// Make sure there are no users
 	if len(rsrc.Providers[rcrcProvider].RsrcUsers) != 0 {
-		glog.Fatalf("Resource Provider %s/%s still has users: %#v", rsrcType,
+		log.Fatalf("Resource Provider %s/%s still has users: %#v", rsrcType,
 			rcrcProvider, rsrc.Providers[rcrcProvider].RsrcUsers)
 	}
 
 	// remove the resource from conf store
 	err := cstoreDelProvider(rsrc.Providers[rcrcProvider])
 	if err != nil {
-		glog.Errorf("Error removing provider %s from conf store. Err: %v", rcrcProvider, err)
+		log.Errorf("Error removing provider %s from conf store. Err: %v", rcrcProvider, err)
 	}
 
 	// finally delete the provider
@@ -200,7 +200,7 @@ func rsrcUseMsg(useMsg ResourceUserMsg) {
 	for _, rsrcUse := range useMsg.ResourceList {
 		err := rsrcUseCheck(rsrcUse, useMsg.RsrcOp)
 		if err != nil {
-			glog.Errorf("Error: %v. Resource op %+v can not be performed", err, rsrcUse)
+			log.Errorf("Error: %v. Resource op %+v can not be performed", err, rsrcUse)
 
 			// Send an error response
 			rsrcUseResp(useMsg, rsrcRespList, err)
@@ -214,7 +214,7 @@ func rsrcUseMsg(useMsg ResourceUserMsg) {
 		if useMsg.RsrcOp == "alloc" {
 			useResp, err := rsrcAlloc(rsrcUse)
 			if err != nil {
-				glog.Fatalf("FATAL Error allocating resource: %+v. Err: %v", rsrcUse, err)
+				log.Fatalf("FATAL Error allocating resource: %+v. Err: %v", rsrcUse, err)
 			}
 
 			// Append to response list
@@ -222,13 +222,13 @@ func rsrcUseMsg(useMsg ResourceUserMsg) {
 		} else if useMsg.RsrcOp == "free" {
 			useResp, err := rsrcFree(rsrcUse)
 			if err != nil {
-				glog.Fatalf("FATAL Error freeing resource: %+v. Err: %v", rsrcUse, err)
+				log.Fatalf("FATAL Error freeing resource: %+v. Err: %v", rsrcUse, err)
 			}
 
 			// Append to response list
 			rsrcRespList = append(rsrcRespList, *useResp)
 		} else {
-			glog.Fatalf("Unknown resource Op %s, in %+v", useMsg.RsrcOp, rsrcUse)
+			log.Fatalf("Unknown resource Op %s, in %+v", useMsg.RsrcOp, rsrcUse)
 		}
 	}
 
@@ -243,7 +243,7 @@ func rsrcUseResp(useMsg ResourceUserMsg, rsrcList []ResourceUseResp, err error) 
 		Error:        err,
 	}
 
-	glog.Infof("Sending Resp: %+v to Msg: %+v", resp, useMsg)
+	log.Infof("Sending Resp: %+v to Msg: %+v", resp, useMsg)
 
 	// Send the response
 	useMsg.RespChan <- resp
@@ -257,14 +257,14 @@ func rsrcUseCheck(rsrcUse ResourceUse, rsrcOp string) error {
 	// Check we know about resource type
 	rsrc := rsrcMgr.rsrcDb[rsrcType]
 	if rsrc == nil {
-		glog.Errorf("Resource type %s does not exist", rsrcType)
+		log.Errorf("Resource type %s does not exist", rsrcType)
 		return errors.New("Resource Type doesnt exist")
 	}
 
 	// Check we know about provider
 	provider := rsrc.Providers[rcrcProvider]
 	if provider == nil {
-		glog.Errorf("Resource provider %s/%s does not exist", rsrcType, rcrcProvider)
+		log.Errorf("Resource provider %s/%s does not exist", rsrcType, rcrcProvider)
 		return errors.New("Resource Provider does not exist")
 	}
 
@@ -275,7 +275,7 @@ func rsrcUseCheck(rsrcUse ResourceUse, rsrcOp string) error {
 
 	// Make sure there is enough resource
 	if provider.FreeRsrc < rsrcUse.NumRsrc {
-		glog.Errorf("Not enough resource available. Req: %+v, Avl: %+v", rsrcUse, provider)
+		log.Errorf("Not enough resource available. Req: %+v, Avl: %+v", rsrcUse, provider)
 		return errors.New("Not enough resource available")
 	}
 
@@ -305,7 +305,7 @@ func rsrcAlloc(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	if provider.RsrcUsers[rsrcUse.UserKey] != nil {
 		resp.RsrcIndexes = provider.RsrcUsers[rsrcUse.UserKey].RsrcIndexes
 
-		glog.Infof("Resource already allocated for %s. Resp: %+v", rsrcUse.UserKey, resp)
+		log.Infof("Resource already allocated for %s. Resp: %+v", rsrcUse.UserKey, resp)
 		return &resp, nil
 	}
 
@@ -324,7 +324,7 @@ func rsrcAlloc(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 		for i := 0; i < int(rsrcUse.NumRsrc); i++ {
 			rsrcIndex, found := provider.rsrcBitset.NextClear(0)
 			if !found {
-				glog.Errorf("Could not allocate resource %s/%s", rsrcType, rcrcProvider)
+				log.Errorf("Could not allocate resource %s/%s", rsrcType, rcrcProvider)
 				return nil, errors.New("Could not allocate resource")
 			}
 
@@ -345,7 +345,7 @@ func rsrcAlloc(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 			RsrcIndexes: rsrcIndexes,
 		}
 	} else {
-		glog.Fatalf("Unknown resource unit type: %+v", provider)
+		log.Fatalf("Unknown resource unit type: %+v", provider)
 	}
 
 	// Save the used resource
@@ -358,11 +358,11 @@ func rsrcAlloc(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	// Store the resource change onto confStore
 	err := cstoreSaveProvider(provider)
 	if err != nil {
-		glog.Errorf("Error saving provider to conf store")
+		log.Errorf("Error saving provider to conf store")
 		return nil, err
 	}
 
-	glog.Infof("Resource allocation resp: %+v for request: %+v", resp, rsrcUse)
+	log.Infof("Resource allocation resp: %+v for request: %+v", resp, rsrcUse)
 
 	return &resp, nil
 }
@@ -386,7 +386,7 @@ func rsrcFree(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	// If we had already allocated resource to this user, simply respond with
 	// previously allocated value
 	if provider.RsrcUsers[rsrcUse.UserKey] == nil {
-		glog.Errorf("Resource %s/%s was not allocated for %s", rsrcType,
+		log.Errorf("Resource %s/%s was not allocated for %s", rsrcType,
 			rcrcProvider, rsrcUse.UserKey)
 		return nil, errors.New("Resource not allocated for user")
 	}
@@ -406,7 +406,7 @@ func rsrcFree(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 			provider.rsrcBitset.Clear(uint(rsrcIndex))
 		}
 	} else {
-		glog.Fatalf("Unknown resource unit type: %+v", provider)
+		log.Fatalf("Unknown resource unit type: %+v", provider)
 	}
 
 	// Remove the user
@@ -419,11 +419,11 @@ func rsrcFree(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	// Store the resource change onto confStore
 	err := cstoreSaveProvider(provider)
 	if err != nil {
-		glog.Errorf("Error saving provider to conf store")
+		log.Errorf("Error saving provider to conf store")
 		return nil, err
 	}
 
-	glog.Infof("Resource free resp: %+v for request: %+v", resp, rsrcUse)
+	log.Infof("Resource free resp: %+v for request: %+v", resp, rsrcUse)
 
 	return &resp, nil
 }

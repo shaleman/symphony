@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 	"github.com/socketplane/bonjour"
 	"github.com/socketplane/ecc"
 )
@@ -33,11 +33,11 @@ func Bonjour(intfName string) {
 type notify struct{}
 
 func (n notify) NewMember(addr net.IP) {
-	glog.Infof("New Member Added : ", addr)
+	log.Infof("New Member Added : ", addr)
 	JoinDatastore(addr.String())
 }
 func (n notify) RemoveMember(addr net.IP) {
-	glog.Infof("Member Left : ", addr)
+	log.Infof("Member Left : ", addr)
 }
 
 func JoinDatastore(address string) error {
@@ -46,11 +46,11 @@ func JoinDatastore(address string) error {
 
 func LeaveDatastore() error {
 	if err := ecc.Leave(); err != nil {
-		glog.Errorf("Error leaving datastore: %v", err)
+		log.Errorf("Error leaving datastore: %v", err)
 		return err
 	}
 	if err := os.RemoveAll(dataDir); err != nil {
-		glog.Errorf("Error deleting data directory %s", err)
+		log.Errorf("Error deleting data directory %s", err)
 		return err
 	}
 	return nil
@@ -63,9 +63,9 @@ var listener eccListener
 
 func (e eccListener) NotifyNodeUpdate(nType ecc.NotifyUpdateType, nodeAddress string) {
 	if nType == ecc.NOTIFY_UPDATE_ADD {
-		glog.Infof("New Node joined the cluster : %s", nodeAddress)
+		log.Infof("New Node joined the cluster : %s", nodeAddress)
 	} else if nType == ecc.NOTIFY_UPDATE_DELETE {
-		glog.Infof("Node left the cluster : %s", nodeAddress)
+		log.Infof("Node left the cluster : %s", nodeAddress)
 	}
 }
 
@@ -82,29 +82,29 @@ func main() {
 	if (len(os.Args) > 1) && (os.Args[1] == "-bootstrap") {
 		bootstrap = true
 	}
-	glog.Infof("Starting Bonjour service")
+	log.Infof("Starting Bonjour service")
 
 	// Initialize Bonjour service
 	Bonjour("eth1")
 
-	glog.Infof("Starting Consul and waiting for other members")
+	log.Infof("Starting Consul and waiting for other members")
 
 	// Initialize ecc
 	err := ecc.Start(true, bootstrap, "eth1", dataDir)
 	if err == nil {
-		glog.Infof("Registering for ecc notifs")
+		log.Infof("Registering for ecc notifs")
 		go ecc.RegisterForNodeUpdates(listener)
 	} else {
-		glog.Errorf("Error starting ecc. Err %+v", err)
+		log.Errorf("Error starting ecc. Err %+v", err)
 	}
 
-	glog.Infof("Waiting for ecc thread")
+	log.Infof("Waiting for ecc thread")
 
 	handler := make(chan os.Signal, 1)
 	signal.Notify(handler, os.Interrupt)
 	go func() {
 		for sig := range handler {
-			glog.Errorf("Received signal %v. Exiting...", sig)
+			log.Errorf("Received signal %v. Exiting...", sig)
 			os.Exit(0)
 		}
 	}()

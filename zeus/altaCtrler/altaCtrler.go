@@ -14,7 +14,7 @@ import (
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 type AltaMgr struct {
@@ -107,7 +107,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 	if len(altaConfig.Network) == 0 {
 		netIf, err := netCtrler.CreateAltaNetIf(altaSpec.AltaId, "default", 0)
 		if err != nil {
-			glog.Errorf("Error creating default network intf for %s", altaSpec.AltaId)
+			log.Errorf("Error creating default network intf for %s", altaSpec.AltaId)
 		} else {
 			altaSpec.NetworkIfs = []altaspec.AltaNetIf{*netIf}
 		}
@@ -118,7 +118,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 		for indx, networkName := range altaConfig.Network {
 			netIf, err := netCtrler.CreateAltaNetIf(altaSpec.AltaId, networkName, indx)
 			if err != nil {
-				glog.Errorf("Error creating intf for %s, network %s", altaSpec.AltaId, networkName)
+				log.Errorf("Error creating intf for %s, network %s", altaSpec.AltaId, networkName)
 			} else {
 				netIfs = append(netIfs, *netIf)
 			}
@@ -152,12 +152,12 @@ func CreateAlta(altaConfig *altaspec.AltaConfig) (*AltaActor, error) {
 	// Check if a name was specified and a container of this name already exists
 	if altaConfig.Name != "" {
 		if altaCtrl.altaNameDb[altaConfig.Name] != nil {
-			glog.Errorf("Error: Alta Container %s already exists", altaConfig.Name)
+			log.Errorf("Error: Alta Container %s already exists", altaConfig.Name)
 			return nil, errors.New("Alta container already exists")
 		}
 	}
 
-	glog.Infof("Creating alta with config: %#v", altaConfig)
+	log.Infof("Creating alta with config: %#v", altaConfig)
 
 	//Create a unique Id
 	altaSpec.AltaId = genAltaId()
@@ -168,7 +168,7 @@ func CreateAlta(altaConfig *altaspec.AltaConfig) (*AltaActor, error) {
 	// Create a new container
 	alta, err := NewAlta(&altaSpec)
 	if err != nil {
-		glog.Errorf("Error creating alta: %+v. Err: %v", altaConfig, err)
+		log.Errorf("Error creating alta: %+v. Err: %v", altaConfig, err)
 		return nil, err
 	}
 
@@ -201,7 +201,7 @@ func RestoreAltaActors() error {
 	// Get the list of elements
 	jsonArr, err := altaCtrl.cStore.ListDir("alta")
 	if err != nil {
-		glog.Errorf("Error restoring alta actor state")
+		log.Errorf("Error restoring alta actor state")
 		return err
 	}
 
@@ -211,14 +211,14 @@ func RestoreAltaActors() error {
 		var model AltaModel
 		err = json.Unmarshal([]byte(elemStr), &model)
 		if err != nil {
-			glog.Errorf("Error parsing object %s, Err %v", elemStr, err)
+			log.Errorf("Error parsing object %s, Err %v", elemStr, err)
 			return err
 		}
 
 		// Create an actor for the alta container
 		alta, err := NewAlta(&model.Spec)
 		if err != nil {
-			glog.Errorf("Error restoring Alta %s. Err: %v", model.Spec.AltaId, err)
+			log.Errorf("Error restoring Alta %s. Err: %v", model.Spec.AltaId, err)
 			return err
 		}
 
@@ -232,7 +232,7 @@ func RestoreAltaActors() error {
 			altaCtrl.altaNameDb[model.Spec.AltaName] = alta
 		}
 
-		glog.Infof("Restored alta: %#v", alta)
+		log.Infof("Restored alta: %#v", alta)
 	}
 
 	return nil

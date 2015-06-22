@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
-	"github.com/golang/glog"
 )
 
 // Internal context for each docker container
@@ -107,12 +107,12 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 	}
 
 	jsonStr, _ := json.Marshal(dockerOpts)
-	glog.Infof("Creating docker container using params: %s\n", jsonStr)
+	log.Infof("Creating docker container using params: %s\n", jsonStr)
 
 	// Create the container
 	dockerContainer, err := dockerClient.CreateContainer(dockerOpts)
 	if err != nil {
-		glog.Errorf("Error creating the container %s. Error: %v", cSpec.Name, err)
+		log.Errorf("Error creating the container %s. Error: %v", cSpec.Name, err)
 
 		return nil, err
 	}
@@ -124,13 +124,13 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 	// Populate all fields of a the container
 	containerInfo, err := dockerClient.InspectContainer(dockerContainer.ID)
 	if err != nil {
-		glog.Errorf("Error getting containerInfo. Err: %v", err)
+		log.Errorf("Error getting containerInfo. Err: %v", err)
 	} else {
 		containerCtx.dockerInfo = containerInfo
 	}
 
 	// Print some info
-	glog.Infof("Created container: %s", cSpec.Name)
+	log.Infof("Created container: %s", cSpec.Name)
 
 	// Return the container context
 	return &containerCtx, nil
@@ -141,19 +141,19 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 func (self *ContainerCtx) StartContainer() error {
 	err := dockerClient.StartContainer(self.DockerId, nil)
 	if err != nil {
-		glog.Errorf("Error removing container %s, error: %v", self.DockerId, err)
+		log.Errorf("Error removing container %s, error: %v", self.DockerId, err)
 	}
 
 	// Repopulate all fields of a the container
 	containerInfo, err := dockerClient.InspectContainer(self.DockerId)
 	if err != nil {
-		glog.Errorf("Error getting containerInfo. Err: %v", err)
+		log.Errorf("Error getting containerInfo. Err: %v", err)
 	} else {
 		self.dockerInfo = containerInfo
 	}
 
 	// Report the success
-	glog.Infof("Started container %s", self.DockerId)
+	log.Infof("Started container %s", self.DockerId)
 
 	return err
 }
@@ -162,10 +162,10 @@ func (self *ContainerCtx) StartContainer() error {
 func (self *ContainerCtx) StopContainer() error {
 	err := dockerClient.StopContainer(self.DockerId, DOCKER_STOP_WAIT_TIME)
 	if err != nil {
-		glog.Errorf("Error removing container %s, error: %v", self.DockerId, err)
+		log.Errorf("Error removing container %s, error: %v", self.DockerId, err)
 	}
 
-	glog.Infof("Stopped container %s", self.DockerId)
+	log.Infof("Stopped container %s", self.DockerId)
 
 	return err
 }
@@ -175,10 +175,10 @@ func (self *ContainerCtx) RemoveContainer() error {
 	// Ask docker to remove the container
 	err := dockerClient.RemoveContainer(docker.RemoveContainerOptions{ID: self.DockerId})
 	if err != nil {
-		glog.Errorf("Error removing container %s, error: %v", self.DockerId, err)
+		log.Errorf("Error removing container %s, error: %v", self.DockerId, err)
 	}
 
-	glog.Infof("Removed container %s", self.DockerId)
+	log.Infof("Removed container %s", self.DockerId)
 
 	return err
 }
@@ -198,7 +198,7 @@ func (self *ContainerCtx) ExecCmdInContainer(cmds []string) (*bytes.Buffer, erro
 	// Create an exec context
 	execCtx, err := dockerClient.CreateExec(execOpts)
 	if err != nil {
-		glog.Errorf("Failed to create exec Ctx for %s", self.DockerId)
+		log.Errorf("Failed to create exec Ctx for %s", self.DockerId)
 		return nil, err
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 	"github.com/contiv/symphony/pkg/libfsm"
 
-	"github.com/golang/glog"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Manage volumes
@@ -44,14 +44,14 @@ func CreateVolume(volumeSpec altaspec.AltaVolumeSpec, hostAddr string) error {
 
 	// Check if the volume already exists
 	if ctrler.volumeDb[volumeKey] != nil {
-		glog.Errorf("Volume %s already exists", volumeKey)
+		log.Errorf("Volume %s already exists", volumeKey)
 		return errors.New("Volume already exists")
 	}
 
 	// Create an actor for the volume
 	volume, err := NewVolumeActor(volumeSpec)
 	if err != nil {
-		glog.Errorf("Error creating volume %s. Err: %v", volumeKey, err)
+		log.Errorf("Error creating volume %s. Err: %v", volumeKey, err)
 		return err
 	}
 
@@ -61,7 +61,7 @@ func CreateVolume(volumeSpec altaspec.AltaVolumeSpec, hostAddr string) error {
 	// Initialize the volume
 	volume.VolumeEvent(libfsm.Event{"init", hostAddr})
 
-	glog.Infof("Created volume: %s", volumeKey)
+	log.Infof("Created volume: %s", volumeKey)
 
 	return nil
 }
@@ -80,7 +80,7 @@ func MountVolume(volumeBind altaspec.AltaVolumeBind, hostAddr string) error {
 		}
 		err := CreateVolume(volumeSpec, hostAddr)
 		if err != nil {
-			glog.Errorf("Error creating the volume %s. Err: %v", volumeKey, err)
+			log.Errorf("Error creating the volume %s. Err: %v", volumeKey, err)
 			return err
 		}
 	}
@@ -104,7 +104,7 @@ func MountVolume(volumeBind altaspec.AltaVolumeBind, hostAddr string) error {
 
 		cnt++
 		if cnt > 15 {
-			glog.Errorf("Timeout while mounting volume %s on host %s", volumeKey, hostAddr)
+			log.Errorf("Timeout while mounting volume %s on host %s", volumeKey, hostAddr)
 			return errors.New("Volume mount timeout")
 		}
 	}
@@ -116,14 +116,14 @@ func UnmountVolume(volumeBind altaspec.AltaVolumeBind) error {
 
 	// Check if the volume exists
 	if ctrler.volumeDb[volumeKey] == nil {
-		glog.Errorf("Volume %s not found", volumeKey)
+		log.Errorf("Volume %s not found", volumeKey)
 		return errors.New("Volume not found")
 	}
 
 	// Check if volume is in expected state
 	volume := ctrler.volumeDb[volumeKey]
 	if volume.Model.Fsm.FsmState != "mounted" {
-		glog.Errorf("Volume %s is not mounted", volumeKey)
+		log.Errorf("Volume %s is not mounted", volumeKey)
 	}
 
 	// Trigger unmount event
@@ -143,7 +143,7 @@ func RestoreVolumes() error {
 	// Get the list of elements
 	jsonArr, err := ctrler.cStore.ListDir("volume")
 	if err != nil {
-		glog.Errorf("Error restoring volume state")
+		log.Errorf("Error restoring volume state")
 		return err
 	}
 
@@ -153,7 +153,7 @@ func RestoreVolumes() error {
 		var model VolumeModel
 		err = json.Unmarshal([]byte(elemStr), &model)
 		if err != nil {
-			glog.Errorf("Error parsing object %s, Err %v", elemStr, err)
+			log.Errorf("Error parsing object %s, Err %v", elemStr, err)
 			return err
 		}
 
@@ -162,7 +162,7 @@ func RestoreVolumes() error {
 		// Create an actor for the volume
 		volume, err := NewVolumeActor(model.Spec)
 		if err != nil {
-			glog.Errorf("Error creating volume %s. Err: %v", volumeKey, err)
+			log.Errorf("Error creating volume %s. Err: %v", volumeKey, err)
 			return err
 		}
 
@@ -173,7 +173,7 @@ func RestoreVolumes() error {
 		// Save it in the DB
 		ctrler.volumeDb[volumeKey] = volume
 
-		glog.Infof("Restored volume: %#v", volume)
+		log.Infof("Restored volume: %#v", volume)
 	}
 
 	return nil
