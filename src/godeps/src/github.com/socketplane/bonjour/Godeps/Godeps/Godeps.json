@@ -1,8 +1,0 @@
-{
-	"ImportPath": "github.com/socketplane/bonjour/Godeps",
-	"GoVersion": "go1.2.1",
-	"Packages": [
-		"./..."
-	],
-	"Deps": []
-}

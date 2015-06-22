@@ -1,5 +1,4 @@
 /.vagrant
-/pkg
 /bin
 /src/godeps/pkg
 /.DS_Store
