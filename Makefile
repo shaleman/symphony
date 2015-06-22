@@ -17,4 +17,5 @@ clean: godep
 	godep go clean -i -v ./...
 
 test: godep
+	@if [ `id -u` -ne 0 ]; then echo -e "\n\n\tYou must be root\n\n"; exit 1; fi
 	godep go test -v $(TO_TEST)
