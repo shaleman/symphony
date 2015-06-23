@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"net"
 	"os"
 	"os/signal"
@@ -75,9 +74,6 @@ func (e eccListener) NotifyStoreUpdate(nType ecc.NotifyUpdateType, store string,
 }
 
 func main() {
-	// FIXME: Temporary hack for testing
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	bootstrap := false
 	if (len(os.Args) > 1) && (os.Args[1] == "-bootstrap") {
 		bootstrap = true

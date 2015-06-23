@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"net"
 	"os/user"
 	"time"
@@ -58,9 +57,6 @@ func registerNode() {
 
 // Main function
 func main() {
-	// FIXME: Temporary hack for testing
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// Make sure we are running as root
 	usr, _ := user.Current()
 	if usr.Username != "root" {
