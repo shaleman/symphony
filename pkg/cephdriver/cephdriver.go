@@ -1,17 +1,25 @@
 package cephdriver
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
 	log "github.com/Sirupsen/logrus"
 )
 
+const (
+	defaultDeviceBase = "/dev/rbd"
+	defaultMountBase  = "/mnt/ceph"
+)
+
 // Ceph driver object
 type CephDriver struct {
-	dummy string // Driver has no state for now
+	deviceBase string
+	mountBase  string
 }
 
 // Volume specification
@@ -23,155 +31,166 @@ type CephVolumeSpec struct {
 
 // Create a new Ceph driver
 func NewCephDriver() *CephDriver {
-	// Create a new driver
-	cephDriver := new(CephDriver)
+	return &CephDriver{
+		deviceBase: defaultDeviceBase,
+		mountBase:  defaultMountBase,
+	}
+}
 
-	// Return it
-	return cephDriver
+func (cvs *CephVolumeSpec) Path() string {
+	return filepath.Join(cvs.PoolName, cvs.VolumeName)
+}
+
+func (self *CephDriver) DevicePath(spec CephVolumeSpec) string {
+	return filepath.Join(self.deviceBase, spec.Path())
+}
+
+func (self *CephDriver) volumeCreate(spec CephVolumeSpec) error {
+	// Create an image
+	out, err := exec.Command("rbd", "create", spec.Path(), "--size",
+		strconv.Itoa(int(spec.VolumeSize))).CombinedOutput()
+
+	log.Debug(string(out))
+
+	if err != nil {
+		return fmt.Errorf("Error creating Ceph RBD image(name: %s, size: %d). Err: %v\n",
+			spec.Path(), spec.VolumeSize, err)
+	}
+
+	return nil
+}
+
+func (self *CephDriver) mapImage(spec CephVolumeSpec) error {
+	// Temporarily map the image to create a filesystem
+	out, err := exec.Command("rbd", "map", spec.Path()).CombinedOutput()
+
+	log.Debug(string(out))
+
+	if err != nil {
+		return fmt.Errorf("Error mapping the image %s. Error: %v", spec.Path(), err)
+	}
+
+	return nil
+}
+
+func (self *CephDriver) mkfsVolume(spec CephVolumeSpec) error {
+	// Create ext4 filesystem on the device. this will take a while
+	out, err := exec.Command("mkfs.ext4", "-m0", self.DevicePath(spec)).CombinedOutput()
+
+	log.Debug(string(out))
+
+	if err != nil {
+		return fmt.Errorf("Error creating ext4 filesystem on %s. Error: %v", self.DevicePath(spec), err)
+	}
+
+	return nil
+}
+
+func (self *CephDriver) unmapImage(spec CephVolumeSpec) error {
+	// finally, Unmap the rbd image
+	out, err := exec.Command("rbd", "unmap", self.DevicePath(spec)).CombinedOutput()
+
+	log.Debug(string(out))
+
+	if err != nil {
+		return fmt.Errorf("Error unmapping the device %s. Error: %v", self.DevicePath(spec), err)
+	}
+
+	return nil
 }
 
 // Create an RBD image and initialize ext4 filesystem on the image
 func (self *CephDriver) CreateVolume(spec CephVolumeSpec) error {
-	// create image name in 'pool/img' format
-	imgName := spec.PoolName + "/" + spec.VolumeName
-	devName := "/dev/rbd/" + imgName
-
-	// Create an image
-	out, err := exec.Command("/usr/bin/rbd", "create", imgName, "--size",
-		strconv.Itoa(int(spec.VolumeSize))).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error creating Ceph RBD image(name: %s, size: %d). Err: %v\n",
-			imgName, spec.VolumeSize, err)
-		log.Errorf("rbd create Output: %s\n", out)
+	if err := self.volumeCreate(spec); err != nil {
 		return err
 	}
-	log.Infof("rbd create Output: %s\n", out)
 
-	// Temporarily map the image to create a filesystem
-	out, err = exec.Command("/usr/bin/rbd", "map", imgName).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error mapping the image %s. Error: %v", imgName, err)
-		log.Errorf("rbd map output: %s", out)
+	if err := self.mapImage(spec); err != nil {
 		return err
 	}
-	log.Infof("rbd map output: %s", out)
 
-	// Create ext4 filesystem on the device. this will take a while
-	out, err = exec.Command("mkfs.ext4", "-m0", devName).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error creating ext4 filesystem on %s. Error: %v", devName, err)
-		log.Errorf("mkfs.ext4 output: %s", out)
+	if err := self.mkfsVolume(spec); err != nil {
 		return err
 	}
-	log.Infof("mkfs.ext4 output: %s", out)
 
-	// finally, Unmap the rbd image
-	out, err = exec.Command("/usr/bin/rbd", "unmap", devName).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error unmapping the device %s. Error: %v", devName, err)
-		log.Errorf("rbd unmap output: %s", out)
+	if err := self.unmapImage(spec); err != nil {
 		return err
 	}
-	log.Infof("rbd unmap output: %s", out)
 
 	return nil
 }
 
 // Map an RBD image and mount it on /mnt/ceph/<datastore>/<volume> directory
 // FIXME: Figure out how to use rbd locks
-func (self *CephDriver) MountVolume(poolName, volumeName string) error {
+func (self *CephDriver) MountVolume(spec CephVolumeSpec) error {
 	// formatted image name
-	imgName := poolName + "/" + volumeName
-	devName := "/dev/rbd/" + imgName
+	devName := self.DevicePath(spec)
 
 	// Directory to mount the volume
-	dataStoreDir := "/mnt/ceph/" + poolName
-	volumeDir := dataStoreDir + "/" + volumeName
+	dataStoreDir := filepath.Join(self.mountBase, spec.PoolName)
+	volumeDir := filepath.Join(dataStoreDir, spec.VolumeName)
 
-	// Map the RBD image to an rbd block device
-	out, err := exec.Command("/usr/bin/rbd", "map", imgName).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error mapping the image %s. Error: %v", imgName, err)
-		log.Errorf("rbd map output: %s", out)
+	if err := self.mapImage(spec); err != nil {
 		return err
 	}
-	log.Infof("rbd map output: %s", out)
 
 	// Create directory to mount
-	err = os.Mkdir("/mnt/ceph", 0700)
-	if err != nil && !os.IsExist(err) {
-		log.Errorf("error creating /mnt/ceph direcotry \n")
-		return err
+	if err := os.Mkdir(self.mountBase, 0700); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error creating %q directory: %v", self.mountBase, err)
 	}
-	err = os.Mkdir(dataStoreDir, 0700)
-	if err != nil && !os.IsExist(err) {
-		log.Errorf("error creating '%s' direcotry \n", dataStoreDir)
-		return err
+
+	if err := os.Mkdir(dataStoreDir, 0700); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error creating %q directory: %v", dataStoreDir)
 	}
-	err = os.Mkdir(volumeDir, 0777)
-	if err != nil && !os.IsExist(err) {
-		log.Errorf("error creating '%s' direcotry \n", volumeDir)
-		return err
+
+	if err := os.Mkdir(volumeDir, 0777); err != nil && !os.IsExist(err) {
+		return fmt.Errorf("error creating %q directory: %v", volumeDir)
 	}
 
 	// Mount the RBD
-	var flags uintptr = 0
-	err = syscall.Mount(devName, volumeDir, "ext4", flags, "")
-	if err != nil {
-		log.Errorf("Failed to mount RBD dev %s: %s\n", devName, err.Error())
-		return err
+	if err := syscall.Mount(devName, volumeDir, "ext4", 0, ""); err != nil {
+		return fmt.Errorf("Failed to mount RBD dev %q: %v", devName, err.Error())
 	}
 
 	return nil
 }
 
 // Unount a Ceph volume, remove the mount directory and unmap the RBD device
-func (self *CephDriver) UnmountVolume(poolName, volumeName string) error {
+func (self *CephDriver) UnmountVolume(spec CephVolumeSpec) error {
 	// formatted image name
-	imgName := poolName + "/" + volumeName
-	devName := "/dev/rbd/" + imgName
+	devName := self.DevicePath(spec)
 
 	// Directory to mount the volume
-	dataStoreDir := "/mnt/ceph/" + poolName
-	volumeDir := dataStoreDir + "/" + volumeName
+	dataStoreDir := filepath.Join(self.mountBase, spec.PoolName)
+	volumeDir := filepath.Join(dataStoreDir, spec.VolumeName)
 
 	// Unmount the RBD
-	err := syscall.Unmount(volumeDir, 1) // Flag = 1: Force unmounting
-	if err != nil {
-		log.Errorf("Failed to mount  /dev/rbd/%s: %s\n", imgName, err.Error())
+	// Flag = 1: Force unmounting
+	if err := syscall.Unmount(volumeDir, 1); err != nil && err != syscall.ENOENT {
+		return fmt.Errorf("Failed to unmount %q: %v", devName, err)
 	}
 
 	// Remove the mounted directory
-	err = os.Remove(volumeDir)
-	if err != nil {
-		log.Errorf("error removing '%s' direcotry \n", volumeDir)
+	if err := os.Remove(volumeDir); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error removing %q directory: %v", volumeDir, err)
 	}
 
-	// finally, Unmap the rbd image
-	out, err := exec.Command("/usr/bin/rbd", "unmap", devName).CombinedOutput()
-	if err != nil {
-		log.Errorf("Error unmapping the device %s. Error: %v", devName, err)
-		log.Errorf("rbd unmap output: %s", out)
+	if err := self.unmapImage(spec); err != nil {
 		return err
 	}
-	log.Infof("rbd unmap output: %s", out)
 
 	return nil
 }
 
 // Delete an RBD volume i.e. rbd image
-func (self *CephDriver) DeleteVolume(poolName, volumeName string) error {
-	// create image name in 'pool/img' format
-	imgName := poolName + "/" + volumeName
+func (self *CephDriver) DeleteVolume(spec CephVolumeSpec) error {
+	out, err := exec.Command("rbd", "rm", spec.Path()).CombinedOutput()
 
-	// Delete the image
-	out, err := exec.Command("/usr/bin/rbd", "rm", imgName).CombinedOutput()
+	log.Debug(string(out))
+
 	if err != nil {
-		log.Errorf("Error deleting Ceph RBD image(name: %s). Err: %v\n", imgName, err)
-		log.Errorf("rbd rm Output: %s\n", out)
-		return err
+		return fmt.Errorf("Error deleting Ceph RBD image(name: %s). Err: %v", spec.Path(), err)
 	}
-	log.Infof("rbd rm Output: %s\n", out)
 
 	return nil
 }
