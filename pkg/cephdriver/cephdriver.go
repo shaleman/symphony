@@ -166,7 +166,7 @@ func (self *CephDriver) UnmountVolume(spec CephVolumeSpec) error {
 
 	// Unmount the RBD
 	// Flag = 1: Force unmounting
-	if err := syscall.Unmount(volumeDir, 1); err != nil && err != syscall.ENOENT {
+	if err := syscall.Unmount(volumeDir, syscall.MNT_DETACH); err != nil && err != syscall.ENOENT {
 		return fmt.Errorf("Failed to unmount %q: %v", devName, err)
 	}
 
