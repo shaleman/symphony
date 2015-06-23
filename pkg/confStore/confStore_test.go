@@ -1,7 +1,6 @@
 package confStore
 
 import (
-	"flag"
 	"fmt"
 	"testing"
 	"time"
@@ -19,10 +18,6 @@ var cStore = NewConfStore()
 
 // Perform Set/Get operation on default conf store
 func TestSetGet(t *testing.T) {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
-	// flag.Lookup("v").Value.Set("2")
-
 	// Set
 	setVal := JsonObj{
 		Value: "test1",

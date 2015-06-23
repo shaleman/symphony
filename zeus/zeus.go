@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"os"
 	"time"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 	"github.com/contiv/symphony/zeus/volumesCtrler"
 
-	//"pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
@@ -119,9 +117,6 @@ func becomeSlave() {
 
 // Main function
 func main() {
-	// Enable log logging
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// Determine what role we should run on by trying to acquire master lock
 	// If we acquire the lock, we run as master. If we fail we run as slave
 

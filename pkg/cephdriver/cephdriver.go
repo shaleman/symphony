@@ -1,7 +1,6 @@
 package cephdriver
 
 import (
-	// "fmt"
 	"os"
 	"os/exec"
 	"strconv"

@@ -1,7 +1,6 @@
 package libfsm
 
 import (
-	"flag"
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
@@ -16,7 +15,6 @@ type TestFsm struct {
 
 // Constructor for test FSM
 func NewTestFsm(testState string) *TestFsm {
-	// testFsm := new(TestFsm{Fsm{&testFsmTbl, "created"}})
 	testFsm := new(TestFsm)
 
 	testFsm.TestState = testState
@@ -51,9 +49,6 @@ func (self *TestFsm) stopTestFsm(event Event) error {
 
 // Test a simple FSM transition
 func TestFsmTransition(t *testing.T) {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// Create fsm
 	testFsm := NewTestFsm("created state")
 

@@ -257,10 +257,6 @@ func (self *Lock) refreshLock() {
 	refreshIntvl := time.Second * time.Duration(self.ttl*3/10)
 	keyName := "/contiv.io/lock/" + self.name
 
-	// Create a timer
-	// refTimer := time.NewTimer(refreshIntvl)
-	// defer refTimer.Stop()
-
 	// Loop forever
 	for {
 		select {

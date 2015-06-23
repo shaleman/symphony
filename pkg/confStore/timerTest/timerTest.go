@@ -2,7 +2,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"time"
 
@@ -14,9 +13,6 @@ import (
 var cStore api.ConfStorePlugin
 
 func init() {
-	// FIXME: Temporary hack for testing
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	cStore = confStore.NewConfStore()
 
 	// First test

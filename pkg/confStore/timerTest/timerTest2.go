@@ -1,8 +1,6 @@
 package main
 
 import (
-	//"fmt"
-	"flag"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -56,10 +54,8 @@ func NewLoop() *Obj {
 
 	return obj
 }
-func init() {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
 
+func init() {
 	log.Infof("Running timer test\n")
 
 	obj1 := NewLoop()

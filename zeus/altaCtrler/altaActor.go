@@ -2,7 +2,6 @@ package altaCtrler
 
 import (
 	"time"
-	// "errors"
 
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 	"github.com/contiv/symphony/zeus/rsrcMgr"

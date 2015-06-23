@@ -1,7 +1,6 @@
 package netCtrler
 
 import (
-	"flag"
 	"testing"
 
 	"github.com/contiv/symphony/zeus/rsrcMgr"
@@ -11,9 +10,6 @@ import (
 
 // Simple test to create a network and add an end point
 func TestAddNetwork(t *testing.T) {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// initialize rsrcMgr since we use it for resource allocation
 	rsrcMgr.Init(nil)
 
@@ -37,5 +33,4 @@ func TestAddNetwork(t *testing.T) {
 	}
 
 	log.Infof("Successfully Created endpoint: %+v", ep)
-
 }

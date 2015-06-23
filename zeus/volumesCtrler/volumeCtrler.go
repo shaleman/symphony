@@ -1,11 +1,9 @@
 package volumesCtrler
 
 import (
-	//"fmt"
+	"encoding/json"
 	"errors"
 	"time"
-	//"strconv"
-	"encoding/json"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"

@@ -1,16 +1,12 @@
 package rsrcMgr
 
 import (
-	"flag"
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 func TestAddProvider(t *testing.T) {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	// Initialize the resource mgr
 	Init(nil)
 

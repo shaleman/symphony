@@ -1,26 +1,8 @@
 package libdocker
 
 import (
-	// "fmt"
 	"testing"
 )
-
-// Test image exists call
-/* DEPRECATED
-func TestCheckImageExists(t *testing.T) {
-    if (!CheckImageExists("busybox")) {
-        t.Errorf("Failed. expecting busybox to exists");
-    }
-
-    if (!CheckImageExists("busybox:latest")) {
-        t.Errorf("Failed. expecting busybox to exists");
-    }
-
-    if (CheckImageExists("some-non-existing-img")) {
-        t.Errorf("Failed. expecting busybox to exists");
-    }
-}
-*/
 
 // Test if an image exists
 func TestIsImagePresent(t *testing.T) {
@@ -80,5 +62,4 @@ func TestContainer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to remove the container. Error %v", err)
 	}
-
 }

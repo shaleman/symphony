@@ -1,12 +1,10 @@
 package ovsdriver
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
-	// "strconv"
-	// "strings"
-	"errors"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/contiv/libovsdb"
@@ -169,7 +167,6 @@ func (self *OvsDriver) CreateBridge(bridgeName string) error {
 
 	operations := []libovsdb.Operation{brOp, mutateOp}
 
-	// operations := []libovsdb.Operation{brOp}
 	return self.ovsdbTransact(operations)
 }
 

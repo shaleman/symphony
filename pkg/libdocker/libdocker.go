@@ -2,7 +2,6 @@ package libdocker
 
 import (
 	"bytes"
-	"flag"
 	"fmt"
 
 	log "github.com/Sirupsen/logrus"
@@ -33,9 +32,6 @@ func newClient() *docker.Client {
 		log.Fatal("Could not connect to docker")
 	}
 
-	// HACK: temporary hack to log to console
-	flag.Lookup("logtostderr").Value.Set("true")
-
 	return client
 }
 
@@ -49,9 +45,6 @@ func CheckImageExists(imgName string) bool {
 
 		return false
 	}
-
-	// DEBUG: Print the response we got
-	// fmt.Printf("Image List: \n %+v\n", imgList)
 
 	// Walk the array of images
 	for _, img := range imgList {
