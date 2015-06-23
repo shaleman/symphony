@@ -2,7 +2,6 @@ package cephdriver
 
 import (
 	"errors"
-	"flag"
 	"io"
 	"os"
 	"strings"
@@ -10,26 +9,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 )
-
-func TestCreateVolume(t *testing.T) {
-	// Hack to log output
-	flag.Lookup("logtostderr").Value.Set("true")
-
-	// Create a new driver
-	cephDriver := NewCephDriver()
-
-	volumeSpec := CephVolumeSpec{
-		VolumeName: "pithos1234",
-		VolumeSize: 1024,
-		PoolName:   "rbd",
-	}
-	// Create a volume
-	err := cephDriver.CreateVolume(volumeSpec)
-	if err != nil {
-		log.Errorf("Error creating the volume. Err: %v", err)
-		t.Errorf("Failed to create a volume")
-	}
-}
 
 func readWriteTest(mountDir string) error {
 	// Write a file and verify you can read it
@@ -66,91 +45,72 @@ func readWriteTest(mountDir string) error {
 	return nil
 }
 
-func TestMountVolume(t *testing.T) {
+func TestMountUnmountVolume(t *testing.T) {
 	// Create a new driver
 	cephDriver := NewCephDriver()
+	volumeSpec := CephVolumeSpec{PoolName: "rbd", VolumeName: "pithos1234", VolumeSize: 10}
+
+	// we don't care if there's an error here, just want to make sure the create
+	// succeeds. Easier restart of failed tests this way.
+	cephDriver.UnmountVolume(volumeSpec)
+	cephDriver.DeleteVolume(volumeSpec)
+
+	if err := cephDriver.CreateVolume(volumeSpec); err != nil {
+		t.Fatalf("Error creating the volume: %v", err)
+	}
 
 	// mount the volume
-	err := cephDriver.MountVolume("rbd", "pithos1234")
-	if err != nil {
-		log.Errorf("Error mounting the volume. Err: %v", err)
-		t.Errorf("Failed to mount a volume")
+	if err := cephDriver.MountVolume(volumeSpec); err != nil {
+		t.Fatalf("Error mounting the volume. Err: %v", err)
 	}
 
-	err = readWriteTest("/mnt/ceph/rbd/pithos1234")
-	if err != nil {
-		log.Errorf("Error during read/write test. Err: %v", err)
-		t.Errorf("Failed read/write test")
+	if err := readWriteTest("/mnt/ceph/rbd/pithos1234"); err != nil {
+		t.Fatalf("Error during read/write test. Err: %v", err)
 	}
-}
-
-func TestUnmountVolume(t *testing.T) {
-	// Create a new driver
-	cephDriver := NewCephDriver()
 
 	// unmount the volume
-	err := cephDriver.UnmountVolume("rbd", "pithos1234")
-	if err != nil {
-		log.Errorf("Error unmounting the volume. Err: %v", err)
-		t.Errorf("Failed to unmount a volume")
+	if err := cephDriver.UnmountVolume(volumeSpec); err != nil {
+		t.Fatalf("Error unmounting the volume. Err: %v", err)
+	}
+
+	if err := cephDriver.DeleteVolume(volumeSpec); err != nil {
+		t.Fatalf("Error deleting the volume: %v", err)
 	}
 }
 
-func TestDeleteVolume(t *testing.T) {
-	// Create a new driver
-	cephDriver := NewCephDriver()
-
-	// delete the volume
-	err := cephDriver.DeleteVolume("rbd", "pithos1234")
-	if err != nil {
-		log.Errorf("Error deleting the volume. Err: %v", err)
-		t.Errorf("Failed to delete a volume")
-	}
-}
-
-func TestRepeatedMountUnmout(t *testing.T) {
+func TestRepeatedMountUnmount(t *testing.T) {
 	// Create a new driver
 	cephDriver := NewCephDriver()
 
 	volumeSpec := CephVolumeSpec{
 		VolumeName: "pithos1234",
-		VolumeSize: 1024,
+		VolumeSize: 10,
 		PoolName:   "rbd",
 	}
 	// Create a volume
-	err := cephDriver.CreateVolume(volumeSpec)
-	if err != nil {
-		log.Errorf("Error creating the volume. Err: %v", err)
-		t.Errorf("Failed to create a volume")
+	if err := cephDriver.CreateVolume(volumeSpec); err != nil {
+		t.Fatalf("Error creating the volume. Err: %v", err)
 	}
 
 	// Repeatedly perform mount unmount test
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		// mount the volume
-		err := cephDriver.MountVolume("rbd", "pithos1234")
-		if err != nil {
-			log.Errorf("Error mounting the volume. Err: %v", err)
-			t.Errorf("Failed to mount a volume")
+		if err := cephDriver.MountVolume(volumeSpec); err != nil {
+			t.Fatalf("Error mounting the volume. Err: %v", err)
 		}
 
-		err = readWriteTest("/mnt/ceph/rbd/pithos1234")
-		if err != nil {
-			log.Errorf("Error during read/write test. Err: %v", err)
-			t.Errorf("Failed read/write test")
+		if err := readWriteTest("/mnt/ceph/rbd/pithos1234"); err != nil {
+			t.Fatalf("Error during read/write test. Err: %v", err)
 		}
 
 		// unmount the volume
-		err = cephDriver.UnmountVolume("rbd", "pithos1234")
-		if err != nil {
-			log.Errorf("Error unmounting the volume. Err: %v", err)
-			t.Errorf("Failed to unmount a volume")
+		if err := cephDriver.UnmountVolume(volumeSpec); err != nil {
+			t.Fatalf("Error unmounting the volume. Err: %v", err)
 		}
 	}
 
 	// delete the volume
-	err = cephDriver.DeleteVolume("rbd", "pithos1234")
-	if err != nil {
-		log.Errorf("Error deleting the volume. Err: %v", err)
-		t.Errorf("Failed to delete a volume")
+	if err := cephDriver.DeleteVolume(volumeSpec); err != nil {
+		t.Fatalf("Error deleting the volume. Err: %v", err)
 	}
 }
