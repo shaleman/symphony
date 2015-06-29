@@ -5,15 +5,21 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/contiv/symphony/zeus/common"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
 )
 
 type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error)
 
+var altaCtrler common.AltaCtrlInterface
+
 // Create a HTTP Server and initialize the router
-func CreateServer(port int) {
+func CreateServer(port int, ctrlers *common.ZeusCtrlers) {
 	listenAddr := ":" + strconv.Itoa(port)
+
+	altaCtrler = ctrlers.AltaCtrler
 
 	// Create a router
 	router := createRouter()
@@ -77,8 +83,8 @@ func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiF
 	// Create a closure and return an anonymous function
 	return func(w http.ResponseWriter, r *http.Request) {
 		// log the request
-		log.Infof("Calling %s %s", localMethod, localRoute)
-		log.Infof("%s %s", r.Method, r.RequestURI)
+		log.Debugf("Calling %s %s", localMethod, localRoute)
+		log.Debugf("%s %s", r.Method, r.RequestURI)
 
 		// Call the handler
 		resp, err := handlerFunc(w, r, mux.Vars(r))
@@ -91,7 +97,7 @@ func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiF
 		} else {
 			respJson, _ := json.Marshal(resp)
 			if localMethod == "GET" {
-				log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+				log.Debugf("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
 			} else {
 				log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
 			}

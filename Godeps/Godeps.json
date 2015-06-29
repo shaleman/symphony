@@ -27,7 +27,7 @@
 		},
 		{
 			"ImportPath": "github.com/contiv/ofnet",
-			"Rev": "ca9799294094499675c6a1f75038cd699064bb58"
+			"Rev": "bae7ffd57601a3f48863e77b855887f6fe9ee6fe"
 		},
 		{
 			"ImportPath": "github.com/coreos/go-etcd/etcd",

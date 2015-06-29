@@ -234,7 +234,7 @@ func (self *Lock) waitForLock() {
 			}
 		case watchResp := <-self.watchCh:
 			if watchResp != nil {
-				log.Infof("Received watch notification(%s/%s): %+v", self.name, self.myId, watchResp)
+				log.Debugf("Received watch notification(%s/%s): %+v", self.name, self.myId, watchResp)
 
 				if watchResp.Action == "expire" || watchResp.Action == "delete" ||
 					watchResp.Action == "compareAndDelete" {
@@ -276,7 +276,7 @@ func (self *Lock) refreshLock() {
 				// FIXME: trigger a lock lost event
 				return
 			} else {
-				log.Infof("Refreshed TTL on lock %s, Resp: %+v", keyName, resp)
+				log.Debugf("Refreshed TTL on lock %s, Resp: %+v", keyName, resp)
 
 				// Update modifiedIndex
 				self.modifiedIndex = resp.Node.ModifiedIndex
@@ -285,7 +285,7 @@ func (self *Lock) refreshLock() {
 			// Since we already acquired the lock, nothing to do here
 			// FIXME: see if we lost the lock
 			if watchResp != nil {
-				log.Infof("Received watch notification for(%s/%s): %+v",
+				log.Debugf("Received watch notification for(%s/%s): %+v",
 					self.name, self.myId, watchResp)
 			}
 		case <-self.stopChan:

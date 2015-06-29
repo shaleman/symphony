@@ -6,9 +6,9 @@ var AltaPanel = React.createClass({
       var self = this
 
       // Determine the color of the panel
-      if (this.props.alta.Fsm.FsmState == "running") {
+      if (this.props.alta.FsmState == "running") {
           titleColor = 'success'
-      } else if (this.props.alta.Fsm.FsmState == "failed") {
+      } else if (this.props.alta.FsmState == "failed") {
           titleColor = 'danger'
       } else {
           titleColor = 'warning'
@@ -46,7 +46,7 @@ var AltaPanel = React.createClass({
       return (
           <Panel header={panelHdr} bsStyle='primary'>
             <h4> <Label bsStyle={titleColor} style={{color: 'black', shadow: 'none'}}>
-                {this.props.alta.Fsm.FsmState}
+                {this.props.alta.FsmState}
             </Label></h4>
             <div> <h4> Image: {this.props.alta.Spec.Image} </h4> </div>
             <div> Name: {this.props.alta.Spec.AltaName} <br/> Id: {this.props.alta.Spec.AltaId}</div>

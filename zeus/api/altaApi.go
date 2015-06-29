@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/contiv/symphony/zeus/altaCtrler"
-
 	"github.com/contiv/symphony/pkg/altaspec"
 
 	log "github.com/Sirupsen/logrus"
@@ -33,11 +31,11 @@ func httpPostAltaCreate(w http.ResponseWriter, r *http.Request, vars map[string]
 	}
 
 	// Create the alta container
-	alta, err := altaCtrler.CreateAlta(&altaConfig)
+	err = altaCtrler.CreateAlta(&altaConfig)
 	if err != nil {
 		log.Errorf("Error creating alta container(%+v), Err: %v", altaConfig, err)
 		return nil, err
 	}
 
-	return alta.Model, nil
+	return altaConfig, nil
 }

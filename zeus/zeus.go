@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/contiv/symphony/zeus/common"
 	"github.com/contiv/symphony/zeus/altaCtrler"
 	"github.com/contiv/symphony/zeus/api"
 	"github.com/contiv/symphony/zeus/netCtrler"
@@ -17,12 +18,16 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-const ZEUS_MASTER_TTL = 10 // mastership TTL is 10sec
+const ZEUS_MASTER_TTL = 30 // mastership TTL is 30sec
 
 var stopMasterChan chan bool
 var stopSlaveChan chan bool
 
 var cStore confStoreApi.ConfStorePlugin
+
+
+// Global state
+var ctrlers common.ZeusCtrlers
 
 // Main run loop for Zeus master
 func runLoopMaster() {
@@ -30,13 +35,13 @@ func runLoopMaster() {
 	rsrcMgr.Init(cStore)
 
 	// Start Node controller
-	err := nodeCtrler.Init(cStore)
+	err := nodeCtrler.Init(cStore, &ctrlers)
 	if err != nil {
 		log.Fatalf("Failed to create node mgr")
 	}
 
 	// Start the Alta controller
-	err = altaCtrler.Init(cStore)
+	ctrlers.AltaCtrler = altaCtrler.NewAltaCtrler(cStore)
 	if err != nil {
 		log.Fatalf("Failed to create alta mgr")
 	}
@@ -63,37 +68,21 @@ func runLoopMaster() {
 	}
 
 	// Restore alta container state
-	err = altaCtrler.RestoreAltaActors()
+	err = ctrlers.AltaCtrler.RestoreAltaActors()
 	if err != nil {
 		log.Errorf("Error restoring volumes. Err: %v", err)
 	}
 
 	// Start the HTTP server
-	go api.CreateServer(8000)
+	go api.CreateServer(8000, &ctrlers)
 
 	log.Infof("Master service is running")
 
-	cnt := 0
 	for {
 		select {
 		case <-stopMasterChan:
 			log.Infof("Exiting master loop")
 			return
-		case <-time.After(time.Second * 30):
-			if cnt == 0 {
-				/*
-				   log.Infof("Creating alta..")
-				   altaCtrler.CreateAlta(&altaspec.AltaConfig{
-				       Name: "first",
-				       Image: "ubuntu:14.04",
-				       Cpu: "1",
-				       Memory: "500MB",
-				       Command: "/bin/sh",
-				       Environment: []string{ "TEST_ENV=test" },
-				   })
-				*/
-			}
-			cnt++
 		}
 	}
 }

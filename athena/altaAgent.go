@@ -32,7 +32,7 @@ func NewAltaMgr() *AltaMgr {
 
 	// FIXME: perform any initialization here
 
-	// Return the piths mgr
+	// Return the alta mgr
 	return altaMgr
 }
 
@@ -120,6 +120,21 @@ func (self *AltaMgr) ListAlta() map[string]*AltaState {
 	return self.altaDb
 }
 
+// Get an alta by container id
+func (self *AltaMgr) FindAltaByContainerId(containerId string) *AltaState {
+	for _, altaState := range self.altaDb {
+		if altaState.ContainerId == containerId {
+			return altaState
+		}
+	}
+
+	return nil
+}
+// List all Alta containers on this node
+func (self *AltaMgr) ListContainers() ([]string, error) {
+	return libdocker.GetRunningContainers()
+}
+
 // Get detailed info about a specific alta
 func (self *AltaMgr) GetAltaInfo() {
 
@@ -129,6 +144,30 @@ func (self *AltaMgr) GetAltaInfo() {
 // old running container and starting new one with new spec.
 func (self *AltaMgr) UpdateAlta() {
 
+}
+
+// Repopulate alta spec for a container
+func (self *AltaMgr) UpdateAltaInfo(containerId string, altaSpec altaspec.AltaSpec) error {
+	// Get container context
+	dockerCtx, err := libdocker.GetContainer(containerId)
+	if err != nil {
+		log.Errorf("Error getting container: %s. Err: %v", containerId, err)
+		return err
+	}
+
+	// Construct alta state
+	altaState := AltaState{
+		AltaId:       altaSpec.AltaId,
+		ContainerId:  containerId,
+		portNames:    make([]string, 16), // Limit to 16 intf per alta
+		spec:         altaSpec,
+		containerCtx: dockerCtx,
+	}
+
+	// Save the alta state in DB
+	self.altaDb[altaSpec.AltaId] = &altaState
+
+	return nil
 }
 
 // Start a previously created alta container

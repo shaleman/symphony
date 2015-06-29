@@ -1,19 +1,21 @@
 package nodeCtrler
 
 import (
+	"time"
 	"errors"
-
-	"github.com/contiv/ofnet/rpcHub"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
+	"github.com/contiv/symphony/zeus/common"
+	
 	log "github.com/Sirupsen/logrus"
 )
 
 // Node manager
 type NodeCtrler struct {
 	cStore      confStoreApi.ConfStorePlugin // conf store client
+	ctrlers 	*common.ZeusCtrlers			 // All the controllers we can talk to
 	nodeDb      map[string]*Node             // DB of known nodes
 	nodeEventCh chan confStoreApi.WatchServiceEvent
 	watchStopCh chan bool
@@ -23,10 +25,11 @@ type NodeCtrler struct {
 var nodeCtrl *NodeCtrler
 
 // Create a new Node mgr
-func Init(cStore confStoreApi.ConfStorePlugin) error {
+func Init(cStore confStoreApi.ConfStorePlugin, ctrlers *common.ZeusCtrlers) error {
 	nodeCtrl = new(NodeCtrler)
 
 	nodeCtrl.cStore = cStore
+	nodeCtrl.ctrlers = ctrlers
 
 	// Initialize the node db
 	nodeCtrl.nodeDb = make(map[string]*Node)
@@ -54,6 +57,9 @@ func (self *NodeCtrler) nodeMgrLoop() {
 	// Create channels for watch thread
 	self.nodeEventCh = make(chan confStoreApi.WatchServiceEvent, 1)
 	self.watchStopCh = make(chan bool, 1)
+
+	// Start slow. give time for other services to restore state and be ready..
+	time.Sleep(3 * time.Second)
 
 	// Start a watch on athena service so that we dont miss any
 	err := self.cStore.WatchService("athena", self.nodeEventCh, self.watchStopCh)
@@ -153,22 +159,6 @@ func nodeUpBcast(nodeAddr string) error {
 					nodeAddr, node.HostAddr, err)
 			}
 		}
-	}
-
-	// Get my address
-	localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
-	if err != nil {
-		log.Fatalf("Could not find a local address. Err %v", err)
-		return err
-	}
-
-	// Ask the node to connect to master
-	var resp bool
-	client := rpcHub.Client(nodeAddr, 9002) // FIXME: get the port number from ofnet
-	err = client.Call("OfnetAgent.AddMaster", &localIpAddr, &resp)
-	if err != nil {
-		log.Errorf("Failed to tell node %s about the master. Err: %v", nodeAddr, err)
-		return err
 	}
 
 	return nil

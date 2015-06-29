@@ -12,6 +12,7 @@ import (
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 
 	"github.com/contiv/symphony/pkg/altaspec"
+	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 	"github.com/contiv/symphony/pkg/libfsm"
 
 	log "github.com/Sirupsen/logrus"
@@ -50,6 +51,7 @@ func NewNode(hostAddr string, port int) (*Node, error) {
 		// currentState,  event,      newState,   callback
 		{"created", "up", "alive", func(e libfsm.Event) error { return node.nodeUpEvent() }},
 		{"created", "ticker", "created", func(e libfsm.Event) error { return nil }},
+		{"alive", "up", "alive", func(e libfsm.Event) error { return node.nodeUpEvent() }},
 		{"alive", "ticker", "alive", func(e libfsm.Event) error { return node.nodeAliveTicker() }},
 		{"alive", "timeout", "unreachable", func(e libfsm.Event) error { return nil }},
 		{"alive", "down", "down", func(e libfsm.Event) error { return nil }},
@@ -69,7 +71,7 @@ func NewNode(hostAddr string, port int) (*Node, error) {
 	node.eventChan <- libfsm.Event{"up", nil}
 
 	// Create a timer for periodic poll
-	node.ticker = time.NewTicker(time.Second * 15)
+	node.ticker = time.NewTicker(time.Second * 5)
 
 	return node, nil
 }
@@ -83,7 +85,7 @@ func (self *Node) nodeRunLoop() {
 			self.Fsm.FsmEvent(event)
 		case <-self.ticker.C:
 			// Use this ticker to perform keepalive and retries
-			// self.Fsm.FsmEvent(libfsm.Event{"ticker", nil})
+			self.Fsm.FsmEvent(libfsm.Event{"ticker", nil})
 		}
 	}
 }
@@ -97,8 +99,22 @@ func (self *Node) NodeEvent(eventName string) {
 func (self *Node) nodeUpEvent() error {
 	log.Infof("Getting node info")
 
+	// Get my address
+	localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
+	if err != nil {
+		log.Fatalf("Could not find a local address. Err %v", err)
+		return err
+	}
+
+	// master info
+	masterInfo := confStoreApi.ServiceInfo{
+		ServiceName: "zeus",
+		HostAddr:    localIpAddr,
+		Port:        8000,	// FIXME: dont hardcode the port
+	}
+
 	var nodeSpec altaspec.NodeSpec
-	err := self.NodeGetReq("/node", &nodeSpec)
+	err = self.NodePostReq("/node/register", &masterInfo, &nodeSpec)
 	if err != nil {
 		log.Errorf("Error getting node info. Err: %v", err)
 		return err
@@ -149,7 +165,24 @@ func (self *Node) nodeUpEvent() error {
 }
 
 func (self *Node) nodeAliveTicker() error {
-	log.Infof("Current state of the node %s is %s", self.HostAddr, self.Fsm.FsmState)
+	log.Debugf("Current state of the node %s is %s", self.HostAddr, self.Fsm.FsmState)
+
+	// Get list of altas running on this node
+	var altaList []altaspec.AltaContext
+	err := self.NodeGetReq("/alta", &altaList)
+	if err != nil {
+		log.Errorf("Error getting alta list from node %s. Err: %v", self.HostAddr, err)
+		return err
+	}
+
+	log.Debugf("Got alta list from node %s: %+v", self.HostAddr, altaList)
+
+	// See what to do about the containers
+	err = nodeCtrl.ctrlers.AltaCtrler.DiffNodeAltaLList(self.HostAddr, altaList)
+	if err != nil {
+		log.Errorf("Error updating altaList %+v for node %s. Err: %v", altaList,
+					self.HostAddr, err)
+	}
 
 	return nil
 }
@@ -158,7 +191,7 @@ func (self *Node) nodeAliveTicker() error {
 func (self *Node) NodeGetReq(path string, data interface{}) error {
 	url := "http://" + self.HostAddr + ":" + strconv.Itoa(self.Port) + path
 
-	log.Infof("Making REST request to url: %s", url)
+	log.Debugf("Making REST request to url: %s", url)
 
 	// perform Get request
 	res, err := http.Get(url)
@@ -187,7 +220,7 @@ func (self *Node) NodeGetReq(path string, data interface{}) error {
 		return err
 	}
 
-	log.Infof("Results for (%s): %+v\n", url, data)
+	log.Debugf("Results for (%s): %+v\n", url, data)
 
 	return nil
 }

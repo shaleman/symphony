@@ -3,8 +3,8 @@ package libdocker
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"strings"
+	"errors"
 
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
@@ -136,6 +136,29 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 	return &containerCtx, nil
 }
 
+// Get container ctx for an existing container
+func GetContainer(containerId string) (*ContainerCtx, error) {
+	// Create a containerCtx
+	containerCtx := ContainerCtx{
+		DockerId: containerId,
+	}
+
+	// Populate all fields of a the container
+	containerInfo, err := dockerClient.InspectContainer(containerId)
+	if err != nil {
+		log.Errorf("Error getting containerInfo. Err: %v", err)
+		return nil, errors.New("Error getting containerInfo")
+	} else {
+		containerCtx.dockerInfo = containerInfo
+	}
+
+	// Print some info
+	log.Infof("Got container: %s", containerId)
+
+	// Return the container context
+	return &containerCtx, nil
+}
+
 // Start an existing container. To be used while starting a previously
 // stopped container or starting a previously created container
 func (self *ContainerCtx) StartContainer() error {
@@ -212,7 +235,7 @@ func (self *ContainerCtx) ExecCmdInContainer(cmds []string) (*bytes.Buffer, erro
 	// Execute the comands
 	dockerClient.StartExec(execCtx.ID, startExecOpts)
 
-	fmt.Printf("Got Output: \n %s\n", buf)
+	log.Infof("Got Output: \n %s\n", buf)
 
 	return &buf, nil
 }
@@ -231,6 +254,21 @@ func (self *ContainerCtx) GetContainerPid() int {
 // to be used by atheena to periodically scan the host to see if any unwanted
 // container is running on the system and to reconsile the state when it starts up
 // TODO:
-func GetAllContainers() ([]*ContainerCtx, error) {
-	return nil, nil
+func GetRunningContainers() ([]string, error) {
+	// Get a list of containers
+	containers, err := dockerClient.ListContainers(docker.ListContainersOptions{})
+	if err != nil {
+		log.Errorf("Error getting a list of containers. Err: %v", err)
+		return nil, err
+	}
+
+
+	log.Debugf("Got container list: %+v", containers)
+
+	var containerList []string
+	for _, cntr := range containers {
+		containerList = append(containerList, cntr.ID)
+	}
+
+	return containerList, nil
 }

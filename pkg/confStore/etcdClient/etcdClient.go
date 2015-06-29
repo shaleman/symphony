@@ -160,7 +160,7 @@ func httpGetJson(url string, data interface{}) (interface{}, error) {
 		return nil, err
 	}
 
-	log.Infof("Results for (%s): %+v\n", url, data)
+	log.Debugf("Results for (%s): %+v\n", url, data)
 
 	return data, nil
 }

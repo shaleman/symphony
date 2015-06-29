@@ -51,7 +51,7 @@ func Init() {
 	netCtrl.DnsAddr = []net.IP{net.ParseIP("4.4.4.4"), net.ParseIP("8.8.8.8")}
 
 	// Initialize ofnet master
-	netCtrl.ofnetMaster = ofnet.NewOfnetMaster()
+	netCtrl.ofnetMaster = ofnet.NewOfnetMaster(ofnet.OFNET_MASTER_PORT)
 
 	log.Infof("netCtrl: %#v", netCtrl)
 

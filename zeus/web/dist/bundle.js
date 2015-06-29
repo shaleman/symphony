@@ -238,9 +238,9 @@
 	      var self = this
 
 	      // Determine the color of the panel
-	      if (this.props.alta.Fsm.FsmState == "running") {
+	      if (this.props.alta.FsmState == "running") {
 	          titleColor = 'success'
-	      } else if (this.props.alta.Fsm.FsmState == "failed") {
+	      } else if (this.props.alta.FsmState == "failed") {
 	          titleColor = 'danger'
 	      } else {
 	          titleColor = 'warning'
@@ -278,7 +278,7 @@
 	      return (
 	          React.createElement(Panel, {header: panelHdr, bsStyle: "primary"}, 
 	            React.createElement("h4", null, " ", React.createElement(Label, {bsStyle: titleColor, style: {color: 'black', shadow: 'none'}}, 
-	                this.props.alta.Fsm.FsmState
+	                this.props.alta.FsmState
 	            )), 
 	            React.createElement("div", null, " ", React.createElement("h4", null, " Image: ", this.props.alta.Spec.Image, " "), " "), 
 	            React.createElement("div", null, " Name: ", this.props.alta.Spec.AltaName, " ", React.createElement("br", null), " Id: ", this.props.alta.Spec.AltaId), 

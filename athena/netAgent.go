@@ -17,6 +17,7 @@ import (
 
 const USABLE_VLAN_START = 2
 const USABLE_VLAN_END = 4094
+const OVS_CONTROLLER_PORT = 6633
 
 type NetAgent struct {
 	ovsDriver  *ovsdriver.OvsDriver
@@ -36,10 +37,9 @@ func NewNetAgent() *NetAgent {
 
 	// Create an OVS client
 	netAgent.ovsDriver = ovsdriver.NewOvsDriver()
-	bridge := netAgent.ovsDriver.OvsBridgeName
 
 	// Add the local controller
-	err := netAgent.ovsDriver.AddController("127.0.0.1", 6633)
+	err := netAgent.ovsDriver.AddController("127.0.0.1", OVS_CONTROLLER_PORT)
 	if err != nil {
 		log.Fatalf("Failed to add local controller to OVS. Err: %v", err)
 	}
@@ -51,7 +51,8 @@ func NewNetAgent() *NetAgent {
 	}
 
 	// Create an ofnet agent
-	netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent(bridge, "vxlan", net.ParseIP(localIpAddr))
+	netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent("vrouter", net.ParseIP(localIpAddr),
+								ofnet.OFNET_AGENT_PORT, OVS_CONTROLLER_PORT)
 
 	// Initialize vlan bitset
 	netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
@@ -70,7 +71,25 @@ func NewNetAgent() *NetAgent {
 		Vni:         1,
 	}
 
+	// Wait for a while for OVS switch to connect to ofnet agent
+	for i := 0; i < 10; i++ {
+		time.Sleep(1 * time.Second)
+		if netAgent.ofnetAgent.IsSwitchConnected() {
+			break
+		}
+	}
+
 	return netAgent
+}
+
+// Add a master
+func (self *NetAgent) AddMaster(hostAddr string) error {
+	masterInfo := ofnet.OfnetNode{
+		HostAddr: hostAddr,
+		HostPort: ofnet.OFNET_MASTER_PORT,
+	}
+	var resp bool
+	return netAgent.ofnetAgent.AddMaster(&masterInfo, &resp)
 }
 
 // Create a network

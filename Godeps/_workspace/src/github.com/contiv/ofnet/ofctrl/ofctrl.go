@@ -18,6 +18,7 @@ package ofctrl
 import (
     "net"
     "time"
+    "strings"
 
     "github.com/shaleman/libOpenflow/common"
     "github.com/shaleman/libOpenflow/openflow13"
@@ -49,12 +50,11 @@ type AppInterface interface {
 
 type Controller struct{
     app      AppInterface
+    listener *net.TCPListener
 }
 
-const SERVER_MODE = true
-
 // Create a new controller
-func NewController(bridge string, app AppInterface) *Controller {
+func NewController(app AppInterface) *Controller {
     c := new(Controller)
 
     // for debug logs
@@ -63,20 +63,6 @@ func NewController(bridge string, app AppInterface) *Controller {
     // Save the handler
     c.app = app
 
-    // Controller does not get incoming packets if it connects over unix sockets.
-    // So, this is disabled for now
-    if (!SERVER_MODE) {
-        // Connect to unix socket
-        conn, err := net.Dial("unix", "/var/run/openvswitch/" + bridge + ".mgmt")
-        if (err != nil) {
-            log.Fatalf("Failed to connect to unix socket. Err: %v", err)
-            return nil
-        }
-
-        // Handle the connection
-        go c.handleConnection(conn)
-    }
-
     return c
 }
 
@@ -84,22 +70,31 @@ func NewController(bridge string, app AppInterface) *Controller {
 func (c *Controller) Listen(port string) {
     addr, _ := net.ResolveTCPAddr("tcp", port)
 
-    sock, err := net.ListenTCP("tcp", addr)
+    var err error
+    c.listener, err = net.ListenTCP("tcp", addr)
     if err != nil {
         log.Fatal(err)
     }
 
-    defer sock.Close()
+    defer c.listener.Close()
 
     log.Println("Listening for connections on", addr)
     for {
-        conn, err := sock.AcceptTCP()
+        conn, err := c.listener.AcceptTCP()
         if err != nil {
+            if strings.Contains(err.Error(), "use of closed network connection") {
+                return
+            }
             log.Fatal(err)
         }
         go c.handleConnection(conn)
     }
 
+}
+
+// Cleanup the controller
+func (c *Controller) Delete() {
+    c.listener.Close()
 }
 
 // Handle TCP connection from the switch

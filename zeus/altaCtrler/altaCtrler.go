@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/contiv/symphony/zeus/common"
 	"github.com/contiv/symphony/zeus/netCtrler"
 
 	"github.com/contiv/symphony/pkg/altaspec"
@@ -16,17 +17,17 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// State of alta manager
 type AltaMgr struct {
 	altaDb     map[string]*AltaActor        // Main DB of alta containers
 	altaNameDb map[string]*AltaActor        // mapping from alta names to container
 	cStore     confStoreApi.ConfStorePlugin // persistence store
 }
 
-// Local state
 var altaCtrl *AltaMgr
 
 // Create a new alta Mgr
-func Init(cStore confStoreApi.ConfStorePlugin) error {
+func NewAltaCtrler(cStore confStoreApi.ConfStorePlugin) *AltaMgr {
 	altaCtrl = new(AltaMgr)
 
 	// Create the mapping databases
@@ -36,11 +37,11 @@ func Init(cStore confStoreApi.ConfStorePlugin) error {
 	// Keep a ref to cStore
 	altaCtrl.cStore = cStore
 
-	return nil
+	return altaCtrl
 }
 
 // Generate a Unique Id for the Alta container
-func genAltaId() string {
+func (self *AltaMgr) genAltaId() string {
 
 	// Loop till we find an id that doesnt exist
 	// Generate a random number and check if the id already exist in the remote
@@ -56,7 +57,7 @@ func genAltaId() string {
 		uuid := strings.ToLower(fmt.Sprintf("%X", b[0:]))
 
 		// If we found a unique id, return it
-		if altaCtrl.altaDb[uuid] == nil {
+		if self.altaDb[uuid] == nil {
 			return uuid
 		}
 	}
@@ -129,13 +130,11 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 
 	// Default volumes to mount
 	altaSpec.Volumes = []altaspec.AltaVolumeBind{
-		/* FIXME: dont mount ceph volumes for now
-		   {
-		       DatastoreType: "PersistentVolume",
-		       DatastoreVolumeId: altaSpec.AltaId,
-		       BindMountPoint: "/var/data",
-		   },
-		*/
+		{
+			DatastoreType: "PersistentVolume",
+			DatastoreVolumeId: altaSpec.AltaId,
+			BindMountPoint: "/var/data",
+		},
 		{
 			DatastoreType:     "HostVolume",
 			DatastoreVolumeId: altaSpec.AltaId + ".log",
@@ -145,21 +144,21 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 }
 
 // Create a new Alta container
-func CreateAlta(altaConfig *altaspec.AltaConfig) (*AltaActor, error) {
+func (self *AltaMgr) CreateAlta(altaConfig *altaspec.AltaConfig) error {
 	var altaSpec altaspec.AltaSpec
 
 	// Check if a name was specified and a container of this name already exists
 	if altaConfig.Name != "" {
-		if altaCtrl.altaNameDb[altaConfig.Name] != nil {
+		if self.altaNameDb[altaConfig.Name] != nil {
 			log.Errorf("Error: Alta Container %s already exists", altaConfig.Name)
-			return nil, errors.New("Alta container already exists")
+			return errors.New("Alta container already exists")
 		}
 	}
 
 	log.Infof("Creating alta with config: %#v", altaConfig)
 
 	//Create a unique Id
-	altaSpec.AltaId = genAltaId()
+	altaSpec.AltaId = self.genAltaId()
 
 	// Initialize the parameters
 	buildAltaSpec(altaConfig, &altaSpec)
@@ -168,37 +167,125 @@ func CreateAlta(altaConfig *altaspec.AltaConfig) (*AltaActor, error) {
 	alta, err := NewAlta(&altaSpec)
 	if err != nil {
 		log.Errorf("Error creating alta: %+v. Err: %v", altaConfig, err)
-		return nil, err
+		return err
 	}
 
 	// Save the container in the DB
-	altaCtrl.altaDb[alta.AltaId] = alta
+	self.altaDb[alta.AltaId] = alta
 	if altaConfig.Name != "" {
-		altaCtrl.altaNameDb[altaConfig.Name] = alta
+		self.altaNameDb[altaConfig.Name] = alta
 	}
 
 	// post schedule event
 	alta.AltaEvent("schedule")
 
-	return alta, nil
+	return nil
 }
 
 // Return a list of all alta containers
-func ListAlta() []*AltaModel {
-	var altaList []*AltaModel
+func (self *AltaMgr) ListAlta() []*common.AltaState {
+	var altaList []*common.AltaState
 
 	// Append each alta actor's model
-	for _, alta := range altaCtrl.altaDb {
-		altaList = append(altaList, &alta.Model)
+	for _, alta := range self.altaDb {
+		astate := common.AltaState{
+			Spec: alta.Model.Spec,
+			CurrNode: alta.Model.CurrNode,
+			ContainerId: alta.Model.ContainerId,
+			FsmState: alta.Model.Fsm.FsmState,
+		}
+		altaList = append(altaList, &astate)
+	}
+
+	log.Debugf("Returning alta list: %+v", altaList)
+
+	return altaList
+}
+
+
+// Diff the alta list we got from a node and what we expect
+func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.AltaContext) error {
+	// Get the list of altas we expect on this node
+	expAltaList := self.listAltaForNode(nodeAddr)
+
+	// convert the list to maps indexed by container id
+	expContMap := make(map[string]*AltaModel)
+	expAltaMap := make(map[string]*AltaModel)
+	contMap := make(map[string]*altaspec.AltaContext)
+	altaMap := make(map[string]*altaspec.AltaContext)
+	for _, alta := range expAltaList {
+		expContMap[alta.ContainerId] = alta
+		expAltaMap[alta.Spec.AltaId] = alta
+	}
+	for _, alta := range altaList {
+		contMap[alta.ContainerId] = &alta
+		altaMap[alta.AltaId] = &alta
+	}
+
+	// check if anything we expect is missing or changed
+	for _, alta := range expAltaList {
+		// If we dont have a container id yet, ignore it
+		if alta.ContainerId == "" {
+			log.Infof("DiffNodeAltaLList: Ignoring alta: %+v", alta)
+			continue
+		}
+
+		// See if node is missing alta id
+		if (altaMap[alta.Spec.AltaId] == nil) && (contMap[alta.ContainerId] != nil) {
+			log.Infof("DiffNodeAltaLList: node does not know about alta: %+v", alta)
+
+			// FIXME: Send the alta info
+		}
+
+		// See if node is missing the container
+		if (altaMap[alta.Spec.AltaId] != nil) && (contMap[alta.ContainerId] == nil) {
+			log.Infof("DiffNodeAltaLList: Container info mismatch for alta: %+v", alta)
+
+			if alta.ContainerId != altaMap[alta.Spec.AltaId].ContainerId {
+				log.Infof("Alta info needs update. old: %+v. New: %+v", alta, altaMap[alta.Spec.AltaId])
+			} else if altaMap[alta.Spec.AltaId].ContainerId == "" {
+				log.Infof("Master does not have container info: %+v", altaMap[alta.Spec.AltaId])
+			}
+		}
+
+		// See if container is completely missing from the list
+		if (altaMap[alta.Spec.AltaId] == nil) && (contMap[alta.ContainerId] == nil) {
+			log.Infof("Alta %+v needs to be restarted", alta)
+			// FIXME:
+		}
+	}
+
+	// Check if there is a container that we dont expect
+	for _, alta := range altaList {
+		if alta.AltaId == "" && expContMap[alta.ContainerId] == nil {
+			log.Infof("Node has unexpected alta: %+v. Kill it", alta)
+			// FIXME:
+		} else if alta.AltaId != "" && expAltaMap[alta.AltaId] == nil {
+			log.Infof("Node has unexpected altaId %+v", alta)
+		}
+	}
+
+	return nil
+}
+
+// Return a list of all alta containers
+func (self *AltaMgr) listAltaForNode(nodeAddr string) []*AltaModel {
+	var altaList []*AltaModel
+
+	// Walk thru all altas and see if they match this node
+	for _, alta := range self.altaDb {
+		if alta.Model.CurrNode == nodeAddr {
+			altaList = append(altaList, &alta.Model)
+		}
 	}
 
 	return altaList
 }
 
 // Restore Alta actor state from cStore
-func RestoreAltaActors() error {
+func (self *AltaMgr) RestoreAltaActors() error {
 	// Get the list of elements
-	jsonArr, err := altaCtrl.cStore.ListDir("alta")
+	jsonArr, err := self.cStore.ListDir("alta")
 	if err != nil {
 		log.Errorf("Error restoring alta actor state")
 		return err
@@ -223,12 +310,13 @@ func RestoreAltaActors() error {
 
 		// Restore state
 		alta.Model.CurrNode = model.CurrNode
+		alta.Model.ContainerId = model.ContainerId
 		alta.Model.Fsm.FsmState = model.Fsm.FsmState
 
 		// Save the container in the DB
-		altaCtrl.altaDb[alta.AltaId] = alta
+		self.altaDb[alta.AltaId] = alta
 		if model.Spec.AltaName != "" {
-			altaCtrl.altaNameDb[model.Spec.AltaName] = alta
+			self.altaNameDb[model.Spec.AltaName] = alta
 		}
 
 		log.Infof("Restored alta: %#v", alta)

@@ -125,7 +125,7 @@ func (self *EtcdPlugin) WatchService(name string,
 		for {
 			select {
 			case watchResp := <-watchCh:
-				log.Infof("Received event %#v\n Node: %#v", watchResp, watchResp.Node)
+				log.Debugf("Received event %#v\n Node: %#v", watchResp, watchResp.Node)
 
 				// derive service info from key
 				srvKey := strings.TrimPrefix(watchResp.Node.Key, "/contiv.io/service/")
@@ -209,7 +209,7 @@ func refreshService(client *etcd.Client, keyName string, keyVal string, stopChan
 	for {
 		select {
 		case <-time.After(time.Second * time.Duration(SERVICE_TTL/3)):
-			log.Infof("Refreshing key: %s", keyName)
+			log.Debugf("Refreshing key: %s", keyName)
 
 			_, err := client.Update(keyName, keyVal, SERVICE_TTL)
 			if err != nil {

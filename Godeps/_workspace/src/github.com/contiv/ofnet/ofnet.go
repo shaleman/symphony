@@ -23,6 +23,9 @@ import (
 
 // Interface implemented by each datapath
 type OfnetDatapath interface {
+    // New master was added.
+    MasterAdded(master *OfnetNode) error
+
     // Switch connected notification
     SwitchConnected(sw *ofctrl.OFSwitch)
 
@@ -49,4 +52,14 @@ type OfnetDatapath interface {
 
     // Remove a vlan
     RemoveVlan(vlanId uint16, vni uint32) error
+}
+
+// Default port numbers
+const OFNET_MASTER_PORT = 9001
+const OFNET_AGENT_PORT  = 9002
+
+// Information about each node
+type OfnetNode struct {
+    HostAddr    string
+    HostPort    uint16
 }

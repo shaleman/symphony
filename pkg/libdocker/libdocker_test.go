@@ -2,6 +2,7 @@ package libdocker
 
 import (
 	"testing"
+	log "github.com/Sirupsen/logrus"
 )
 
 // Test if an image exists
@@ -50,6 +51,13 @@ func TestContainer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to Execute command in the container. Error %v", err)
 	}
+
+	containerList, err := GetRunningContainers()
+	if err != nil {
+		t.Errorf("Error getting container list. Err: %v")
+	}
+
+	log.Infof("Got container list: %+v", containerList)
 
 	// stop the container
 	err = container.StopContainer()

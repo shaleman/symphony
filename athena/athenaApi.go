@@ -3,12 +3,11 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libdocker"
-	"github.com/contiv/symphony/pkg/psutil"
+	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -37,14 +36,16 @@ func createRouter() *mux.Router {
 	// List of routes
 	routeMap := map[string]map[string]HttpApiFunc{
 		"GET": {
-			"/node": httpGetNodeInfo,
+			"/node": 		httpGetNodeInfo,
 			"/image/{imgName}/ispresent": httpGetIsImagePresent,
 			"/alta":          httpGetAltaList,
 			"/alta/{altaId}": httpGetAltaInfo,
 		},
 		"POST": {
+			"/node/register": 		 httpPostNodeRegister,
 			"/image/{imgName}/pull": httpPostImagePull,
 			"/alta/create":          httpPostAltaCreate,
+			"/alta/{cntId}/update":  httpPostAltaUpdate,
 			"/alta/{altaId}/start":  httpPostAltaStart,
 			"/alta/{altaId}/stop":   httpPostAltaStop,
 			"/network/create":       httpPostNetworkCreate,
@@ -82,13 +83,29 @@ func createRouter() *mux.Router {
 	return router
 }
 
+// return true if route is a periodic route
+// used for suppressing debug messages..
+func routeIsPeriodic(localMethod string, localRoute string) bool {
+	switch localMethod {
+	case "GET":
+		switch localRoute {
+		case "/alta":
+			return true
+		}
+	}
+
+	return false
+}
+
 // Simple Wrapper for http handlers
 func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiFunc) http.HandlerFunc {
 	// Create a closure and return an anonymous function
 	return func(w http.ResponseWriter, r *http.Request) {
 		// log the request
-		log.Infof("Calling %s %s", localMethod, localRoute)
-		log.Infof("%s %s", r.Method, r.RequestURI)
+		if !routeIsPeriodic(localMethod, localRoute) {
+			log.Infof("Calling %s %s", localMethod, localRoute)
+			log.Infof("%s %s", r.Method, r.RequestURI)
+		}
 
 		// Call the handler
 		resp, err := handlerFunc(w, r, mux.Vars(r))
@@ -100,7 +117,9 @@ func makeHttpHandler(localMethod string, localRoute string, handlerFunc HttpApiF
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			respJson, _ := json.Marshal(resp)
-			log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+			if !routeIsPeriodic(localMethod, localRoute) {
+				log.Infof("Handler for %s %s returned Resp: %s", localMethod, localRoute, respJson)
+			}
 
 			// Send HTTP response as Json
 			writeJSON(w, http.StatusOK, resp)
@@ -146,13 +165,47 @@ func httpGetIsImagePresent(w http.ResponseWriter, r *http.Request, vars map[stri
 
 // Get a list of all running Alta containers
 func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-	log.Infof("Received GET alta list: %+v", vars)
+	log.Debugf("Received GET alta list: %+v", vars)
 
-	altaList := make([]*AltaState, 0)
+/* DPRECATED
+	altaList := make([]*altaspec.AltaContext, 0)
 	altaMap := altaMgr.ListAlta()
 	for _, altaState := range altaMap {
-		altaList = append(altaList, altaState)
+		actx := altaspec.AltaContext{
+			AltaId: altaState.AltaId
+			ContainerId: altaState.ContainerId
+		}
+		altaList = append(altaList, actx)
 	}
+	*/
+
+	// Get a list of containers
+	containerList, err := altaMgr.ListContainers()
+	if err != nil {
+		log.Errorf("Error getting container list %v. Retrying..", err)
+		return nil, err
+	}
+
+	log.Debugf("Got container list %+v", containerList)
+
+	// Build a list of container ctx
+	var altaList []altaspec.AltaContext
+	for _, cid := range containerList {
+		var altaId string
+		altaState := altaMgr.FindAltaByContainerId(cid)
+		if altaState == nil {
+			altaId = ""
+		} else {
+			altaId = altaState.AltaId
+		}
+		altaContext := altaspec.AltaContext{
+			AltaId: altaId,
+			ContainerId: cid,
+		}
+
+		altaList = append(altaList, altaContext)
+	}
+
 	return altaList, nil
 }
 
@@ -205,6 +258,36 @@ func httpPostAltaCreate(w http.ResponseWriter, r *http.Request, vars map[string]
 	}
 
 	return alta, err
+}
+
+// Update info about an existing container
+func httpPostAltaUpdate(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	var altaSpec altaspec.AltaSpec
+
+	containerId := vars["cntId"]
+
+	// Get Alta parameters from the request
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&altaSpec)
+	if err != nil {
+		log.Errorf("Error decoding create request. Err %v", err)
+		return nil, err
+	}
+
+	// Ask altaMgr to create it
+	err = altaMgr.UpdateAltaInfo(containerId, altaSpec)
+	if err != nil {
+		log.Errorf("Error updating Alta %+v. Error %v", altaSpec, err)
+		return nil, err
+	}
+
+	// Create response
+	updateResp := altaspec.ReqSuccess{
+		Success: true,
+	}
+
+	// Send response
+	return updateResp, nil
 }
 
 // Start a alta container
@@ -409,27 +492,30 @@ func httpPostVolumeUnmount(w http.ResponseWriter, r *http.Request, vars map[stri
 func httpGetNodeInfo(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
 	log.Infof("Received GET node info")
 
-	// Get the number of CPU
-	numCpu, _ := psutil.CPUCounts(true)
+	nodeInfoResp := clusterAgent.getNodeSpec()
 
-	// CPU speed
-	cpuInfo, _ := psutil.CPUInfo()
-	cpuMhz := uint64(cpuInfo[0].Mhz)
+	return nodeInfoResp, nil
+}
 
-	// Get the total memory
-	memInfo, _ := psutil.VirtualMemory()
-	memTotal := memInfo.Total
+// Register the node with zeus
+func httpPostNodeRegister(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	var masterInfo confStoreApi.ServiceInfo
 
-	// Get the host name
-	hostName, _ := os.Hostname()
-
-	// Create response
-	nodeInfoResp := altaspec.NodeSpec{
-		HostName:    hostName,
-		NumCpuCores: numCpu,
-		CpuMhz:      cpuMhz,
-		MemTotal:    memTotal,
+	// Get Alta parameters from the request
+	err := json.NewDecoder(r.Body).Decode(&masterInfo)
+	if err != nil {
+		log.Errorf("Error decoding unmount volume request. Err %v", err)
+		return nil, err
 	}
+
+	// Add the master
+	err = clusterAgent.addMaster(masterInfo)
+	if err != nil {
+		log.Errorf("Error adding master info. Err: %v", err)
+	}
+
+	// Get the node spec
+	nodeInfoResp := clusterAgent.getNodeSpec()
 
 	return nodeInfoResp, nil
 }

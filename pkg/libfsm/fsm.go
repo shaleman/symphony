@@ -1,6 +1,10 @@
 package libfsm
 
-import log "github.com/Sirupsen/logrus"
+import (
+	"strings"
+
+	log "github.com/Sirupsen/logrus"
+)
 
 // Finite state machines
 // Library to implement FSMs.
@@ -46,8 +50,10 @@ func NewFsm(fsmTable *FsmTable, initState string) *Fsm {
 
 // Handle a new event for the fsm
 func (self *Fsm) FsmEvent(event Event) {
-	log.Infof("Processing event %s in state %s", event.EventName, self.FsmState)
-
+	// supress periodic logging..
+	if !strings.Contains(event.EventName, "tick") {
+		log.Infof("Processing event %s in state %s", event.EventName, self.FsmState)
+	}
 	// find the <currState,event> pair in the transition table
 	for _, trans := range *self.transitions {
 		if (trans.CurrState == self.FsmState) && (trans.EventName == event.EventName) {

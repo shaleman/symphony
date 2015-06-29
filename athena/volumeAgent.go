@@ -89,9 +89,15 @@ func (self *VolumeAgent) CreateVolume(volumeSpec altaspec.AltaVolumeSpec) error 
 func (self *VolumeAgent) MountVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 	switch volumeSpec.DatastoreType {
 	case "PersistentVolume":
+		// Build ceph volume spec
+		cephVolume := cephdriver.CephVolumeSpec{
+			VolumeName: volumeSpec.DatastoreVolumeId,
+			VolumeSize: volumeSpec.VolumeSize,
+			PoolName: "rbd",
+		}
 
 		// Ask ceph library to mount the volume
-		return self.cephDriver.MountVolume("rbd", volumeSpec.DatastoreVolumeId)
+		return self.cephDriver.MountVolume(cephVolume)
 
 	case "HostVolume":
 		// mount host volumes
@@ -107,9 +113,15 @@ func (self *VolumeAgent) MountVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 func (self *VolumeAgent) UnmountVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 	switch volumeSpec.DatastoreType {
 	case "PersistentVolume":
+		// Build ceph volume spec
+		cephVolume := cephdriver.CephVolumeSpec{
+			VolumeName: volumeSpec.DatastoreVolumeId,
+			VolumeSize: volumeSpec.VolumeSize,
+			PoolName: "rbd",
+		}
 
 		// Ask ceph library to unmount the volume
-		return self.cephDriver.UnmountVolume("rbd", volumeSpec.DatastoreVolumeId)
+		return self.cephDriver.UnmountVolume(cephVolume)
 
 	case "HostVolume":
 		// delete host volumes
@@ -125,8 +137,15 @@ func (self *VolumeAgent) UnmountVolume(volumeSpec altaspec.AltaVolumeSpec) error
 func (self *VolumeAgent) DeleteVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 	switch volumeSpec.DatastoreType {
 	case "PersistentVolume":
+		// Build ceph volume spec
+		cephVolume := cephdriver.CephVolumeSpec{
+			VolumeName: volumeSpec.DatastoreVolumeId,
+			VolumeSize: volumeSpec.VolumeSize,
+			PoolName: "rbd",
+		}
+
 		// Ask ceph library to delete the volume
-		return self.cephDriver.DeleteVolume("rbd", volumeSpec.DatastoreVolumeId)
+		return self.cephDriver.DeleteVolume(cephVolume)
 
 	case "HostVolume":
 		// Nothing to do for host volumes

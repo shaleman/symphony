@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DOCKER_STOP_WAIT_TIME = 30 // Wait 30sec before killing the container
+	DOCKER_STOP_WAIT_TIME = 5 // Wait 5sec before killing the container
 	// Taken from lmctfy https://github.com/google/lmctfy/blob/master/lmctfy/controllers/cpu_controller.cc
 	minShares    = 2
 	sharesPerCPU = 1024
@@ -111,18 +111,3 @@ func PullImage(imgName string) error {
 
 	return nil
 }
-
-/* Sample usage:
-    if (!libdocker.IsImagePresent(imgName)) {
-        libdocker.PullImage(imgName)
-    }
-
-    // Create the container
-    var container = libdocker.CreateContainer()
-
-    // Start the container
-    container.StartContainer()
-
-
-}
-*/

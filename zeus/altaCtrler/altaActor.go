@@ -15,9 +15,10 @@ import (
 
 // Model to be persisted
 type AltaModel struct {
-	Spec     altaspec.AltaSpec // Spec for the container
-	CurrNode string            // Node where this container is placed
-	Fsm      *libfsm.Fsm       // FSM for the container
+	Spec     	altaspec.AltaSpec // Spec for the container
+	CurrNode 	string            // Node where this container is placed
+	ContainerId string			  // ContainerId on current node
+	Fsm      	*libfsm.Fsm       // FSM for the container
 }
 
 // State of Alta container
@@ -78,7 +79,7 @@ func (self *AltaActor) runLoop() {
 			self.saveModel()
 		case <-self.ticker.C:
 			// FIXME: Use this timer to perform retries when things fail
-			log.Infof("Alta: %s, FSM state: %s, state: %#v", self.Model.Spec.AltaName,
+			log.Debugf("Alta: %s, FSM state: %s, state: %#v", self.Model.Spec.AltaName,
 				self.Model.Fsm.FsmState, self)
 		}
 	}
@@ -187,6 +188,9 @@ func (self *AltaActor) createAltaCntr() error {
 	}
 
 	log.Infof("Got create response: %+v", resp)
+
+	// Save the container id for later
+	self.Model.ContainerId = resp.ContainerId
 
 	self.AltaEvent("start")
 
