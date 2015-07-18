@@ -220,7 +220,6 @@ func (self *AltaMgr) StopAlta(altaId string) error {
 	err := altaState.containerCtx.StopContainer()
 	if err != nil {
 		log.Errorf("Error stopping the container %s, Error %v", altaState.ContainerId, err)
-		return err
 	}
 
 	// FIXME: remember alta is stopped and stop polling

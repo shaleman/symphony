@@ -10,6 +10,7 @@ import (
 
 	"github.com/contiv/symphony/zeus/common"
 	"github.com/contiv/symphony/zeus/netCtrler"
+	"github.com/contiv/symphony/zeus/nodeCtrler"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
@@ -202,6 +203,19 @@ func (self *AltaMgr) ListAlta() []*common.AltaState {
 	return altaList
 }
 
+// AltaEvent trigger an event on the alta actor
+func (self *AltaMgr) AltaEvent(altaId string, event string) error {
+	// check for errors
+	if self.altaDb[altaId] == nil {
+		return errors.New("Alta not found")
+	}
+
+	// post the event
+	alta := self.altaDb[altaId]
+	alta.AltaEvent(event)
+
+	return nil
+}
 
 // Diff the alta list we got from a node and what we expect
 func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.AltaContext) error {
@@ -234,7 +248,14 @@ func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.Alta
 		if (altaMap[alta.Spec.AltaId] == nil) && (contMap[alta.ContainerId] != nil) {
 			log.Infof("DiffNodeAltaLList: node does not know about alta: %+v", alta)
 
-			// FIXME: Send the alta info
+			path := fmt.Sprintf("/alta/%s/update", alta.ContainerId)
+			var resp altaspec.ReqSuccess
+
+			// Send the alta info
+			err := nodeCtrler.NodePostReq(nodeAddr, path, alta.Spec, &resp)
+			if err != nil {
+				log.Errorf("Error sending alta info to node %s", nodeAddr)
+			}
 		}
 
 		// See if node is missing the container
@@ -251,7 +272,9 @@ func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.Alta
 		// See if container is completely missing from the list
 		if (altaMap[alta.Spec.AltaId] == nil) && (contMap[alta.ContainerId] == nil) {
 			log.Infof("Alta %+v needs to be restarted", alta)
-			// FIXME:
+
+			// Queue failure event to alta.
+			self.AltaEvent(alta.Spec.AltaId, "failure")
 		}
 	}
 

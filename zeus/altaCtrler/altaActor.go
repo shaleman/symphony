@@ -2,6 +2,7 @@ package altaCtrler
 
 import (
 	"time"
+	"errors"
 
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 	"github.com/contiv/symphony/zeus/rsrcMgr"
@@ -47,8 +48,9 @@ func NewAlta(altaSpec *altaspec.AltaSpec) (*AltaActor, error) {
 		{"waitVol", "pullImg", "waitImg", func(e libfsm.Event) error { return alta.pullImg() }},
 		{"waitImg", "imgReady", "starting", func(e libfsm.Event) error { return alta.createAltaCntr() }},
 		{"starting", "start", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
-		{"running", "failure", "failed", func(e libfsm.Event) error { return nil }},
+		{"running", "failure", "failed", func(e libfsm.Event) error { return alta.restartAltaCntr() }},
 		{"running", "stop", "stopped", func(e libfsm.Event) error { return alta.stopAltaCntr() }},
+		{"failed", "failure", "failed", func(e libfsm.Event) error { return alta.restartAltaCntr() }},
 		{"failed", "restart", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
 		{"stopped", "start", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
 	}, "created")
@@ -229,6 +231,31 @@ func (self *AltaActor) stopAltaCntr() error {
 		log.Errorf("Error stopping container. Err: %v", err)
 		return err
 	}
+
+	// Check return code
+	if !resp.Success {
+		return errors.New("Alta failed to start")
+	}
+
+	return nil
+}
+
+// Restart a failed container
+func (self *AltaActor) restartAltaCntr() error {
+	log.Infof("Restarting container %s on host %s", self.AltaId, self.Model.CurrNode)
+
+	// First stop the alta
+	self.stopAltaCntr()
+
+	// Start the container
+	err := self.startAltaCntr()
+	if err != nil {
+		log.Errorf("Error starting container. Err: %v", err)
+		return err
+	}
+
+	// Trigger the restart event since it was successful
+	self.AltaEvent("restart")
 
 	return nil
 }

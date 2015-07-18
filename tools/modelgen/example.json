@@ -1,0 +1,53 @@
+{
+	"objects": [
+		{
+			"name": "tenant",
+			"type": "object",
+			"key": "string",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Tenant Name"
+				}
+			},
+			"link-sets": {
+				"networks": {
+					"ref": "network"
+				},
+				"apps": {
+					"ref": "app"
+				},
+				"endpoint-groups": {
+					"ref": "endpoint-group"
+				}
+			}
+		},
+		{
+			"name": "network",
+			"type": "object",
+			"key": "string",
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"isPublic": {
+					"type": "bool"
+				},
+				"isPrivate": {
+					"type": "bool"
+				},
+				"encap": {
+					"type": "string"
+				},
+				"subnet": {
+					"type": "string"
+				}
+			},
+			"links": {
+				"tenants": {
+					"ref": "tenant"
+				}
+			}
+		}
+	]
+}
