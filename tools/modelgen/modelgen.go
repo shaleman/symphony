@@ -20,14 +20,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 var (
-	source = flag.String("s", path.Join(".", ""), "Location of json schema")
+	source = flag.String("s", "./", "Location of json schema")
 	output = flag.String("o", "", "Output file")
 )
 
@@ -69,11 +68,20 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Generate output
-	outStr, err := schema.GenerateGoStructs()
+	// Generate file headers
+	outStr := schema.GenerateGoHdrs()
+
+	// Generate structs
+	structStr, err := schema.GenerateGoStructs()
 	if err != nil {
 		log.Fatalf("Error generating go structs. Err: %v", err)
 	}
+
+	// Merge the header and struct
+	outStr = outStr + structStr
+
+	// Merge rest handler
+	outStr = outStr + schema.GenerateGoRestHandlers()
 
 	// Write the output
 	file := os.Stdout
@@ -82,6 +90,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		fmt.Printf("Writing to file: %s\n", *output)
 	}
 	fmt.Fprintln(file, outStr)
 }

@@ -17,7 +17,8 @@ package main
 
 // Schema represents a JSON Schema.
 type Schema struct {
-	Objects		[]Object  `json:"objects,omitempty"`
+	Name		string 		`json:"name,omitempty"`
+	Objects		[]Object  	`json:"objects,omitempty"`
 }
 
 // Object represents a schema object
