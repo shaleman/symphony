@@ -1,0 +1,33 @@
+{
+	"name": "contivModel",
+	"objects": [
+		{
+			"name": "tenant",
+			"type": "object",
+			"key": "string",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "Tenant Name"
+				}
+			},
+			"link-sets": {
+				"networks": {
+					"ref": "network"
+				},
+				"apps": {
+					"ref": "app"
+				},
+				"endpointGroups": {
+					"ref": "endpointGroup"
+				},
+				"policies": {
+					"ref": "policy"
+				},
+				"volumes": {
+					"ref": "volume"
+				}
+			}
+		}
+	]
+}

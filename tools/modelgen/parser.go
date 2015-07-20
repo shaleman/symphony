@@ -78,10 +78,15 @@ func isValidProperty(prop *Property) bool {
 			break
 		case "number":
 			break
-		case "integer":
+		case "int":
 			break
 		case "bool":
 			break
+		case "array":
+			if prop.Items == "" {
+				log.Errorf("Array property %s needs items field", prop.Name)
+				return false
+			}
 		default:
 			log.Errorf("Unknown proprty type %s for %s", prop.Type, prop.Name)
 			return false

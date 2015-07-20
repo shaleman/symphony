@@ -15,11 +15,12 @@ type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 type Network struct {
 	Key		string
+	Name	string
+	IsPublic	bool
 	IsPrivate	bool
 	Encap	string
 	Subnet	string
-	Name	string
-	IsPublic	bool
+	Labels	[]string
 	Links	NetworkLinks		`json:"links,omitempty"`
 }
 
@@ -211,7 +212,7 @@ func httpDeleteNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 
 	// set the key
 	obj.Key = key
-	
+
 	// Perform callback
 	err := objCallbackHandler.NetworkDelete(obj)
 	if err != nil {
@@ -300,7 +301,7 @@ func httpDeleteTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 	// set the key
 	obj.Key = key
-	
+
 	// Perform callback
 	err := objCallbackHandler.TenantDelete(obj)
 	if err != nil {

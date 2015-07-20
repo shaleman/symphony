@@ -34,7 +34,9 @@ type Object struct {
 type Property struct {
 	Name		string		`json:"-"`
 	Type		string		`json:"type,omitempty"`
+	Title		string		`json:"title,omitempty"`
 	Description	string		`json:"description,omitempty"`
+	Items		string		`json:"items,omitempty"`
 }
 
 type LinkSet struct {

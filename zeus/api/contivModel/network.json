@@ -6,8 +6,13 @@
 			"type": "object",
 			"key": "string",
 			"properties": {
-				"name": {
-					"type": "string"
+				"networkName": {
+					"type": "string",
+					"title": "Network name"
+				},
+				"tenantName": {
+					"type": "string",
+					"description": "Tenant Name"
 				},
 				"isPublic": {
 					"type": "bool"
@@ -20,10 +25,6 @@
 				},
 				"subnet": {
 					"type": "string"
-				},
-				"labels": {
-					"type": "array",
-					"items": "string"
 				}
 			},
 			"links": {
