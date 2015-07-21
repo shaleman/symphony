@@ -48,7 +48,7 @@ func ParseSchema(input []byte) (*Schema, error) {
 		// Check each property definition
 		for propName, prop := range obj.Properties {
 			// set the property name
-			prop.Name = initialCap(propName)
+			prop.Name = propName
 
 			if !isValidProperty(prop) {
 				return nil, errors.New("Invalid property type")

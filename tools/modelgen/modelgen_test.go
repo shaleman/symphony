@@ -143,13 +143,13 @@ type Network struct {
 			name: "default",
 			link-sets {
 				networks: [
-					{
+					"default:privateNet": {
 						type: "network",
-						key: "default/privateNet"
+						key: "default:privateNet"
 					},
-					{
+					"default:publicNet": {
 						type: "network",
-						key: "default/publicNet"
+						key: "default:publicNet"
 					}
 				]
 			}

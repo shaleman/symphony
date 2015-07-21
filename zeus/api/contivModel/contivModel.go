@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"encoding/json"
+	"github.com/contiv/symphony/pkg/confStore/modeldb"
 	"github.com/gorilla/mux"
 	log "github.com/Sirupsen/logrus"
 )
@@ -14,291 +15,147 @@ import (
 type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error)
 
 type App struct {
-	Key		string
-	AppName	string
-	TenantName	string
+	Key		string		`json:"key,omitempty"`
+	AppName	string		`json:"appName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
 	LinkSets	AppLinkSets		`json:"link-sets,omitempty"`
 	Links	AppLinks		`json:"links,omitempty"`
 }
 
 type AppLinkSets struct {
-	Services	[]AppServicesLinkSet		`json:"services,omitempty"`
-}
-
-type AppServicesLinkSet struct {
-	Type	string
-	Key		string
-	service		*Service
+	Services	map[string]modeldb.Link		`json:"services,omitempty"`
 }
 
 type AppLinks struct {
-	Tenant	AppTenantLink		`json:"tenant,omitempty"`
-}
-
-type AppTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 }
 
 type EndpointGroup struct {
-	Key		string
-	GroupName	string
-	TenantName	string
-	NetworkName	string
-	Policies	[]string
+	Key		string		`json:"key,omitempty"`
+	GroupName	string		`json:"groupName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	NetworkName	string		`json:"networkName,omitempty"`
+	Policies	[]string		`json:"policies,omitempty"`
 	LinkSets	EndpointGroupLinkSets		`json:"link-sets,omitempty"`
 	Links	EndpointGroupLinks		`json:"links,omitempty"`
 }
 
 type EndpointGroupLinkSets struct {
-	Services	[]EndpointGroupServicesLinkSet		`json:"services,omitempty"`
-	Policies	[]EndpointGroupPoliciesLinkSet		`json:"policies,omitempty"`
-}
-
-type EndpointGroupServicesLinkSet struct {
-	Type	string
-	Key		string
-	service		*Service
-}
-
-type EndpointGroupPoliciesLinkSet struct {
-	Type	string
-	Key		string
-	policy		*Policy
+	Services	map[string]modeldb.Link		`json:"services,omitempty"`
+	Policies	map[string]modeldb.Link		`json:"policies,omitempty"`
 }
 
 type EndpointGroupLinks struct {
-	Tenant	EndpointGroupTenantLink		`json:"tenant,omitempty"`
-	Network	EndpointGroupNetworkLink		`json:"network,omitempty"`
-}
-
-type EndpointGroupTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
-}
-
-type EndpointGroupNetworkLink struct {
-	Type	string
-	Key		string
-	network		*Network
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
+	Network	modeldb.Link		`json:"network,omitempty"`
 }
 
 type Network struct {
-	Key		string
-	NetworkName	string
-	TenantName	string
-	IsPublic	bool
-	IsPrivate	bool
-	Encap	string
-	Subnet	string
+	Key		string		`json:"key,omitempty"`
+	NetworkName	string		`json:"networkName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	IsPublic	bool		`json:"isPublic,omitempty"`
+	IsPrivate	bool		`json:"isPrivate,omitempty"`
+	Encap	string		`json:"encap,omitempty"`
+	Subnet	string		`json:"subnet,omitempty"`
 	Links	NetworkLinks		`json:"links,omitempty"`
 }
 
 type NetworkLinks struct {
-	Tenant	NetworkTenantLink		`json:"tenant,omitempty"`
-}
-
-type NetworkTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 }
 
 type Policy struct {
-	Key		string
-	PolicyName	string
-	TenantName	string
-	Rules	[]string
+	Key		string		`json:"key,omitempty"`
+	PolicyName	string		`json:"policyName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	Rules	[]string		`json:"rules,omitempty"`
 	LinkSets	PolicyLinkSets		`json:"link-sets,omitempty"`
 	Links	PolicyLinks		`json:"links,omitempty"`
 }
 
 type PolicyLinkSets struct {
-	EndpointGroups	[]PolicyEndpointGroupsLinkSet		`json:"endpointGroups,omitempty"`
-}
-
-type PolicyEndpointGroupsLinkSet struct {
-	Type	string
-	Key		string
-	endpointGroup		*EndpointGroup
+	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
 }
 
 type PolicyLinks struct {
-	Tenant	PolicyTenantLink		`json:"tenant,omitempty"`
-}
-
-type PolicyTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 }
 
 type Service struct {
-	Key		string
-	Scale	int64
-	Networks	[]string
-	ServiceName	string
-	AppName	string
-	TenantName	string
-	ImageName	string
-	Cpu	int64
-	Memory	string
+	Key		string		`json:"key,omitempty"`
+	ImageName	string		`json:"imageName,omitempty"`
+	Cpu	int64		`json:"cpu,omitempty"`
+	Memory	string		`json:"memory,omitempty"`
+	Scale	int64		`json:"scale,omitempty"`
+	Networks	[]string		`json:"networks,omitempty"`
+	ServiceName	string		`json:"serviceName,omitempty"`
+	AppName	string		`json:"appName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
 	LinkSets	ServiceLinkSets		`json:"link-sets,omitempty"`
 	Links	ServiceLinks		`json:"links,omitempty"`
 }
 
 type ServiceLinkSets struct {
-	Networks	[]ServiceNetworksLinkSet		`json:"networks,omitempty"`
-	Instances	[]ServiceInstancesLinkSet		`json:"instances,omitempty"`
-}
-
-type ServiceInstancesLinkSet struct {
-	Type	string
-	Key		string
-	serviceInstance		*ServiceInstance
-}
-
-type ServiceNetworksLinkSet struct {
-	Type	string
-	Key		string
-	network		*Network
+	Instances	map[string]modeldb.Link		`json:"instances,omitempty"`
+	Networks	map[string]modeldb.Link		`json:"networks,omitempty"`
 }
 
 type ServiceLinks struct {
-	EndpointGroup	ServiceEndpointGroupLink		`json:"endpointGroup,omitempty"`
-	Tenant	ServiceTenantLink		`json:"tenant,omitempty"`
-	App	ServiceAppLink		`json:"app,omitempty"`
-}
-
-type ServiceTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
-}
-
-type ServiceAppLink struct {
-	Type	string
-	Key		string
-	app		*App
-}
-
-type ServiceEndpointGroupLink struct {
-	Type	string
-	Key		string
-	endpointGroup		*EndpointGroup
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
+	App	modeldb.Link		`json:"app,omitempty"`
+	EndpointGroup	modeldb.Link		`json:"endpointGroup,omitempty"`
 }
 
 type ServiceInstance struct {
-	Key		string
-	InstanceID	string
-	TenantName	string
-	AppName	string
-	ServiceName	string
-	Volumes	[]string
+	Key		string		`json:"key,omitempty"`
+	InstanceID	string		`json:"instanceId,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	AppName	string		`json:"appName,omitempty"`
+	ServiceName	string		`json:"serviceName,omitempty"`
+	Volumes	[]string		`json:"volumes,omitempty"`
 	LinkSets	ServiceInstanceLinkSets		`json:"link-sets,omitempty"`
 	Links	ServiceInstanceLinks		`json:"links,omitempty"`
 }
 
 type ServiceInstanceLinkSets struct {
-	Volumes	[]ServiceInstanceVolumesLinkSet		`json:"volumes,omitempty"`
-}
-
-type ServiceInstanceVolumesLinkSet struct {
-	Type	string
-	Key		string
-	volume		*Volume
+	Volumes	map[string]modeldb.Link		`json:"volumes,omitempty"`
 }
 
 type ServiceInstanceLinks struct {
-	Tenant	ServiceInstanceTenantLink		`json:"tenant,omitempty"`
-	Services	ServiceInstanceServicesLink		`json:"services,omitempty"`
-}
-
-type ServiceInstanceTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
-}
-
-type ServiceInstanceServicesLink struct {
-	Type	string
-	Key		string
-	service		*Service
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
+	Services	modeldb.Link		`json:"services,omitempty"`
 }
 
 type Tenant struct {
-	Key		string
-	Name	string
+	Key		string		`json:"key,omitempty"`
+	Name	string		`json:"name,omitempty"`
 	LinkSets	TenantLinkSets		`json:"link-sets,omitempty"`
 }
 
 type TenantLinkSets struct {
-	Networks	[]TenantNetworksLinkSet		`json:"networks,omitempty"`
-	Apps	[]TenantAppsLinkSet		`json:"apps,omitempty"`
-	EndpointGroups	[]TenantEndpointGroupsLinkSet		`json:"endpointGroups,omitempty"`
-	Policies	[]TenantPoliciesLinkSet		`json:"policies,omitempty"`
-	Volumes	[]TenantVolumesLinkSet		`json:"volumes,omitempty"`
-}
-
-type TenantPoliciesLinkSet struct {
-	Type	string
-	Key		string
-	policy		*Policy
-}
-
-type TenantVolumesLinkSet struct {
-	Type	string
-	Key		string
-	volume		*Volume
-}
-
-type TenantNetworksLinkSet struct {
-	Type	string
-	Key		string
-	network		*Network
-}
-
-type TenantAppsLinkSet struct {
-	Type	string
-	Key		string
-	app		*App
-}
-
-type TenantEndpointGroupsLinkSet struct {
-	Type	string
-	Key		string
-	endpointGroup		*EndpointGroup
+	Volumes	map[string]modeldb.Link		`json:"volumes,omitempty"`
+	Networks	map[string]modeldb.Link		`json:"networks,omitempty"`
+	Apps	map[string]modeldb.Link		`json:"apps,omitempty"`
+	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
+	Policies	map[string]modeldb.Link		`json:"policies,omitempty"`
 }
 
 type Volume struct {
-	Key		string
-	VolumeName	string
-	TenantName	string
-	Size	string
+	Key		string		`json:"key,omitempty"`
+	VolumeName	string		`json:"volumeName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	Size	string		`json:"size,omitempty"`
 	LinkSets	VolumeLinkSets		`json:"link-sets,omitempty"`
 	Links	VolumeLinks		`json:"links,omitempty"`
 }
 
 type VolumeLinkSets struct {
-	ServiceInstances	[]VolumeServiceInstancesLinkSet		`json:"serviceInstances,omitempty"`
-}
-
-type VolumeServiceInstancesLinkSet struct {
-	Type	string
-	Key		string
-	serviceInstance		*ServiceInstance
+	ServiceInstances	map[string]modeldb.Link		`json:"serviceInstances,omitempty"`
 }
 
 type VolumeLinks struct {
-	Tenant	VolumeTenantLink		`json:"tenant,omitempty"`
-}
-
-type VolumeTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 }
 
 
@@ -349,6 +206,15 @@ objCallbackHandler = handler
 	collections.serviceInstances = make(map[string]*ServiceInstance)
 	collections.tenants = make(map[string]*Tenant)
 	collections.volumes = make(map[string]*Volume)
+
+	restoreApp()
+	restoreEndpointGroup()
+	restoreNetwork()
+	restorePolicy()
+	restoreService()
+	restoreServiceInstance()
+	restoreTenant()
+	restoreVolume()
 }
 
 
@@ -360,7 +226,7 @@ func makeHttpHandler(handlerFunc HttpApiFunc) http.HandlerFunc {
 		resp, err := handlerFunc(w, r, mux.Vars(r))
 		if err != nil {
 			// Log error
-			log.Errorf("Handler for %!s(MISSING) %!s(MISSING) returned error: %!s(MISSING)", r.Method, r.URL, err)
+			log.Errorf("Handler for %s %s returned error: %s", r.Method, r.URL, err)
 
 			// Send HTTP response
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -368,7 +234,7 @@ func makeHttpHandler(handlerFunc HttpApiFunc) http.HandlerFunc {
 			// Send HTTP response as Json
 			err = writeJSON(w, http.StatusOK, resp)
 			if err != nil {
-				log.Errorf("Error generating json. Err: %!v(MISSING)", err)
+				log.Errorf("Error generating json. Err: %v", err)
 			}
 		}
 	}
@@ -526,7 +392,14 @@ func httpCreateApp(w http.ResponseWriter, r *http.Request, vars map[string]strin
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving app %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.apps[key] = &obj
 
 	// Return the obj
@@ -555,11 +428,85 @@ func httpDeleteApp(w http.ResponseWriter, r *http.Request, vars map[string]strin
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting app %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.apps, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to app from collection
+func FindApp(key string) *App {
+	obj := collections.apps[key]
+	if obj == nil {
+		log.Errorf("app %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *App) GetType() string {
+	return "app"
+}
+
+func (self *App) GetKey() string {
+	return self.Key
+}
+
+func (self *App) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read app object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("app", self.Key, self)
+}
+
+func (self *App) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write app object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("app", self.Key, self)
+}
+
+func (self *App) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete app object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("app", self.Key)
+}
+
+func restoreApp() error {
+	strList, err := modeldb.ReadAllObj("app")
+	if err != nil {
+		log.Errorf("Error reading app list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var app App
+		err = json.Unmarshal([]byte(objStr), &app)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.apps[app.Key] = &app
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -615,7 +562,14 @@ func httpCreateEndpointGroup(w http.ResponseWriter, r *http.Request, vars map[st
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving endpointGroup %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.endpointGroups[key] = &obj
 
 	// Return the obj
@@ -644,11 +598,85 @@ func httpDeleteEndpointGroup(w http.ResponseWriter, r *http.Request, vars map[st
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting endpointGroup %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.endpointGroups, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to endpointGroup from collection
+func FindEndpointGroup(key string) *EndpointGroup {
+	obj := collections.endpointGroups[key]
+	if obj == nil {
+		log.Errorf("endpointGroup %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *EndpointGroup) GetType() string {
+	return "endpointGroup"
+}
+
+func (self *EndpointGroup) GetKey() string {
+	return self.Key
+}
+
+func (self *EndpointGroup) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read endpointGroup object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("endpointGroup", self.Key, self)
+}
+
+func (self *EndpointGroup) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write endpointGroup object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("endpointGroup", self.Key, self)
+}
+
+func (self *EndpointGroup) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete endpointGroup object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("endpointGroup", self.Key)
+}
+
+func restoreEndpointGroup() error {
+	strList, err := modeldb.ReadAllObj("endpointGroup")
+	if err != nil {
+		log.Errorf("Error reading endpointGroup list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var endpointGroup EndpointGroup
+		err = json.Unmarshal([]byte(objStr), &endpointGroup)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.endpointGroups[endpointGroup.Key] = &endpointGroup
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -704,7 +732,14 @@ func httpCreateNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving network %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.networks[key] = &obj
 
 	// Return the obj
@@ -733,11 +768,85 @@ func httpDeleteNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting network %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.networks, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to network from collection
+func FindNetwork(key string) *Network {
+	obj := collections.networks[key]
+	if obj == nil {
+		log.Errorf("network %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *Network) GetType() string {
+	return "network"
+}
+
+func (self *Network) GetKey() string {
+	return self.Key
+}
+
+func (self *Network) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read network object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("network", self.Key, self)
+}
+
+func (self *Network) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write network object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("network", self.Key, self)
+}
+
+func (self *Network) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete network object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("network", self.Key)
+}
+
+func restoreNetwork() error {
+	strList, err := modeldb.ReadAllObj("network")
+	if err != nil {
+		log.Errorf("Error reading network list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var network Network
+		err = json.Unmarshal([]byte(objStr), &network)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.networks[network.Key] = &network
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -793,7 +902,14 @@ func httpCreatePolicy(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving policy %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.policys[key] = &obj
 
 	// Return the obj
@@ -822,11 +938,85 @@ func httpDeletePolicy(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting policy %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.policys, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to policy from collection
+func FindPolicy(key string) *Policy {
+	obj := collections.policys[key]
+	if obj == nil {
+		log.Errorf("policy %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *Policy) GetType() string {
+	return "policy"
+}
+
+func (self *Policy) GetKey() string {
+	return self.Key
+}
+
+func (self *Policy) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read policy object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("policy", self.Key, self)
+}
+
+func (self *Policy) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write policy object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("policy", self.Key, self)
+}
+
+func (self *Policy) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete policy object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("policy", self.Key)
+}
+
+func restorePolicy() error {
+	strList, err := modeldb.ReadAllObj("policy")
+	if err != nil {
+		log.Errorf("Error reading policy list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var policy Policy
+		err = json.Unmarshal([]byte(objStr), &policy)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.policys[policy.Key] = &policy
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -882,7 +1072,14 @@ func httpCreateService(w http.ResponseWriter, r *http.Request, vars map[string]s
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving service %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.services[key] = &obj
 
 	// Return the obj
@@ -911,11 +1108,85 @@ func httpDeleteService(w http.ResponseWriter, r *http.Request, vars map[string]s
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting service %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.services, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to service from collection
+func FindService(key string) *Service {
+	obj := collections.services[key]
+	if obj == nil {
+		log.Errorf("service %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *Service) GetType() string {
+	return "service"
+}
+
+func (self *Service) GetKey() string {
+	return self.Key
+}
+
+func (self *Service) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read service object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("service", self.Key, self)
+}
+
+func (self *Service) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write service object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("service", self.Key, self)
+}
+
+func (self *Service) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete service object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("service", self.Key)
+}
+
+func restoreService() error {
+	strList, err := modeldb.ReadAllObj("service")
+	if err != nil {
+		log.Errorf("Error reading service list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var service Service
+		err = json.Unmarshal([]byte(objStr), &service)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.services[service.Key] = &service
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -971,7 +1242,14 @@ func httpCreateServiceInstance(w http.ResponseWriter, r *http.Request, vars map[
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving serviceInstance %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.serviceInstances[key] = &obj
 
 	// Return the obj
@@ -1000,11 +1278,85 @@ func httpDeleteServiceInstance(w http.ResponseWriter, r *http.Request, vars map[
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting serviceInstance %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.serviceInstances, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to serviceInstance from collection
+func FindServiceInstance(key string) *ServiceInstance {
+	obj := collections.serviceInstances[key]
+	if obj == nil {
+		log.Errorf("serviceInstance %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *ServiceInstance) GetType() string {
+	return "serviceInstance"
+}
+
+func (self *ServiceInstance) GetKey() string {
+	return self.Key
+}
+
+func (self *ServiceInstance) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read serviceInstance object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("serviceInstance", self.Key, self)
+}
+
+func (self *ServiceInstance) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write serviceInstance object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("serviceInstance", self.Key, self)
+}
+
+func (self *ServiceInstance) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete serviceInstance object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("serviceInstance", self.Key)
+}
+
+func restoreServiceInstance() error {
+	strList, err := modeldb.ReadAllObj("serviceInstance")
+	if err != nil {
+		log.Errorf("Error reading serviceInstance list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var serviceInstance ServiceInstance
+		err = json.Unmarshal([]byte(objStr), &serviceInstance)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.serviceInstances[serviceInstance.Key] = &serviceInstance
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -1060,7 +1412,14 @@ func httpCreateTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving tenant %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.tenants[key] = &obj
 
 	// Return the obj
@@ -1089,11 +1448,85 @@ func httpDeleteTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting tenant %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.tenants, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to tenant from collection
+func FindTenant(key string) *Tenant {
+	obj := collections.tenants[key]
+	if obj == nil {
+		log.Errorf("tenant %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *Tenant) GetType() string {
+	return "tenant"
+}
+
+func (self *Tenant) GetKey() string {
+	return self.Key
+}
+
+func (self *Tenant) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read tenant object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("tenant", self.Key, self)
+}
+
+func (self *Tenant) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write tenant object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("tenant", self.Key, self)
+}
+
+func (self *Tenant) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete tenant object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("tenant", self.Key)
+}
+
+func restoreTenant() error {
+	strList, err := modeldb.ReadAllObj("tenant")
+	if err != nil {
+		log.Errorf("Error reading tenant list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var tenant Tenant
+		err = json.Unmarshal([]byte(objStr), &tenant)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.tenants[tenant.Key] = &tenant
+	}
+
+	return nil
 }
 
 // LIST REST call
@@ -1149,7 +1582,14 @@ func httpCreateVolume(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving volume %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.volumes[key] = &obj
 
 	// Return the obj
@@ -1178,10 +1618,84 @@ func httpDeleteVolume(w http.ResponseWriter, r *http.Request, vars map[string]st
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting volume %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.volumes, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to volume from collection
+func FindVolume(key string) *Volume {
+	obj := collections.volumes[key]
+	if obj == nil {
+		log.Errorf("volume %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *Volume) GetType() string {
+	return "volume"
+}
+
+func (self *Volume) GetKey() string {
+	return self.Key
+}
+
+func (self *Volume) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read volume object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("volume", self.Key, self)
+}
+
+func (self *Volume) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write volume object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("volume", self.Key, self)
+}
+
+func (self *Volume) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete volume object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("volume", self.Key)
+}
+
+func restoreVolume() error {
+	strList, err := modeldb.ReadAllObj("volume")
+	if err != nil {
+		log.Errorf("Error reading volume list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var volume Volume
+		err = json.Unmarshal([]byte(objStr), &volume)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.volumes[volume.Key] = &volume
+	}
+
+	return nil
 }
 

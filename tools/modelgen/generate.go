@@ -67,6 +67,11 @@ func (s *Schema) GenerateGoStructs() (string, error) {
 	for _, obj := range s.Objects {
 		goStr = goStr + fmt.Sprintf("	collections.%ss = make(map[string]*%s)\n", obj.Name, initialCap(obj.Name))
 	}
+	goStr = goStr + fmt.Sprintf("\n")
+	for _, obj := range s.Objects {
+		goStr = goStr + fmt.Sprintf("	restore%s()\n", initialCap(obj.Name))
+	}
+
 	goStr = goStr + fmt.Sprintf("}\n\n")
 
 	return goStr, nil
@@ -85,6 +90,7 @@ import (
 	"errors"
 	"net/http"
 	"encoding/json"
+	"github.com/contiv/symphony/pkg/confStore/modeldb"
 	"github.com/gorilla/mux"
 	log "github.com/Sirupsen/logrus"
 )
@@ -103,7 +109,10 @@ type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]st
 	return buf.String()
 }
 
-func (s *Schema) GenerateGoRestHandlers() string {
+func (s *Schema) GenerateGoFuncs() string {
+	var buf bytes.Buffer
+	var goStr string
+
 	routeFunc := `
 // Simple Wrapper for http handlers
 func makeHttpHandler(handlerFunc HttpApiFunc) http.HandlerFunc {
@@ -159,11 +168,14 @@ func AddRoutes(router *mux.Router) {
 	router.Path(route).Methods("DELETE").HandlerFunc(makeHttpHandler(httpDelete{{initialCap .}}))
 `
 	// Output the functions and routes
-	goStr := fmt.Sprintf(routeFunc)
+	rfTmpl, _ := template.New("routeTmpl").Parse(routeFunc)
+	rfTmpl.Execute(&buf, "")
+	goStr = goStr + buf.String()
 
 	// add a path for each object
 	for _, obj := range s.Objects {
 		var buf bytes.Buffer
+
 		// Create a template, add the function map, and parse the text.
 		tmpl, err := template.New("routeTmpl").Funcs(funcMap).Parse(routeTmpl)
 		if err != nil {
@@ -236,7 +248,14 @@ func httpCreate{{initialCap .}}(w http.ResponseWriter, r *http.Request, vars map
 		return nil, err
 	}
 
-	// save it
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving {{.}} %s to db. Err: %v", obj.Key, err)
+		return nil, err
+	}
+
+	// save it in cache
 	collections.{{.}}s[key] = &obj
 
 	// Return the obj
@@ -265,11 +284,85 @@ func httpDelete{{initialCap .}}(w http.ResponseWriter, r *http.Request, vars map
 		return nil, err
 	}
 
-	// delete it
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting {{.}} %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
 	delete(collections.{{.}}s, key)
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to {{.}} from collection
+func Find{{initialCap .}}(key string) *{{initialCap .}} {
+	obj := collections.{{.}}s[key]
+	if obj == nil {
+		log.Errorf("{{.}} %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+func (self *{{initialCap .}}) GetType() string {
+	return "{{.}}"
+}
+
+func (self *{{initialCap .}}) GetKey() string {
+	return self.Key
+}
+
+func (self *{{initialCap .}}) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read {{.}} object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("{{.}}", self.Key, self)
+}
+
+func (self *{{initialCap .}}) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write {{.}} object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("{{.}}", self.Key, self)
+}
+
+func (self *{{initialCap .}}) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete {{.}} object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("{{.}}", self.Key)
+}
+
+func restore{{initialCap .}}() error {
+	strList, err := modeldb.ReadAllObj("{{.}}")
+	if err != nil {
+		log.Errorf("Error reading {{.}} list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var {{.}} {{initialCap .}}
+		err = json.Unmarshal([]byte(objStr), &{{.}})
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.{{.}}s[{{.}}.Key] = &{{.}}
+	}
+
+	return nil
 }
 `
 	// Generate REST handlers for each object
@@ -300,7 +393,7 @@ func (obj *Object) GenerateGoStructs() (string, error) {
 	goStr = goStr + fmt.Sprintf("type %s struct {\n", objName)
 
 	// every object has a key
-	goStr = goStr + fmt.Sprintf("	Key		string\n")
+	goStr = goStr + fmt.Sprintf("	Key		string		`json:\"key,omitempty\"`\n")
 
 	// Walk each property and generate code for it
 	for _, prop := range obj.Properties {
@@ -325,12 +418,12 @@ func (obj *Object) GenerateGoStructs() (string, error) {
 	// define object's linkset
 	if (len(obj.LinkSets) > 0) {
 		goStr = goStr + fmt.Sprintf("type %sLinkSets struct {\n", objName)
-		for lsName, ls := range obj.LinkSets {
-			goStr = goStr + fmt.Sprintf("	%s	[]%sLinkSet		`json:\"%s,omitempty\"`\n", initialCap(lsName), ls.Name, lsName)
+		for lsName, _ := range obj.LinkSets {
+			goStr = goStr + fmt.Sprintf("	%s	map[string]modeldb.Link		`json:\"%s,omitempty\"`\n", initialCap(lsName), lsName)
 		}
 		goStr = goStr + fmt.Sprintf("}\n\n")
 	}
-
+/*
 	// Define each link-sets
 	for _, linkSet := range obj.LinkSets {
 		subStr, err := linkSet.GenerateGoStructs()
@@ -338,16 +431,16 @@ func (obj *Object) GenerateGoStructs() (string, error) {
 			goStr = goStr + subStr
 		}
 	}
-
+*/
 	// Define object's links
 	if (len(obj.Links) > 0) {
 		goStr = goStr + fmt.Sprintf("type %sLinks struct {\n", objName)
-		for lName, link := range obj.Links {
-			goStr = goStr + fmt.Sprintf("	%s	%sLink		`json:\"%s,omitempty\"`\n", initialCap(lName), link.Name, lName)
+		for lName, _ := range obj.Links {
+			goStr = goStr + fmt.Sprintf("	%s	modeldb.Link		`json:\"%s,omitempty\"`\n", initialCap(lName), lName)
 		}
 		goStr = goStr + fmt.Sprintf("}\n\n")
 	}
-
+/*
 	// define each link
 	for _, link := range obj.Links {
 		subStr, err := link.GenerateGoStructs()
@@ -355,6 +448,7 @@ func (obj *Object) GenerateGoStructs() (string, error) {
 			goStr = goStr + subStr
 		}
 	}
+*/
 
 	return goStr, nil
 }
@@ -363,9 +457,9 @@ func (ls *LinkSet) GenerateGoStructs() (string, error) {
 	var goStr string
 
 	goStr = goStr + fmt.Sprintf("type %sLinkSet struct {\n", ls.Name)
-	goStr = goStr + fmt.Sprintf("	Type	string\n")
-	goStr = goStr + fmt.Sprintf("	Key		string\n")
-	goStr = goStr + fmt.Sprintf("	%s		*%s\n", ls.Ref, initialCap(ls.Ref))
+	goStr = goStr + fmt.Sprintf("	Type	string		`json:\"type,omitempty\"`\n")
+	goStr = goStr + fmt.Sprintf("	Key		string		`json:\"key,omitempty\"`\n")
+	goStr = goStr + fmt.Sprintf("	%s		*%s			`json:\"-\"`\n", ls.Ref, initialCap(ls.Ref))
 	goStr = goStr + fmt.Sprintf("}\n\n")
 
 	return goStr, nil
@@ -375,9 +469,9 @@ func (link *Link) GenerateGoStructs() (string, error) {
 	var goStr string
 
 	goStr = goStr + fmt.Sprintf("type %sLink struct {\n", link.Name)
-	goStr = goStr + fmt.Sprintf("	Type	string\n")
-	goStr = goStr + fmt.Sprintf("	Key		string\n")
-	goStr = goStr + fmt.Sprintf("	%s		*%s\n", link.Ref, initialCap(link.Ref))
+	goStr = goStr + fmt.Sprintf("	Type	string		`json:\"type,omitempty\"`\n")
+	goStr = goStr + fmt.Sprintf("	Key		string		`json:\"key,omitempty\"`\n")
+	goStr = goStr + fmt.Sprintf("	%s		*%s		`json:\"-\"`\n", link.Ref, initialCap(link.Ref))
 	goStr = goStr + fmt.Sprintf("}\n\n")
 
 	return goStr, nil
@@ -387,13 +481,13 @@ func xlatePropType(propType string) string {
 	var goStr string
 	switch propType {
 		case "string":
-			goStr = goStr + fmt.Sprintf("string\n",)
+			goStr = goStr + fmt.Sprintf("string")
 		case "number":
-			goStr = goStr + fmt.Sprintf("float64\n",)
+			goStr = goStr + fmt.Sprintf("float64")
 		case "int":
-			goStr = goStr + fmt.Sprintf("int64\n",)
+			goStr = goStr + fmt.Sprintf("int64")
 		case "bool":
-			goStr = goStr + fmt.Sprintf("bool\n",)
+			goStr = goStr + fmt.Sprintf("bool")
 		default:
 			return ""
 	}
@@ -404,7 +498,7 @@ func xlatePropType(propType string) string {
 func (prop *Property) GenerateGoStructs() (string, error) {
 	var goStr string
 
-	goStr = fmt.Sprintf("	%s	", prop.Name)
+	goStr = fmt.Sprintf("	%s	", initialCap(prop.Name))
 	switch prop.Type {
 		case "string":
 			fallthrough
@@ -413,14 +507,15 @@ func (prop *Property) GenerateGoStructs() (string, error) {
 		case "int":
 			fallthrough
 		case "bool":
-			goStr = goStr + xlatePropType(prop.Type)
+			subStr := xlatePropType(prop.Type)
+			goStr = goStr + fmt.Sprintf("%s		`json:\"%s,omitempty\"`\n", subStr, prop.Name)
 		case "array":
 			subStr := xlatePropType(prop.Items)
 			if subStr == "" {
 				return "", errors.New("Unknown array items")
 			}
 
-			goStr = goStr + fmt.Sprintf("[]%s", subStr)
+			goStr = goStr + fmt.Sprintf("[]%s		`json:\"%s,omitempty\"`\n", subStr, prop.Name)
 		default:
 			return "", errors.New("Unknown Property")
 	}

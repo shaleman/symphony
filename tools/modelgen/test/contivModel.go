@@ -14,13 +14,13 @@ import (
 type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error)
 
 type Network struct {
-	Key		string
-	Name	string
-	IsPublic	bool
-	IsPrivate	bool
-	Encap	string
-	Subnet	string
-	Labels	[]string
+	Key		string		`json:"key,omitempty"`
+	Name	string		`json:"name,omitempty"`
+	IsPublic	bool		`json:"isPublic,omitempty"`
+	IsPrivate	bool		`json:"isPrivate,omitempty"`
+	Encap	string		`json:"encap,omitempty"`
+	Subnet	string		`json:"subnet,omitempty"`
+	Labels	[]string		`json:"labels,omitempty"`
 	Links	NetworkLinks		`json:"links,omitempty"`
 }
 
@@ -29,14 +29,14 @@ type NetworkLinks struct {
 }
 
 type NetworkTenantLink struct {
-	Type	string
-	Key		string
-	tenant		*Tenant
+	Type	string		`json:"type,omitempty"`
+	Key		string		`json:"key,omitempty"`
+	tenant		*Tenant		`json:"-"`
 }
 
 type Tenant struct {
-	Key		string
-	Name	string
+	Key		string		`json:"key,omitempty"`
+	Name	string		`json:"name,omitempty"`
 	LinkSets	TenantLinkSets		`json:"link-sets,omitempty"`
 }
 
@@ -45,9 +45,9 @@ type TenantLinkSets struct {
 }
 
 type TenantNetworksLinkSet struct {
-	Type	string
-	Key		string
-	network		*Network
+	Type	string		`json:"type,omitempty"`
+	Key		string		`json:"key,omitempty"`
+	network		*Network			`json:"-"`
 }
 
 
@@ -227,6 +227,17 @@ func httpDeleteNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 	return obj, nil
 }
 
+// Return a pointer to network from collection
+func FindNetwork(key string) *Network {
+	obj := collections.networks[key]
+	if obj == nil {
+		log.Errorf("network %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
 // LIST REST call
 func httpListTenants(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
 	log.Debugf("Received httpListTenants: %+v", vars)
@@ -314,5 +325,16 @@ func httpDeleteTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 	// Return the obj
 	return obj, nil
+}
+
+// Return a pointer to tenant from collection
+func FindTenant(key string) *Tenant {
+	obj := collections.tenants[key]
+	if obj == nil {
+		log.Errorf("tenant %s not found", key)
+		return nil
+	}
+
+	return obj
 }
 

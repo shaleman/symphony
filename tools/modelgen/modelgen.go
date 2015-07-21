@@ -81,7 +81,7 @@ func main() {
 	outStr = outStr + structStr
 
 	// Merge rest handler
-	outStr = outStr + schema.GenerateGoRestHandlers()
+	outStr = outStr + schema.GenerateGoFuncs()
 
 	// Write the output
 	file := os.Stdout

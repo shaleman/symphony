@@ -14,6 +14,7 @@ import (
 type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error)
 
 var altaCtrler common.AltaCtrlInterface
+var apiCtrler *ApiController
 
 // Create a HTTP Server and initialize the router
 func CreateServer(port int, ctrlers *common.ZeusCtrlers) {
@@ -23,6 +24,10 @@ func CreateServer(port int, ctrlers *common.ZeusCtrlers) {
 
 	// Create a router
 	router := createRouter()
+
+	// Create the API controller
+	apiCtrler = NewApiController(router)
+
 
 	log.Infof("HTTP server listening on %s", listenAddr)
 
