@@ -31,10 +31,7 @@
 				}
 			},
 			"links": {
-				"tenant": {
-					"ref": "tenant"
-				},
-				"services": {
+				"service": {
 					"ref": "service"
 				}
 			}

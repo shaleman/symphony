@@ -16,8 +16,8 @@ type HttpApiFunc func(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 type App struct {
 	Key		string		`json:"key,omitempty"`
-	AppName	string		`json:"appName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
+	AppName	string		`json:"appName,omitempty"`
 	LinkSets	AppLinkSets		`json:"link-sets,omitempty"`
 	Links	AppLinks		`json:"links,omitempty"`
 }
@@ -52,13 +52,18 @@ type EndpointGroupLinks struct {
 
 type Network struct {
 	Key		string		`json:"key,omitempty"`
-	NetworkName	string		`json:"networkName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
 	IsPublic	bool		`json:"isPublic,omitempty"`
 	IsPrivate	bool		`json:"isPrivate,omitempty"`
 	Encap	string		`json:"encap,omitempty"`
 	Subnet	string		`json:"subnet,omitempty"`
+	NetworkName	string		`json:"networkName,omitempty"`
+	LinkSets	NetworkLinkSets		`json:"link-sets,omitempty"`
 	Links	NetworkLinks		`json:"links,omitempty"`
+}
+
+type NetworkLinkSets struct {
+	Services	map[string]modeldb.Link		`json:"services,omitempty"`
 }
 
 type NetworkLinks struct {
@@ -67,9 +72,9 @@ type NetworkLinks struct {
 
 type Policy struct {
 	Key		string		`json:"key,omitempty"`
-	PolicyName	string		`json:"policyName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
 	Rules	[]string		`json:"rules,omitempty"`
+	PolicyName	string		`json:"policyName,omitempty"`
 	LinkSets	PolicyLinkSets		`json:"link-sets,omitempty"`
 	Links	PolicyLinks		`json:"links,omitempty"`
 }
@@ -84,27 +89,29 @@ type PolicyLinks struct {
 
 type Service struct {
 	Key		string		`json:"key,omitempty"`
-	ImageName	string		`json:"imageName,omitempty"`
-	Cpu	int64		`json:"cpu,omitempty"`
-	Memory	string		`json:"memory,omitempty"`
-	Scale	int64		`json:"scale,omitempty"`
 	Networks	[]string		`json:"networks,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	Memory	string		`json:"memory,omitempty"`
+	Command	string		`json:"command,omitempty"`
+	Environment	[]string		`json:"environment,omitempty"`
+	EndpointGroups	[]string		`json:"endpointGroups,omitempty"`
 	ServiceName	string		`json:"serviceName,omitempty"`
 	AppName	string		`json:"appName,omitempty"`
-	TenantName	string		`json:"tenantName,omitempty"`
+	ImageName	string		`json:"imageName,omitempty"`
+	Cpu	string		`json:"cpu,omitempty"`
+	Scale	int64		`json:"scale,omitempty"`
 	LinkSets	ServiceLinkSets		`json:"link-sets,omitempty"`
 	Links	ServiceLinks		`json:"links,omitempty"`
 }
 
 type ServiceLinkSets struct {
-	Instances	map[string]modeldb.Link		`json:"instances,omitempty"`
 	Networks	map[string]modeldb.Link		`json:"networks,omitempty"`
+	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
+	Instances	map[string]modeldb.Link		`json:"instances,omitempty"`
 }
 
 type ServiceLinks struct {
-	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 	App	modeldb.Link		`json:"app,omitempty"`
-	EndpointGroup	modeldb.Link		`json:"endpointGroup,omitempty"`
 }
 
 type ServiceInstance struct {
@@ -123,29 +130,29 @@ type ServiceInstanceLinkSets struct {
 }
 
 type ServiceInstanceLinks struct {
-	Tenant	modeldb.Link		`json:"tenant,omitempty"`
-	Services	modeldb.Link		`json:"services,omitempty"`
+	Service	modeldb.Link		`json:"service,omitempty"`
 }
 
 type Tenant struct {
 	Key		string		`json:"key,omitempty"`
-	Name	string		`json:"name,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
 	LinkSets	TenantLinkSets		`json:"link-sets,omitempty"`
 }
 
 type TenantLinkSets struct {
+	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
+	Policies	map[string]modeldb.Link		`json:"policies,omitempty"`
 	Volumes	map[string]modeldb.Link		`json:"volumes,omitempty"`
 	Networks	map[string]modeldb.Link		`json:"networks,omitempty"`
 	Apps	map[string]modeldb.Link		`json:"apps,omitempty"`
-	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
-	Policies	map[string]modeldb.Link		`json:"policies,omitempty"`
 }
 
 type Volume struct {
 	Key		string		`json:"key,omitempty"`
+	Size	string		`json:"size,omitempty"`
 	VolumeName	string		`json:"volumeName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
-	Size	string		`json:"size,omitempty"`
+	PoolName	string		`json:"poolName,omitempty"`
 	LinkSets	VolumeLinkSets		`json:"link-sets,omitempty"`
 	Links	VolumeLinks		`json:"links,omitempty"`
 }
@@ -385,22 +392,12 @@ func httpCreateApp(w http.ResponseWriter, r *http.Request, vars map[string]strin
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.AppCreate(&obj)
+	// Create the object
+	err = CreateApp(&obj)
 	if err != nil {
-		log.Errorf("AppCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateApp error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving app %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.apps[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -412,33 +409,37 @@ func httpDeleteApp(w http.ResponseWriter, r *http.Request, vars map[string]strin
 
 	key := vars["key"]
 
-	obj := collections.apps[key]
-	if obj == nil {
-		log.Errorf("app %s not found", key)
-		return nil, errors.New("app not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.AppDelete(obj)
+	// Delete the object
+	err := DeleteApp(key)
 	if err != nil {
-		log.Errorf("AppDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteApp error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a app object
+func CreateApp(obj *App) error {
+	// save it in cache
+	collections.apps[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.AppCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting app %s. Err: %v", obj.Key, err)
+		log.Errorf("AppCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.apps, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving app %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to app from collection
@@ -450,6 +451,36 @@ func FindApp(key string) *App {
 	}
 
 	return obj
+}
+
+// Delete a app object
+func DeleteApp(key string) error {
+	obj := collections.apps[key]
+	if obj == nil {
+		log.Errorf("app %s not found", key)
+		return errors.New("app not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.AppDelete(obj)
+	if err != nil {
+		log.Errorf("AppDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting app %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.apps, key)
+
+	return nil
 }
 
 func (self *App) GetType() string {
@@ -555,22 +586,12 @@ func httpCreateEndpointGroup(w http.ResponseWriter, r *http.Request, vars map[st
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.EndpointGroupCreate(&obj)
+	// Create the object
+	err = CreateEndpointGroup(&obj)
 	if err != nil {
-		log.Errorf("EndpointGroupCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateEndpointGroup error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving endpointGroup %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.endpointGroups[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -582,33 +603,37 @@ func httpDeleteEndpointGroup(w http.ResponseWriter, r *http.Request, vars map[st
 
 	key := vars["key"]
 
-	obj := collections.endpointGroups[key]
-	if obj == nil {
-		log.Errorf("endpointGroup %s not found", key)
-		return nil, errors.New("endpointGroup not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.EndpointGroupDelete(obj)
+	// Delete the object
+	err := DeleteEndpointGroup(key)
 	if err != nil {
-		log.Errorf("EndpointGroupDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteEndpointGroup error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a endpointGroup object
+func CreateEndpointGroup(obj *EndpointGroup) error {
+	// save it in cache
+	collections.endpointGroups[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.EndpointGroupCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting endpointGroup %s. Err: %v", obj.Key, err)
+		log.Errorf("EndpointGroupCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.endpointGroups, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving endpointGroup %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to endpointGroup from collection
@@ -620,6 +645,36 @@ func FindEndpointGroup(key string) *EndpointGroup {
 	}
 
 	return obj
+}
+
+// Delete a endpointGroup object
+func DeleteEndpointGroup(key string) error {
+	obj := collections.endpointGroups[key]
+	if obj == nil {
+		log.Errorf("endpointGroup %s not found", key)
+		return errors.New("endpointGroup not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.EndpointGroupDelete(obj)
+	if err != nil {
+		log.Errorf("EndpointGroupDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting endpointGroup %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.endpointGroups, key)
+
+	return nil
 }
 
 func (self *EndpointGroup) GetType() string {
@@ -725,22 +780,12 @@ func httpCreateNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.NetworkCreate(&obj)
+	// Create the object
+	err = CreateNetwork(&obj)
 	if err != nil {
-		log.Errorf("NetworkCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateNetwork error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving network %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.networks[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -752,33 +797,37 @@ func httpDeleteNetwork(w http.ResponseWriter, r *http.Request, vars map[string]s
 
 	key := vars["key"]
 
-	obj := collections.networks[key]
-	if obj == nil {
-		log.Errorf("network %s not found", key)
-		return nil, errors.New("network not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.NetworkDelete(obj)
+	// Delete the object
+	err := DeleteNetwork(key)
 	if err != nil {
-		log.Errorf("NetworkDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteNetwork error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a network object
+func CreateNetwork(obj *Network) error {
+	// save it in cache
+	collections.networks[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.NetworkCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting network %s. Err: %v", obj.Key, err)
+		log.Errorf("NetworkCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.networks, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving network %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to network from collection
@@ -790,6 +839,36 @@ func FindNetwork(key string) *Network {
 	}
 
 	return obj
+}
+
+// Delete a network object
+func DeleteNetwork(key string) error {
+	obj := collections.networks[key]
+	if obj == nil {
+		log.Errorf("network %s not found", key)
+		return errors.New("network not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.NetworkDelete(obj)
+	if err != nil {
+		log.Errorf("NetworkDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting network %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.networks, key)
+
+	return nil
 }
 
 func (self *Network) GetType() string {
@@ -895,22 +974,12 @@ func httpCreatePolicy(w http.ResponseWriter, r *http.Request, vars map[string]st
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.PolicyCreate(&obj)
+	// Create the object
+	err = CreatePolicy(&obj)
 	if err != nil {
-		log.Errorf("PolicyCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreatePolicy error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving policy %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.policys[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -922,33 +991,37 @@ func httpDeletePolicy(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 	key := vars["key"]
 
-	obj := collections.policys[key]
-	if obj == nil {
-		log.Errorf("policy %s not found", key)
-		return nil, errors.New("policy not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.PolicyDelete(obj)
+	// Delete the object
+	err := DeletePolicy(key)
 	if err != nil {
-		log.Errorf("PolicyDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeletePolicy error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a policy object
+func CreatePolicy(obj *Policy) error {
+	// save it in cache
+	collections.policys[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.PolicyCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting policy %s. Err: %v", obj.Key, err)
+		log.Errorf("PolicyCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.policys, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving policy %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to policy from collection
@@ -960,6 +1033,36 @@ func FindPolicy(key string) *Policy {
 	}
 
 	return obj
+}
+
+// Delete a policy object
+func DeletePolicy(key string) error {
+	obj := collections.policys[key]
+	if obj == nil {
+		log.Errorf("policy %s not found", key)
+		return errors.New("policy not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.PolicyDelete(obj)
+	if err != nil {
+		log.Errorf("PolicyDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting policy %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.policys, key)
+
+	return nil
 }
 
 func (self *Policy) GetType() string {
@@ -1065,22 +1168,12 @@ func httpCreateService(w http.ResponseWriter, r *http.Request, vars map[string]s
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.ServiceCreate(&obj)
+	// Create the object
+	err = CreateService(&obj)
 	if err != nil {
-		log.Errorf("ServiceCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateService error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving service %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.services[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -1092,33 +1185,37 @@ func httpDeleteService(w http.ResponseWriter, r *http.Request, vars map[string]s
 
 	key := vars["key"]
 
-	obj := collections.services[key]
-	if obj == nil {
-		log.Errorf("service %s not found", key)
-		return nil, errors.New("service not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.ServiceDelete(obj)
+	// Delete the object
+	err := DeleteService(key)
 	if err != nil {
-		log.Errorf("ServiceDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteService error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a service object
+func CreateService(obj *Service) error {
+	// save it in cache
+	collections.services[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.ServiceCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting service %s. Err: %v", obj.Key, err)
+		log.Errorf("ServiceCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.services, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving service %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to service from collection
@@ -1130,6 +1227,36 @@ func FindService(key string) *Service {
 	}
 
 	return obj
+}
+
+// Delete a service object
+func DeleteService(key string) error {
+	obj := collections.services[key]
+	if obj == nil {
+		log.Errorf("service %s not found", key)
+		return errors.New("service not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.ServiceDelete(obj)
+	if err != nil {
+		log.Errorf("ServiceDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting service %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.services, key)
+
+	return nil
 }
 
 func (self *Service) GetType() string {
@@ -1235,22 +1362,12 @@ func httpCreateServiceInstance(w http.ResponseWriter, r *http.Request, vars map[
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.ServiceInstanceCreate(&obj)
+	// Create the object
+	err = CreateServiceInstance(&obj)
 	if err != nil {
-		log.Errorf("ServiceInstanceCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateServiceInstance error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving serviceInstance %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.serviceInstances[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -1262,33 +1379,37 @@ func httpDeleteServiceInstance(w http.ResponseWriter, r *http.Request, vars map[
 
 	key := vars["key"]
 
-	obj := collections.serviceInstances[key]
-	if obj == nil {
-		log.Errorf("serviceInstance %s not found", key)
-		return nil, errors.New("serviceInstance not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.ServiceInstanceDelete(obj)
+	// Delete the object
+	err := DeleteServiceInstance(key)
 	if err != nil {
-		log.Errorf("ServiceInstanceDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteServiceInstance error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a serviceInstance object
+func CreateServiceInstance(obj *ServiceInstance) error {
+	// save it in cache
+	collections.serviceInstances[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.ServiceInstanceCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting serviceInstance %s. Err: %v", obj.Key, err)
+		log.Errorf("ServiceInstanceCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.serviceInstances, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving serviceInstance %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to serviceInstance from collection
@@ -1300,6 +1421,36 @@ func FindServiceInstance(key string) *ServiceInstance {
 	}
 
 	return obj
+}
+
+// Delete a serviceInstance object
+func DeleteServiceInstance(key string) error {
+	obj := collections.serviceInstances[key]
+	if obj == nil {
+		log.Errorf("serviceInstance %s not found", key)
+		return errors.New("serviceInstance not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.ServiceInstanceDelete(obj)
+	if err != nil {
+		log.Errorf("ServiceInstanceDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting serviceInstance %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.serviceInstances, key)
+
+	return nil
 }
 
 func (self *ServiceInstance) GetType() string {
@@ -1405,22 +1556,12 @@ func httpCreateTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.TenantCreate(&obj)
+	// Create the object
+	err = CreateTenant(&obj)
 	if err != nil {
-		log.Errorf("TenantCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateTenant error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving tenant %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.tenants[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -1432,33 +1573,37 @@ func httpDeleteTenant(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 	key := vars["key"]
 
-	obj := collections.tenants[key]
-	if obj == nil {
-		log.Errorf("tenant %s not found", key)
-		return nil, errors.New("tenant not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.TenantDelete(obj)
+	// Delete the object
+	err := DeleteTenant(key)
 	if err != nil {
-		log.Errorf("TenantDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteTenant error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a tenant object
+func CreateTenant(obj *Tenant) error {
+	// save it in cache
+	collections.tenants[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.TenantCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting tenant %s. Err: %v", obj.Key, err)
+		log.Errorf("TenantCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.tenants, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving tenant %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to tenant from collection
@@ -1470,6 +1615,36 @@ func FindTenant(key string) *Tenant {
 	}
 
 	return obj
+}
+
+// Delete a tenant object
+func DeleteTenant(key string) error {
+	obj := collections.tenants[key]
+	if obj == nil {
+		log.Errorf("tenant %s not found", key)
+		return errors.New("tenant not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.TenantDelete(obj)
+	if err != nil {
+		log.Errorf("TenantDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting tenant %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.tenants, key)
+
+	return nil
 }
 
 func (self *Tenant) GetType() string {
@@ -1575,22 +1750,12 @@ func httpCreateVolume(w http.ResponseWriter, r *http.Request, vars map[string]st
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.VolumeCreate(&obj)
+	// Create the object
+	err = CreateVolume(&obj)
 	if err != nil {
-		log.Errorf("VolumeCreate retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("CreateVolume error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving volume %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.volumes[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -1602,33 +1767,37 @@ func httpDeleteVolume(w http.ResponseWriter, r *http.Request, vars map[string]st
 
 	key := vars["key"]
 
-	obj := collections.volumes[key]
-	if obj == nil {
-		log.Errorf("volume %s not found", key)
-		return nil, errors.New("volume not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.VolumeDelete(obj)
+	// Delete the object
+	err := DeleteVolume(key)
 	if err != nil {
-		log.Errorf("VolumeDelete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("DeleteVolume error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a volume object
+func CreateVolume(obj *Volume) error {
+	// save it in cache
+	collections.volumes[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.VolumeCreate(obj)
 	if err != nil {
-		log.Errorf("Error deleting volume %s. Err: %v", obj.Key, err)
+		log.Errorf("VolumeCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.volumes, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving volume %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to volume from collection
@@ -1640,6 +1809,36 @@ func FindVolume(key string) *Volume {
 	}
 
 	return obj
+}
+
+// Delete a volume object
+func DeleteVolume(key string) error {
+	obj := collections.volumes[key]
+	if obj == nil {
+		log.Errorf("volume %s not found", key)
+		return errors.New("volume not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.VolumeDelete(obj)
+	if err != nil {
+		log.Errorf("VolumeDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting volume %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.volumes, key)
+
+	return nil
 }
 
 func (self *Volume) GetType() string {

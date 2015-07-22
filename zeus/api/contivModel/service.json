@@ -22,13 +22,24 @@
 					"type": "string"
 				},
 				"cpu": {
-					"type": "int"
+					"type": "string"
 				},
 				"memory": {
 					"type": "string"
 				},
+				"command": {
+					"type": "string"
+				},
+				"environment": {
+					"type": "array",
+					"items": "string"
+				},
 				"scale": {
 					"type": "int"
+				},
+				"endpointGroups": {
+					"type": "array",
+					"items": "string"
 				},
 				"networks": {
 					"type": "array",
@@ -39,19 +50,16 @@
 				"networks": {
 					"ref": "network"
 				},
+				"endpointGroups": {
+					"ref": "endpointGroup"
+				},
 				"instances": {
 					"ref": "serviceInstance"
 				}
 			},
 			"links": {
-				"tenant": {
-					"ref": "tenant"
-				},
 				"app": {
 					"ref": "app"
-				},
-				"endpointGroup": {
-					"ref": "endpointGroup"
 				}
 			}
 		}

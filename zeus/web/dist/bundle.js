@@ -191,7 +191,7 @@
 	      }
 
 	      var panelStyle = {
-	          width: '30%',
+	          width: '90%',
 	          minWidth: '350px',
 	          float: 'left',
 	          margin: '1%',

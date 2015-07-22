@@ -241,22 +241,12 @@ func httpCreate{{initialCap .}}(w http.ResponseWriter, r *http.Request, vars map
 	// set the key
 	obj.Key = key
 
-	// Perform callback
-	err = objCallbackHandler.{{initialCap .}}Create(&obj)
+	// Create the object
+	err = Create{{initialCap .}}(&obj)
 	if err != nil {
-		log.Errorf("{{initialCap .}}Create retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("Create{{initialCap .}} error for: %+v. Err: %v", obj, err)
 		return nil, err
 	}
-
-	// Write it to modeldb
-	err = obj.Write()
-	if err != nil {
-		log.Errorf("Error saving {{.}} %s to db. Err: %v", obj.Key, err)
-		return nil, err
-	}
-
-	// save it in cache
-	collections.{{.}}s[key] = &obj
 
 	// Return the obj
 	return obj, nil
@@ -268,33 +258,37 @@ func httpDelete{{initialCap .}}(w http.ResponseWriter, r *http.Request, vars map
 
 	key := vars["key"]
 
-	obj := collections.{{.}}s[key]
-	if obj == nil {
-		log.Errorf("{{.}} %s not found", key)
-		return nil, errors.New("{{.}} not found")
-	}
-
-	// set the key
-	obj.Key = key
-
-	// Perform callback
-	err := objCallbackHandler.{{initialCap .}}Delete(obj)
+	// Delete the object
+	err := Delete{{initialCap .}}(key)
 	if err != nil {
-		log.Errorf("{{initialCap .}}Delete retruned error for: %+v. Err: %v", obj, err)
+		log.Errorf("Delete{{initialCap .}} error for: %s. Err: %v", key, err)
 		return nil, err
 	}
 
-	// delete it from modeldb
-	err = obj.Delete()
+	// Return the obj
+	return key, nil
+}
+
+// Create a {{.}} object
+func Create{{initialCap .}}(obj *{{initialCap .}}) error {
+	// save it in cache
+	collections.{{.}}s[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.{{initialCap .}}Create(obj)
 	if err != nil {
-		log.Errorf("Error deleting {{.}} %s. Err: %v", obj.Key, err)
+		log.Errorf("{{initialCap .}}Create retruned error for: %+v. Err: %v", obj, err)
+		return err
 	}
 
-	// delete it from cache
-	delete(collections.{{.}}s, key)
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving {{.}} %s to db. Err: %v", obj.Key, err)
+		return err
+	}
 
-	// Return the obj
-	return obj, nil
+	return nil
 }
 
 // Return a pointer to {{.}} from collection
@@ -306,6 +300,36 @@ func Find{{initialCap .}}(key string) *{{initialCap .}} {
 	}
 
 	return obj
+}
+
+// Delete a {{.}} object
+func Delete{{initialCap .}}(key string) error {
+	obj := collections.{{.}}s[key]
+	if obj == nil {
+		log.Errorf("{{.}} %s not found", key)
+		return errors.New("{{.}} not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.{{initialCap .}}Delete(obj)
+	if err != nil {
+		log.Errorf("{{initialCap .}}Delete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting {{.}} %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.{{.}}s, key)
+
+	return nil
 }
 
 func (self *{{initialCap .}}) GetType() string {

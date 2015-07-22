@@ -6,7 +6,7 @@
 			"type": "object",
 			"key": "string",
 			"properties": {
-				"name": {
+				"tenantName": {
 					"type": "string",
 					"description": "Tenant Name"
 				}

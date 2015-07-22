@@ -14,6 +14,9 @@
 					"type": "string",
 					"description": "Tenant Name"
 				},
+				"poolName": {
+					"type": "string"
+				},
 				"size": {
 					"type": "string"
 				}

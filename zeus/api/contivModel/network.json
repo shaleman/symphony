@@ -27,6 +27,11 @@
 					"type": "string"
 				}
 			},
+			"link-sets": {
+				"services": {
+					"ref": "service"
+				}
+			},
 			"links": {
 				"tenant": {
 					"ref": "tenant"
