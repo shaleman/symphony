@@ -1,4 +1,4 @@
-// alta.js
+// altaView.js
 // Display Alta container info
 
 var AltaPanel = React.createClass({

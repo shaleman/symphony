@@ -130,6 +130,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 	}
 
 	// Default volumes to mount
+/* Disable this for now
 	altaSpec.Volumes = []altaspec.AltaVolumeBind{
 		{
 			DatastoreType: "PersistentVolume",
@@ -142,6 +143,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 			BindMountPoint:    "/var/log",
 		},
 	}
+*/
 }
 
 // Create a new Alta container
@@ -185,7 +187,7 @@ func (self *AltaMgr) CreateAlta(altaConfig *altaspec.AltaConfig) error {
 
 // Return a list of all alta containers
 func (self *AltaMgr) ListAlta() []*common.AltaState {
-	var altaList []*common.AltaState
+	altaList := make([]*common.AltaState, 0)
 
 	// Append each alta actor's model
 	for _, alta := range self.altaDb {

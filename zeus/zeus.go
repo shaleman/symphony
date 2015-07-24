@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"time"
+	"runtime"
 
 	"github.com/contiv/symphony/zeus/common"
 	"github.com/contiv/symphony/zeus/altaCtrler"
@@ -106,6 +107,8 @@ func becomeSlave() {
 
 // Main function
 func main() {
+	runtime.GOMAXPROCS(4)
+
 	// Determine what role we should run on by trying to acquire master lock
 	// If we acquire the lock, we run as master. If we fail we run as slave
 

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 
 	log "github.com/Sirupsen/logrus"
@@ -27,7 +28,7 @@ import (
 
 var (
 	source = flag.String("s", "./", "Location of json schema")
-	output = flag.String("o", "", "Output file")
+	output = flag.String("o", "", "Output directory")
 )
 
 func main() {
@@ -83,15 +84,36 @@ func main() {
 	// Merge rest handler
 	outStr = outStr + schema.GenerateGoFuncs()
 
-	// Write the output
-	file := os.Stdout
+	outPath := "./"
 	if *output != "" {
-		file, err = os.Create(*output)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("Writing to file: %s\n", *output)
+		outPath = *output
 	}
+
+	// Write the Go file output
+	goFileName := path.Join(outPath, schema.Name + ".go")
+	file, err := os.Create(goFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Writing to file: %s\n", goFileName)
+
+	fmt.Fprintln(file, outStr)
+
+	// Generate javascript
+	outStr, err = schema.GenerateJs()
+	if err != nil {
+		log.Fatalf("Error generating javascript. Err: %v", err)
+	}
+
+	// Write javascript file
+	jsFileName := path.Join(outPath, schema.Name + ".js")
+	file, err = os.Create(jsFileName)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Writing to file: %s\n", jsFileName)
+
 	fmt.Fprintln(file, outStr)
 }

@@ -1,1 +1,1 @@
-$GOPATH/bin/modelgen -s ./ -o contivModel.go
+$GOPATH/bin/modelgen -s ./ -o ./

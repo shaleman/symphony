@@ -1,7 +1,7 @@
-// node.js
+// nodeView.js
 // Display node level info
 
-var AltaPanel = require("./altaView")
+// var AltaPanel = require("./altaView")
 
 // Node Panel
 var NodePanel = React.createClass({
@@ -30,13 +30,50 @@ var NodePanel = React.createClass({
           }
           return false
       }).map(function(alta){
+          if (alta.Spec.NetworkIfs != null) {
+              var ipAddrList = alta.Spec.NetworkIfs.map(function(netif) {
+                  return (<p> {netif.NetworkName} : {netif.IntfIpv4Addr} </p>)
+              });
+          } else {
+              var ipAddrList = "None"
+          }
+          if (alta.Spec.Volumes != null) {
+              var volumeList = alta.Spec.Volumes.map(function(volume) {
+                  return (<p> {volume.BindMountPoint} : {volume.DatastoreVolumeId} </p>)
+              })
+          } else {
+              var volumeList = "None"
+          }
+
           return (
-                <AltaPanel alta={alta} />
+              <tr key={alta.Spec.AltaId} className="info">
+                <td>{alta.Spec.AltaName}</td>
+                <td>{alta.Spec.Image}</td>
+                <td>{alta.FsmState}</td>
+                <td>{ipAddrList}</td>
+                <td>{volumeList}</td>
+              </tr>
           );
       });
 
+      var altaListView
       if (altaListItems.length === 0) {
-          altaListItems = <div> No Containers </div>
+          altaListView = <div> No Containers </div>
+      } else {
+          altaListView = <Table hover>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Image</th>
+                  <th>Status</th>
+                  <th>IP Address</th>
+                  <th>Volume</th>
+                </tr>
+              </thead>
+              <tbody>
+                  {altaListItems}
+              </tbody>
+          </Table>
       }
 
       var hdr = this.props.nodeInfo.HostName + "       (" + this.props.nodeInfo.HostAddr + ")"
@@ -44,7 +81,7 @@ var NodePanel = React.createClass({
       // Render the DOM elements
       return (
         <Panel header={hdr} bsStyle={titleColor} style={panelStyle}>
-            {altaListItems}
+            {altaListView}
         </Panel>
     );
   }
