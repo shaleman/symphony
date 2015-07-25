@@ -254,7 +254,7 @@ var AppPane = React.createClass({
 							<Col xs={3} md={2}>
 								<ModalTrigger modal={<NewServiceModal tenantName='default' appName={app.appName} />}>
 									<OverlayTrigger placement='right' overlay={<Tooltip>Add new service  </Tooltip>}>
-										<Button bsSize='large' style={{margin: '5%',}}><Glyphicon glyph='plus' /></Button>
+										<Button bsStyle='info' style={{margin: '5%',}}><Glyphicon glyph='plus' /></Button>
 									</OverlayTrigger>
 								</ModalTrigger>
 							</Col>

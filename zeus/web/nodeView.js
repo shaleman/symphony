@@ -63,7 +63,7 @@ var NodePanel = React.createClass({
           altaListView = <Table hover>
               <thead>
                 <tr>
-                  <th>Name</th>
+                  <th>Container Name</th>
                   <th>Image</th>
                   <th>Status</th>
                   <th>IP Address</th>

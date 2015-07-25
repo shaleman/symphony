@@ -5,13 +5,9 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/contiv/symphony/zeus/nodeCtrler"
 	"github.com/contiv/symphony/zeus/rsrcMgr"
-
 	"github.com/contiv/symphony/pkg/altaspec"
-
 	"github.com/contiv/ofnet"
-
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -185,9 +181,6 @@ func NewNetwork(name string) (*Network, error) {
 
 	log.Infof("Created network: %+v", network)
 
-	// Send network info to all nodes
-	nodeCtrler.NetSpecBcast(network.NetSpec)
-
 	// done
 	return network, nil
 }
@@ -255,8 +248,8 @@ func (self *Network) NewEndPoint(epKey string) (*EndPoint, error) {
 	return endPoint, nil
 }
 
-// Return a AltaNetIf from network name
-func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNetIf, error) {
+// Return a endpoint from network name
+func CreateAltaEndpoint(altaId string, netName string, ifNum int) (*altaspec.AltaEndpoint, error) {
 	var network *Network
 	var err error
 
@@ -281,7 +274,7 @@ func CreateAltaNetIf(altaId string, netName string, ifNum int) (*altaspec.AltaNe
 	}
 
 	// Formulate the network if
-	altaNetIf := altaspec.AltaNetIf{
+	altaNetIf := altaspec.AltaEndpoint{
 		NetworkName:     network.Name,
 		IntfMacAddr:     endPoint.MacAddr.String(),
 		IntfIpv4Addr:    endPoint.IPv4Addr.String(),

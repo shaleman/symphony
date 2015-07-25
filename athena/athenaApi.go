@@ -37,13 +37,13 @@ func createRouter() *mux.Router {
 	routeMap := map[string]map[string]HttpApiFunc{
 		"GET": {
 			"/node": 		httpGetNodeInfo,
-			"/image/{imgName}/ispresent": httpGetIsImagePresent,
 			"/alta":          httpGetAltaList,
 			"/alta/{altaId}": httpGetAltaInfo,
 		},
 		"POST": {
 			"/node/register": 		 httpPostNodeRegister,
-			"/image/{imgName}/pull": httpPostImagePull,
+			"/image/ispresent": 	 httpPostIsImagePresent,
+			"/image/pull": 			 httpPostImagePull,
 			"/alta/create":          httpPostAltaCreate,
 			"/alta/{cntId}/update":  httpPostAltaUpdate,
 			"/alta/{altaId}/start":  httpPostAltaStart,
@@ -144,25 +144,6 @@ func writeJSON(w http.ResponseWriter, code int, v interface{}) error {
 //         HTTP Handler functions
 // ***********************************************************
 
-// Check if an image present on the host
-func httpGetIsImagePresent(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-	log.Infof("Received GET isImagePresent: %+v", vars)
-
-	imgName := vars["imgName"]
-	isPresent, err := libdocker.IsImagePresent(imgName)
-	if err != nil {
-		log.Errorf("Error checking if image present. Err %v", err)
-	}
-
-	// Create a struct to return
-	isPresentResp := altaspec.ReqSuccess{
-		Success: isPresent,
-	}
-
-	// Return the struct
-	return isPresentResp, err
-}
-
 // Get a list of all running Alta containers
 func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
 	log.Debugf("Received GET alta list: %+v", vars)
@@ -216,23 +197,55 @@ func httpGetAltaInfo(w http.ResponseWriter, r *http.Request, vars map[string]str
 	return nil, nil
 }
 
+// Check if an image present on the host
+func httpPostIsImagePresent(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	log.Infof("Received POST isImagePresent: %+v", vars)
+	var imgName string
+
+	// Get parameters from the request
+	err := json.NewDecoder(r.Body).Decode(&imgName)
+	if err != nil {
+		log.Errorf("Error decoding isImagePresent request. Err %v", err)
+		return nil, err
+	}
+
+	isPresent, err := libdocker.IsImagePresent(imgName)
+	if err != nil {
+		log.Errorf("Error checking if image present. Err %v", err)
+	}
+
+	// Create a struct to return
+	isPresentResp := altaspec.ReqSuccess{
+		Success: isPresent,
+	}
+
+	// Return the struct
+	return isPresentResp, err
+}
+
 // Pull an image from the registry
 func httpPostImagePull(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
 	log.Infof("Received POST image pull request. params: %+v", vars)
-	success := true
 
-	imgName := vars["imgName"]
+	var imgName string
+
+	// Get parameters from the request
+	err := json.NewDecoder(r.Body).Decode(&imgName)
+	if err != nil {
+		log.Errorf("Error decoding isImagePresent request. Err %v", err)
+		return nil, err
+	}
 
 	// Ask docker to pull the image
-	err := libdocker.PullImage(imgName)
+	err = libdocker.PullImage(imgName)
 	if err != nil {
 		log.Errorf("Error pulling image %s, err %v", imgName, err)
-		success = false
+		return nil, err
 	}
 
 	// Create a struct to return
 	imgPullResp := altaspec.ReqSuccess{
-		Success: success,
+		Success: true,
 	}
 
 	return imgPullResp, err

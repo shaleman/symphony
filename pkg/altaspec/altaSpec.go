@@ -21,8 +21,8 @@ type AltaNetSpec struct {
 	Vni         uint32 // Virtual network id(Vxlan VNI)
 }
 
-// Network interface definition
-type AltaNetIf struct {
+// Network endpoint definition
+type AltaEndpoint struct {
 	NetworkName     string // Name of the network
 	IntfMacAddr     string // Mac address for the interface
 	IntfIpv4Addr    string // IP address for the interface
@@ -46,7 +46,7 @@ type AltaSpec struct {
 	PortMapList []string // Port mapping(for externally visible ports)
 
 	Volumes    []AltaVolumeBind // Volumes to be mounted
-	NetworkIfs []AltaNetIf      // Network interfaces to be created
+	Endpoints  []AltaEndpoint      // Network endpoints to be created
 }
 
 // Slave node information

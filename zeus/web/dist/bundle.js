@@ -358,7 +358,7 @@
 	          altaListView = React.createElement(Table, {hover: true}, 
 	              React.createElement("thead", null, 
 	                React.createElement("tr", null, 
-	                  React.createElement("th", null, "Name"), 
+	                  React.createElement("th", null, "Container Name"), 
 	                  React.createElement("th", null, "Image"), 
 	                  React.createElement("th", null, "Status"), 
 	                  React.createElement("th", null, "IP Address"), 
@@ -703,7 +703,7 @@
 								React.createElement(Col, {xs: 3, md: 2}, 
 									React.createElement(ModalTrigger, {modal: React.createElement(NewServiceModal, {tenantName: "default", appName: app.appName})}, 
 										React.createElement(OverlayTrigger, {placement: "right", overlay: React.createElement(Tooltip, null, "Add new service  ")}, 
-											React.createElement(Button, {bsSize: "large", style: {margin: '5%',}}, React.createElement(Glyphicon, {glyph: "plus"}))
+											React.createElement(Button, {bsStyle: "info", style: {margin: '5%',}}, React.createElement(Glyphicon, {glyph: "plus"}))
 										)
 									)
 								)

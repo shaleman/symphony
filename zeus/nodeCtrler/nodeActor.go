@@ -270,6 +270,7 @@ func (self *Node) NodePostReq(path string, req interface{}, resp interface{}) er
 	return nil
 }
 
+// FIXME: deprecated. not needed anymore
 // Push network info to node
 func (self *Node) PushNetwork(netSpec altaspec.AltaNetSpec) error {
 	var resp altaspec.ReqSuccess

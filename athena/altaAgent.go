@@ -189,12 +189,12 @@ func (self *AltaMgr) StartAlta(altaId string) error {
 	// FIXME: Remember we have started the alta and start polling it
 
 	// Create network interfaces for the container
-	for ifNum, ifSpec := range altaState.spec.NetworkIfs {
+	for ifNum, ifSpec := range altaState.spec.Endpoints {
 		// Get container PID
 		contPid := altaState.containerCtx.GetContainerPid()
 
 		// Create interface
-		portName, err := netAgent.CreateAltaIntf(contPid, ifNum, &ifSpec)
+		portName, err := netAgent.CreateAltaEndpoint(contPid, ifNum, &ifSpec)
 		if err != nil {
 			log.Errorf("Error creating network interface. %+v\n. Error: %v\n", ifSpec, err)
 		} else {
@@ -227,7 +227,7 @@ func (self *AltaMgr) StopAlta(altaId string) error {
 	// remove associated network interfaces
 	for _, portName := range altaState.portNames {
 		if portName != "" {
-			netAgent.DeleteAltaIntf(portName)
+			netAgent.DeleteAltaEndpoint(portName)
 		}
 	}
 	return nil

@@ -8,7 +8,7 @@ import (
 	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 
 	"github.com/contiv/symphony/zeus/common"
-	
+
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -164,6 +164,7 @@ func nodeUpBcast(nodeAddr string) error {
 	return nil
 }
 
+// FIXME: This is not needed anymore
 // Send network spec to all nodes
 func NetSpecBcast(netSpec altaspec.AltaNetSpec) error {
 	// Inform all nodes

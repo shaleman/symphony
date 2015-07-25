@@ -7,6 +7,7 @@ import (
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 	"github.com/contiv/symphony/zeus/volumesCtrler"
+	"github.com/contiv/symphony/zeus/netCtrler"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
@@ -43,10 +44,10 @@ func NewAlta(altaSpec *altaspec.AltaSpec) (*AltaActor, error) {
 	alta.Model.Fsm = libfsm.NewFsm(&libfsm.FsmTable{
 		// currentState,  event,      newState,   callback
 		{"created", "schedule", "scheduled", func(e libfsm.Event) error { return alta.scheduleAlta() }},
-		{"scheduled", "createNet", "waitNet", func(e libfsm.Event) error { return alta.createNetwork() }},
-		{"waitNet", "createVol", "waitVol", func(e libfsm.Event) error { return alta.mountVolume() }},
-		{"waitVol", "pullImg", "waitImg", func(e libfsm.Event) error { return alta.pullImg() }},
-		{"waitImg", "imgReady", "starting", func(e libfsm.Event) error { return alta.createAltaCntr() }},
+		{"scheduled", "createNet", "waitVol", func(e libfsm.Event) error { return alta.createNetwork() }},
+		{"waitVol", "createVol", "waitImg", func(e libfsm.Event) error { return alta.mountVolume() }},
+		{"waitImg", "pullImg", "creating", func(e libfsm.Event) error { return alta.pullImg() }},
+		{"creating", "imgReady", "starting", func(e libfsm.Event) error { return alta.createAltaCntr() }},
 		{"starting", "start", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
 		{"running", "failure", "failed", func(e libfsm.Event) error { return alta.restartAltaCntr() }},
 		{"running", "stop", "stopped", func(e libfsm.Event) error { return alta.stopAltaCntr() }},
@@ -83,6 +84,11 @@ func (self *AltaActor) runLoop() {
 			// FIXME: Use this timer to perform retries when things fail
 			log.Debugf("Alta: %s, FSM state: %s, state: %#v", self.Model.Spec.AltaName,
 				self.Model.Fsm.FsmState, self)
+
+			// If we are stuck in created state, retry it periodically
+			if self.Model.Fsm.FsmState == "created" {
+				self.AltaEvent("schedule")
+			}
 		}
 	}
 }
@@ -113,8 +119,25 @@ func (self *AltaActor) scheduleAlta() error {
 
 // Create networks on the host
 func (self *AltaActor) createNetwork() error {
+	// Loop thru each endpoint
+	for _, endpoint := range self.Model.Spec.Endpoints {
+		network, err := netCtrler.FindNetwork(endpoint.NetworkName)
+		if err != nil {
+			log.Errorf("Network %s not found while creating Alta: %+v", self.Model.Spec)
+			return errors.New("network not found")
+		}
 
-	// FIXME: just Move forward, default network already exists
+		// Send the network info to the node
+		var resp altaspec.ReqSuccess
+		url := "/network/create"
+		err = nodeCtrler.NodePostReq(self.Model.CurrNode, url, network.NetSpec, &resp)
+		if err != nil {
+			log.Errorf("Error sending network info to node %s. Err: %v",
+				self.Model.CurrNode, err)
+		}
+	}
+
+	// Move forward in fsm
 	self.AltaEvent("createVol")
 
 	return nil
@@ -146,9 +169,9 @@ func (self *AltaActor) pullImg() error {
 	log.Infof("Checking if image %s exists on host %s", self.Model.Spec.Image, self.Model.CurrNode)
 
 	// Check if the image exists
-	imgPath := "/image/" + self.Model.Spec.Image + "/ispresent"
+	imgPath := "/image/ispresent"
 	var resp altaspec.ReqSuccess
-	err := nodeCtrler.NodeGetReq(self.Model.CurrNode, imgPath, &resp)
+	err := nodeCtrler.NodePostReq(self.Model.CurrNode, imgPath, self.Model.Spec.Image, &resp)
 	if err != nil {
 		log.Errorf("Error checking image presence. Err: %v", err)
 		return err
@@ -162,9 +185,8 @@ func (self *AltaActor) pullImg() error {
 
 	log.Infof("Pulling image: %s", self.Model.Spec.Image)
 
-	imgPullPath := "/image/" + self.Model.Spec.Image + "/pull"
-	dummy := struct{ dummy string }{dummy: "dummy"}
-	err = nodeCtrler.NodePostReq(self.Model.CurrNode, imgPullPath, dummy, &resp)
+	imgPullPath := "/image/pull"
+	err = nodeCtrler.NodePostReq(self.Model.CurrNode, imgPullPath, self.Model.Spec.Image, &resp)
 	if err != nil {
 		log.Errorf("Error pulling image. Err: %v", err)
 		return err

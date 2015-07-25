@@ -106,18 +106,18 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 
 	// Parse network option
 	if len(altaConfig.Network) == 0 {
-		netIf, err := netCtrler.CreateAltaNetIf(altaSpec.AltaId, "default", 0)
+		netIf, err := netCtrler.CreateAltaEndpoint(altaSpec.AltaId, "default", 0)
 		if err != nil {
 			log.Errorf("Error creating default network intf for %s", altaSpec.AltaId)
 		} else {
-			altaSpec.NetworkIfs = []altaspec.AltaNetIf{*netIf}
+			altaSpec.Endpoints = []altaspec.AltaEndpoint{*netIf}
 		}
 	} else {
-		var netIfs []altaspec.AltaNetIf
+		var netIfs []altaspec.AltaEndpoint
 
 		// Loop thru each network name
 		for indx, networkName := range altaConfig.Network {
-			netIf, err := netCtrler.CreateAltaNetIf(altaSpec.AltaId, networkName, indx)
+			netIf, err := netCtrler.CreateAltaEndpoint(altaSpec.AltaId, networkName, indx)
 			if err != nil {
 				log.Errorf("Error creating intf for %s, network %s", altaSpec.AltaId, networkName)
 			} else {
@@ -126,7 +126,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 		}
 
 		// Set the network intf list
-		altaSpec.NetworkIfs = netIfs
+		altaSpec.Endpoints = netIfs
 	}
 
 	// Default volumes to mount

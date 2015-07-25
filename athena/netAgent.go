@@ -99,6 +99,12 @@ func (self *NetAgent) CreateNetwork(netSpec altaspec.AltaNetSpec) error {
 		return nil
 	}
 
+	// if network already exists, just update state and return
+	if self.networkDb[netSpec.NetworkName] != nil {
+		self.networkDb[netSpec.NetworkName] = &netSpec
+		return nil
+	}
+
 	// Add it to the DB
 	self.networkDb[netSpec.NetworkName] = &netSpec
 
@@ -146,7 +152,7 @@ func (self *NetAgent) GetNetwork(name string) (*altaspec.AltaNetSpec, error) {
 }
 
 // Create a network interface and return port name
-func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
+func (self *NetAgent) createEndpoint(NetworkName string) (string, error) {
 	// First get the vlanTag for the network
 	netState, err := self.GetNetwork(NetworkName)
 	if err != nil {
@@ -177,9 +183,9 @@ func (self *NetAgent) createNetIntf(NetworkName string) (string, error) {
 }
 
 // Create an interface, move it to container namespace and assign mac and IP addresses
-func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.AltaNetIf) (string, error) {
+func (self *NetAgent) CreateAltaEndpoint(contPid int, ifNum int, ifSpec *altaspec.AltaEndpoint) (string, error) {
 	// Create the port
-	portName, err := self.createNetIntf(ifSpec.NetworkName)
+	portName, err := self.createEndpoint(ifSpec.NetworkName)
 	if err != nil {
 		log.Errorf("Error creating network intf %+v\n. Error: %v\n", err)
 		return "", err
@@ -247,7 +253,7 @@ func (self *NetAgent) CreateAltaIntf(contPid int, ifNum int, ifSpec *altaspec.Al
 }
 
 // Delete the interface
-func (self *NetAgent) DeleteAltaIntf(portName string) error {
+func (self *NetAgent) DeleteAltaEndpoint(portName string) error {
 	// Get OFP port number
 	ofpPort, err := self.ovsDriver.GetOfpPortNo(portName)
 	if err != nil {

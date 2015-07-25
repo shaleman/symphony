@@ -68,6 +68,11 @@ func (self *leastUsedSched) GetNodeForAlta(spec *altaspec.AltaSpec) (string, err
 	reqMem := float64(spec.Memory)
 	var maxFreeRsrc float64 = 0
 
+	// Check if we have any resource providers at all
+	if (rsrcMgr.rsrcDb["cpu"] == nil) || (rsrcMgr.rsrcDb["memory"] == nil) {
+		return "", errors.New("No nodes to schedule")
+	}
+
 	// Determine the max free cpu resource
 	for _, provider := range rsrcMgr.rsrcDb["cpu"].Providers {
 		if (provider.FreeRsrc >= reqCpu) && (provider.FreeRsrc > maxFreeRsrc) {
