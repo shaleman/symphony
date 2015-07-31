@@ -13,21 +13,11 @@ else # sorry Windows folks, I can't help you
   $vm_cpus = 2
 end
 
-netplugin_synced_gopath="/opt/golang"
-host_gobin_path="/opt/go/bin"
-host_goroot_path="/opt/go/root"
+gopath_folder="/opt/gopath"
 
 provision_common = <<SCRIPT
 echo Args passed: [[ $@ ]]
-echo 'export GOPATH=#{netplugin_synced_gopath}' > /etc/profile.d/envvar.sh
-echo 'export GOBIN=$GOPATH/bin' >> /etc/profile.d/envvar.sh
-echo 'export GOSRC=$GOPATH/src' >> /etc/profile.d/envvar.sh
-echo 'export GOROOT=#{host_goroot_path}' >> /etc/profile.d/envvar.sh
-echo 'export PATH=$PATH:#{host_gobin_path}:$GOBIN' >> /etc/profile.d/envvar.sh
-if [ $# -gt 0 ]; then
-    echo "export $@" >> /etc/profile.d/envvar.sh
-fi
-
+echo 'export GOPATH=#{gopath_folder}' > /etc/profile.d/envvar.sh
 source /etc/profile.d/envvar.sh
 
 ### install basic packages
@@ -113,21 +103,18 @@ Vagrant.configure(2) do |config|
                 vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
             end
 
+            # Forward Zeus port
+            config.vm.network "forwarded_port", guest: 8000, host: 800#{node_index}
+
             # mount the host directories
             symphony.vm.synced_folder ".", "/vagrant"
             # godep modifies the host's GOPATH env variable, CONTIV_HOST_GOPATH
             # contains the unmodified path passed from the Makefile, use that
             # when it is defined.
             if ENV['CONTIV_HOST_GOPATH'] != nil
-                symphony.vm.synced_folder ENV['CONTIV_HOST_GOPATH'], netplugin_synced_gopath
+                symphony.vm.synced_folder ENV['CONTIV_HOST_GOPATH'], gopath_folder
             else
-                symphony.vm.synced_folder ENV['GOPATH'], netplugin_synced_gopath
-            end
-            if ENV['CONTIV_HOST_GOBIN'] != nil
-                symphony.vm.synced_folder ENV['CONTIV_HOST_GOBIN'], host_gobin_path
-            end
-            if ENV['CONTIV_HOST_GOROOT'] != nil
-                symphony.vm.synced_folder ENV['CONTIV_HOST_GOROOT'], host_goroot_path
+                symphony.vm.synced_folder ENV['GOPATH'], gopath_folder
             end
 
             symphony.vm.provision "shell" do |s|
