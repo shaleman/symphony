@@ -64,7 +64,7 @@ func (self *ClusterAgent) addMaster(masterInfo confStoreApi.ServiceInfo) error {
 
 	log.Infof("Adding master: %s", masterKey)
 
-	// Save it itn the DB
+	// Save it in the DB
 	self.masterDb[masterKey] = &masterInfo
 
 	// Add the master in ofnet agent

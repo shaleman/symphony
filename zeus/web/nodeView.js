@@ -30,8 +30,8 @@ var NodePanel = React.createClass({
           }
           return false
       }).map(function(alta){
-          if (alta.Spec.NetworkIfs != null) {
-              var ipAddrList = alta.Spec.NetworkIfs.map(function(netif) {
+          if (alta.Spec.Endpoints != null) {
+              var ipAddrList = alta.Spec.Endpoints.map(function(netif) {
                   return (<p> {netif.NetworkName} : {netif.IntfIpv4Addr} </p>)
               });
           } else {

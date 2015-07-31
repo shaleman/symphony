@@ -59,11 +59,11 @@ func NewAlta(altaSpec *altaspec.AltaSpec) (*AltaActor, error) {
 	// create the channel
 	alta.EventChan = make(chan libfsm.Event, 200)
 
+	// timer to periodically retry in failed states
+	alta.ticker = time.NewTicker(time.Second * 15)
+
 	// Kick off the alta runloop
 	go alta.runLoop()
-
-	// Debug: timer to print state periodically
-	alta.ticker = time.NewTicker(time.Second * 15)
 
 	log.Infof("Created Alta: %#v", alta)
 

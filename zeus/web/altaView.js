@@ -27,7 +27,7 @@ var AltaPanel = React.createClass({
       });
 
       // Display all attached network intf
-      var netIfs = this.props.alta.Spec.NetworkIfs.map(function(netif){
+      var netIfs = this.props.alta.Spec.Endpoints.map(function(netif){
           return (
               <ListGroupItem key={netif.IntfIpv4Addr}>
                 <div> <h4> {netif.IntfIpv4Addr} </h4> </div>

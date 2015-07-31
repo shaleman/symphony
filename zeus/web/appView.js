@@ -22,6 +22,9 @@ const NewAppModal = React.createClass({
 	        console.error('/api/apps/default:' + appName + '/', status, err.toString());
 	      }.bind(this)
 	    });
+
+		// close the modal
+		this.props.onRequestHide(e)
 	},
   	render() {
 	    return (
@@ -68,6 +71,7 @@ const NewServiceModal = React.createClass({
 			cpu: this.refs.cpu.getValue(),
 			memory: this.refs.memory.getValue(),
 			networks: networks,
+			volumeProfile: this.refs.volumeProfile.getValue(),
 			endpointGroups: endpointGroups,
 			environment: environment,
 			scale: parseInt(this.refs.scale.getValue()),
@@ -86,6 +90,9 @@ const NewServiceModal = React.createClass({
 	        console.error('/api/services/default:' + this.props.appName + ':' + serviceName + '/', status, err.toString());
 	      }.bind(this)
 	    });
+
+		// close the modal
+		this.props.onRequestHide(e)
 	},
   	render() {
 	    return (
@@ -97,6 +104,7 @@ const NewServiceModal = React.createClass({
 				<Input type='text' label='Cpus' ref='cpu' placeholder='Cpus' />
 				<Input type='text' label='Memory' ref='memory' placeholder='Memory' />
 				<Input type='text' label='Networks' ref='networks' placeholder='Enter networks' />
+				<Input type='text' label='Volume Profile' ref='volumeProfile' placeholder='Enter volume profile name' />
 				<Input type='text' label='Endpoint Groups' ref='endpointGroups' placeholder='Enter endpoint groups' />
 				<Input type='text' label='Environment Variables' ref='environment' placeholder='Enter environment variables' />
 				<Input type='text' label='Scale' ref='scale' placeholder='Enter scale' />
@@ -158,6 +166,9 @@ const ServiceInfoModal = React.createClass({
 			console.error('/api/services/default:' + this.props.appName + ':' + serviceName + '/', status, err.toString());
 		}.bind(this)
 		});
+
+		// close the modal
+		this.props.onRequestHide(e)
 	},
   	render() {
 		var srv = this.props.service
@@ -170,6 +181,7 @@ const ServiceInfoModal = React.createClass({
 				<Input type='text' label='Cpus' ref='cpu' defaultValue={srv.cpu} placeholder='Cpus' />
 				<Input type='text' label='Memory' ref='memory' defaultValue={srv.memory} placeholder='Memory' />
 				<Input type='text' label='Networks' ref='networks' defaultValue={srv.networks} placeholder='Enter networks' />
+				<Input type='text' label='Volume Profile' ref='volumeProfile' placeholder='Enter volume profile name' />
 				<Input type='text' label='Endpoint Groups' ref='endpointGroups' defaultValue={srv.endpointGroups} placeholder='Enter endpoint groups' />
 				<Input type='text' label='Environment Variables' ref='environment' defaultValue={srv.environment} placeholder='Enter environment variables' />
 				<Input type='text' label='Scale' ref='scale' defaultValue={srv.scale} placeholder='Enter scale' />
@@ -190,9 +202,17 @@ var ServiceSummary = React.createClass({
   	render: function() {
 		var self = this
 		var srv = self.props.service
-		var networks = srv.networks.reduce(function(a, b){
-			return a + ", " + b;
-		});
+
+		// List the networks
+		if (srv.networks !== undefined) {
+			var networks = srv.networks.reduce(function(a, b){
+				return a + ", " + b;
+			});
+		} else {
+			var networks = "None"
+		}
+
+		// Render the row
 		return (
 			<ModalTrigger modal={<ServiceInfoModal tenantName='default' appName={self.props.app.appName} service={srv}/>}>
 				<tr className="info">

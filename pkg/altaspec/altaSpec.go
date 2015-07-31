@@ -107,7 +107,7 @@ type AltaConfig struct {
 	Cpu         string   `json:"cpu"`         // CPU Eg: 2, 1.5, .5, 4 etc
 	Memory      string   `json:"memory"`      // Memory Eg: 1G, 16GB, 200MB, 2g etc
 	Command     string   `json:"command"`     // override entry point
-	Network     []string `json:"network"`     // List of networks to join
+	Networks    []string `json:"network"`     // List of networks to join
 	Environment []string `json:"environment"` // Optional environment variable
-	Volumes     []string `json:"volumes"`     // Additional volumes to mount
+	Volumes     []AltaVolumeBind `json:"volumes"`     // Volumes to mount
 }

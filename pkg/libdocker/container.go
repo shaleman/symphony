@@ -28,6 +28,8 @@ type ContainerSpec struct {
 	Image       string   // Image name
 	WorkingDir  string   // Working directory for the command
 	Privileged  bool     // is this a privilaged container?
+	RestartPolicyName string // Restart 'always', 'on-failure' or 'no'
+	RestartRetryCount int	 // Restart retry count
 	VolumeBinds []string // Volumes that needs to be bind mounted
 	ExposePorts []string // Expose these ports(alternative to EXPOSE in Dockerfile)
 	PortMapList []string // Port mapping from container port to host ports
@@ -103,6 +105,10 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 			// FIXME: figure out how to set network mode
 			// IpcMode:      cSpec.NetworkMode,
 			Privileged: cSpec.Privileged,
+			RestartPolicy: docker.RestartPolicy{
+				Name: cSpec.RestartPolicyName,
+				MaximumRetryCount: cSpec.RestartRetryCount,
+			},
 		},
 	}
 
@@ -253,7 +259,6 @@ func (self *ContainerCtx) GetContainerPid() int {
 // Get all containers running on this system
 // to be used by atheena to periodically scan the host to see if any unwanted
 // container is running on the system and to reconsile the state when it starts up
-// TODO:
 func GetRunningContainers() ([]string, error) {
 	// Get a list of containers
 	containers, err := dockerClient.ListContainers(docker.ListContainersOptions{})
@@ -263,7 +268,27 @@ func GetRunningContainers() ([]string, error) {
 	}
 
 
-	log.Debugf("Got container list: %+v", containers)
+	log.Debugf("Got running container list: %+v", containers)
+
+	var containerList []string
+	for _, cntr := range containers {
+		containerList = append(containerList, cntr.ID)
+	}
+
+	return containerList, nil
+}
+
+// Get all containers(running or exited) on this system
+func GetAllContainers() ([]string, error) {
+	// Get a list of containers
+	containers, err := dockerClient.ListContainers(docker.ListContainersOptions{All: true})
+	if err != nil {
+		log.Errorf("Error getting a list of containers. Err: %v", err)
+		return nil, err
+	}
+
+
+	log.Debugf("Got all container list: %+v", containers)
 
 	var containerList []string
 	for _, cntr := range containers {

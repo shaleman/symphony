@@ -325,8 +325,8 @@
 	          }
 	          return false
 	      }).map(function(alta){
-	          if (alta.Spec.NetworkIfs != null) {
-	              var ipAddrList = alta.Spec.NetworkIfs.map(function(netif) {
+	          if (alta.Spec.Endpoints != null) {
+	              var ipAddrList = alta.Spec.Endpoints.map(function(netif) {
 	                  return (React.createElement("p", null, " ", netif.NetworkName, " : ", netif.IntfIpv4Addr, " "))
 	              });
 	          } else {
@@ -471,6 +471,9 @@
 		        console.error('/api/apps/default:' + appName + '/', status, err.toString());
 		      }.bind(this)
 		    });
+
+			// close the modal
+			this.props.onRequestHide(e)
 		},
 	  	render:function() {
 		    return (
@@ -517,6 +520,7 @@
 				cpu: this.refs.cpu.getValue(),
 				memory: this.refs.memory.getValue(),
 				networks: networks,
+				volumeProfile: this.refs.volumeProfile.getValue(),
 				endpointGroups: endpointGroups,
 				environment: environment,
 				scale: parseInt(this.refs.scale.getValue()),
@@ -535,6 +539,9 @@
 		        console.error('/api/services/default:' + this.props.appName + ':' + serviceName + '/', status, err.toString());
 		      }.bind(this)
 		    });
+
+			// close the modal
+			this.props.onRequestHide(e)
 		},
 	  	render:function() {
 		    return (
@@ -546,6 +553,7 @@
 					React.createElement(Input, {type: "text", label: "Cpus", ref: "cpu", placeholder: "Cpus"}), 
 					React.createElement(Input, {type: "text", label: "Memory", ref: "memory", placeholder: "Memory"}), 
 					React.createElement(Input, {type: "text", label: "Networks", ref: "networks", placeholder: "Enter networks"}), 
+					React.createElement(Input, {type: "text", label: "Volume Profile", ref: "volumeProfile", placeholder: "Enter volume profile name"}), 
 					React.createElement(Input, {type: "text", label: "Endpoint Groups", ref: "endpointGroups", placeholder: "Enter endpoint groups"}), 
 					React.createElement(Input, {type: "text", label: "Environment Variables", ref: "environment", placeholder: "Enter environment variables"}), 
 					React.createElement(Input, {type: "text", label: "Scale", ref: "scale", placeholder: "Enter scale"})
@@ -607,6 +615,9 @@
 				console.error('/api/services/default:' + this.props.appName + ':' + serviceName + '/', status, err.toString());
 			}.bind(this)
 			});
+
+			// close the modal
+			this.props.onRequestHide(e)
 		},
 	  	render:function() {
 			var srv = this.props.service
@@ -619,6 +630,7 @@
 					React.createElement(Input, {type: "text", label: "Cpus", ref: "cpu", defaultValue: srv.cpu, placeholder: "Cpus"}), 
 					React.createElement(Input, {type: "text", label: "Memory", ref: "memory", defaultValue: srv.memory, placeholder: "Memory"}), 
 					React.createElement(Input, {type: "text", label: "Networks", ref: "networks", defaultValue: srv.networks, placeholder: "Enter networks"}), 
+					React.createElement(Input, {type: "text", label: "Volume Profile", ref: "volumeProfile", placeholder: "Enter volume profile name"}), 
 					React.createElement(Input, {type: "text", label: "Endpoint Groups", ref: "endpointGroups", defaultValue: srv.endpointGroups, placeholder: "Enter endpoint groups"}), 
 					React.createElement(Input, {type: "text", label: "Environment Variables", ref: "environment", defaultValue: srv.environment, placeholder: "Enter environment variables"}), 
 					React.createElement(Input, {type: "text", label: "Scale", ref: "scale", defaultValue: srv.scale, placeholder: "Enter scale"})
@@ -639,9 +651,17 @@
 	  	render: function() {
 			var self = this
 			var srv = self.props.service
-			var networks = srv.networks.reduce(function(a, b){
-				return a + ", " + b;
-			});
+
+			// List the networks
+			if (srv.networks !== undefined) {
+				var networks = srv.networks.reduce(function(a, b){
+					return a + ", " + b;
+				});
+			} else {
+				var networks = "None"
+			}
+
+			// Render the row
 			return (
 				React.createElement(ModalTrigger, {modal: React.createElement(ServiceInfoModal, {tenantName: "default", appName: self.props.app.appName, service: srv})}, 
 					React.createElement("tr", {className: "info"}, 

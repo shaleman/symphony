@@ -44,6 +44,9 @@
 				"networks": {
 					"type": "array",
 					"items": "string"
+				},
+				"volumeProfile": {
+					"type": "string"
 				}
 			},
 			"link-sets": {
@@ -60,6 +63,9 @@
 			"links": {
 				"app": {
 					"ref": "app"
+				},
+				"volumeProfile": {
+					"ref": "volumeProfile"
 				}
 			}
 		}

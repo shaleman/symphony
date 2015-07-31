@@ -19,7 +19,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-const ZEUS_MASTER_TTL = 30 // mastership TTL is 30sec
+const ZEUS_MASTER_TTL = 5 // mastership TTL is 30sec
 
 var stopMasterChan chan bool
 var stopSlaveChan chan bool

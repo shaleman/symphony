@@ -21,6 +21,7 @@ import (
 	"github.com/contiv/symphony/zeus/api/contivModel"
 	"github.com/contiv/symphony/pkg/confStore/modeldb"
 	"github.com/contiv/symphony/pkg/altaspec"
+	"github.com/contiv/symphony/zeus/netCtrler"
 
 	"github.com/gorilla/mux"
 	log "github.com/Sirupsen/logrus"
@@ -119,6 +120,13 @@ func (self *ApiController) NetworkCreate(network *contivModel.Network) error {
 	err := tenant.Write()
 	if err != nil {
 		log.Errorf("Error updating tenant state(%+v). Err: %v", tenant, err)
+		return err
+	}
+
+	// Create the network
+	_, err = netCtrler.NewNetwork(network.NetworkName)
+	if err != nil {
+		log.Errorf("Error creating network: %s. Err: %v", network.NetworkName, err)
 		return err
 	}
 
@@ -235,6 +243,18 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 		}
 	}
 
+	// Check if user specified any volume profile
+	if service.VolumeProfile == "" {
+		service.VolumeProfile = "default"
+	}
+
+	volProfKey := service.TenantName + ":" + service.VolumeProfile
+	volProfile := contivModel.FindVolumeProfile(volProfKey)
+	if volProfile == nil {
+		log.Errorf("Could not find the volume profile: %s", service.VolumeProfile)
+		return errors.New("VolumeProfile not found")
+	}
+
 	// fixup default values
 	if service.Scale == 0 {
 		service.Scale = 1
@@ -242,8 +262,29 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 
 	// Create service instances
 	for idx := int64(0); idx < service.Scale; idx++ {
-		// build instance params
 		instId := fmt.Sprintf("%d", idx + 1)
+		var volumes []string
+
+		// Create a volume for each instance based on the profile
+		if volProfile.DatastoreType != "none" {
+			instVolName := service.AppName + "." + service.ServiceName + "." + instId
+			err = contivModel.CreateVolume(&contivModel.Volume{
+				Key			: service.TenantName + ":" + instVolName,
+				VolumeName	: instVolName,
+				TenantName	: service.TenantName,
+				DatastoreType	: volProfile.DatastoreType,
+				PoolName	: volProfile.PoolName,
+				Size		: volProfile.Size,
+				MountPoint	: volProfile.MountPoint,
+			})
+			if err != nil {
+				log.Errorf("Error creating volume %s. Err: %v", instVolName, err)
+				return err
+			}
+			volumes = []string{instVolName}
+		}
+
+		// build instance params
 		instKey := service.TenantName + ":" + service.AppName + ":" + service.ServiceName + ":" + instId
 		inst := contivModel.ServiceInstance{
 			Key			: instKey,
@@ -251,7 +292,7 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 			TenantName	: service.TenantName,
 			AppName		: service.AppName,
 			ServiceName	: service.ServiceName,
-			// FIXME: should we bind default volumes for the instance here?
+			Volumes		: volumes,
 		}
 
 		// create the instance
@@ -286,7 +327,29 @@ func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.Se
 	modeldb.AddLinkSet(&service.LinkSets.Instances, inst)
 	modeldb.AddLink(&inst.Links.Service, service)
 
-	// FIXME: steup links with volumes
+	// setup links with volumes
+	var volumes []altaspec.AltaVolumeBind
+	for _, volumeName := range inst.Volumes {
+		// find the volume
+		volume := contivModel.FindVolume(inst.TenantName + ":" + volumeName)
+		if volume == nil {
+			log.Errorf("Could not find colume %s for service: %s", volumeName, inst.Key)
+			return errors.New("Could not find the volume")
+		}
+
+		// add Links
+		modeldb.AddLinkSet(&inst.LinkSets.Volumes, volume)
+		modeldb.AddLinkSet(&volume.LinkSets.ServiceInstances, inst)
+
+		// Build volume bind params
+		volBind := altaspec.AltaVolumeBind{
+			DatastoreType     : volume.DatastoreType,
+			DatastoreVolumeId : volumeName,
+			BindMountPoint    : volume.MountPoint,	// FIXME: mount point shouldnt come from the volume itself
+		}
+
+		volumes = append(volumes, volBind)
+	}
 
 	// container params
 	altaConfig := altaspec.AltaConfig{
@@ -295,9 +358,9 @@ func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.Se
 		Cpu         : service.Cpu,
 		Memory      : service.Memory,
 		Command     : service.Command,
-		Network     : service.Networks,
+		Networks    : service.Networks,
 		Environment : service.Environment,
-		Volumes     : inst.Volumes,
+		Volumes     : volumes,
 	}
 
 	// Create the container instance
@@ -350,6 +413,21 @@ func (self *ApiController) TenantCreate(tenant *contivModel.Tenant) error {
 		return err
 	}
 
+	// Create a default volume profile for the tenant
+	err = contivModel.CreateVolumeProfile(&contivModel.VolumeProfile{
+			Key					: tenant.TenantName + ":" + "default",
+			VolumeProfileName	: "default",
+			TenantName			: tenant.TenantName,
+			DatastoreType		: "none",
+			PoolName			: "",
+			Size				: "",
+			MountPoint			: "",
+		})
+	if err != nil {
+		log.Errorf("Error creating default volume profile. Err: %v", err)
+		return err
+	}
+
     return nil
 }
 func (self *ApiController) TenantDelete(tenant *contivModel.Tenant) error {
@@ -358,9 +436,61 @@ func (self *ApiController) TenantDelete(tenant *contivModel.Tenant) error {
 }
 func (self *ApiController) VolumeCreate(volume *contivModel.Volume) error {
 	log.Infof("Received VolumeCreate: %+v", volume)
+
+	// Make sure tenant exists
+	if volume.TenantName == "" {
+		return errors.New("Invalid tenant name")
+	}
+
+	tenant := contivModel.FindTenant(volume.TenantName)
+	if tenant == nil {
+		return errors.New("Tenant not found")
+	}
+
+	// Setup links
+	modeldb.AddLink(&volume.Links.Tenant, tenant)
+	modeldb.AddLinkSet(&tenant.LinkSets.Volumes, volume)
+
+	// Save the tenant too since we added the links
+	err := tenant.Write()
+	if err != nil {
+		return err
+	}
+
+	// FIXME: Create the volume
+
     return nil
 }
 func (self *ApiController) VolumeDelete(volume *contivModel.Volume) error {
 	log.Infof("Received VolumeDelete: %+v", volume)
     return nil
+}
+
+func (self *ApiController) VolumeProfileCreate(volumeProfile *contivModel.VolumeProfile) error {
+	log.Infof("Received VolumeProfileCreate: %+v", volumeProfile)
+
+	// Make sure tenant exists
+	if volumeProfile.TenantName == "" {
+		return errors.New("Invalid tenant name")
+	}
+	tenant := contivModel.FindTenant(volumeProfile.TenantName)
+	if tenant == nil {
+		return errors.New("Tenant not found")
+	}
+
+	// Setup links
+	modeldb.AddLink(&volumeProfile.Links.Tenant, tenant)
+	modeldb.AddLinkSet(&tenant.LinkSets.VolumeProfiles, volumeProfile)
+
+	// Save the tenant too since we added the links
+	err := tenant.Write()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (self *ApiController) VolumeProfileDelete(volumeProfile *contivModel.VolumeProfile) error {
+	return nil
 }

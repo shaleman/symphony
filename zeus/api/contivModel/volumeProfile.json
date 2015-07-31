@@ -2,13 +2,13 @@
 	"name": "contivModel",
 	"objects": [
 		{
-			"name": "volume",
+			"name": "volumeProfile",
 			"type": "object",
 			"key": "string",
 			"properties": {
-				"volumeName": {
+				"volumeProfileName": {
 					"type": "string",
-					"description": "Volume Name"
+					"description": "Volume profile Name"
 				},
 				"tenantName": {
 					"type": "string",
@@ -28,8 +28,8 @@
 				}
 			},
 			"link-sets": {
-				"serviceInstances": {
-					"ref": "serviceInstance"
+				"services": {
+					"ref": "service"
 				}
 			},
 			"links": {

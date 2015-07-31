@@ -81,8 +81,9 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec) (*AltaState, error) 
 		Envs:       altaSpec.EnvList,
 		WorkingDir: altaSpec.WorkingDir,
 
-		// FIXME: Just a hack for tcpdump testing
-		Privileged: true,
+		Privileged: false,
+		RestartPolicyName: "on-failure",
+		RestartRetryCount: 5,
 
 		ExposePorts: altaSpec.ExposePorts,
 		PortMapList: altaSpec.PortMapList,
@@ -185,8 +186,6 @@ func (self *AltaMgr) StartAlta(altaId string) error {
 		log.Errorf("Error starting the container %s, Error %v", altaState.ContainerId, err)
 		return err
 	}
-
-	// FIXME: Remember we have started the alta and start polling it
 
 	// Create network interfaces for the container
 	for ifNum, ifSpec := range altaState.spec.Endpoints {

@@ -64,14 +64,14 @@ func NewNode(hostAddr string, port int) (*Node, error) {
 	// create the channel
 	node.eventChan = make(chan libfsm.Event, 200)
 
+	// Create a timer for periodic poll
+	node.ticker = time.NewTicker(time.Second * 5)
+
 	// Kick off the node runloop
 	go node.nodeRunLoop()
 
 	// post Get info event
 	node.eventChan <- libfsm.Event{"up", nil}
-
-	// Create a timer for periodic poll
-	node.ticker = time.NewTicker(time.Second * 5)
 
 	return node, nil
 }
@@ -98,6 +98,18 @@ func (self *Node) NodeEvent(eventName string) {
 // Handle node up event
 func (self *Node) nodeUpEvent() error {
 	log.Infof("Getting node info")
+
+	// FIXME: HACK alert
+	// We currently need new node to establish VTEP tunnels to all peer nodes
+	// Before it can register with ofnet master and get all routes. Ideally,
+	// Ofnet should handle routes and VTEPs coming out of order.
+	// Please fix this in ofnet
+
+	// Inform all node about the new node and new node about all existing nodes
+	err := nodeUpBcast(self.HostAddr)
+	if err != nil {
+		log.Errorf("Error sending nod up broadcast. Err: %v", err)
+	}
 
 	// Get my address
 	localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
@@ -153,12 +165,6 @@ func (self *Node) nodeUpEvent() error {
 	if err != nil {
 		log.Errorf("Error adding provider %+v. Err: %v", rsrcProvider, err)
 		return err
-	}
-
-	// Inform all node about the new node and new node about all existing nodes
-	err = nodeUpBcast(self.HostAddr)
-	if err != nil {
-		log.Errorf("Error sending nod up broadcast. Err: %v", err)
 	}
 
 	return nil

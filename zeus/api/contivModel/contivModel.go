@@ -53,12 +53,12 @@ type EndpointGroupLinks struct {
 
 type Network struct {
 	Key		string		`json:"key,omitempty"`
-	Subnet	string		`json:"subnet,omitempty"`
 	NetworkName	string		`json:"networkName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
 	IsPublic	bool		`json:"isPublic,omitempty"`
 	IsPrivate	bool		`json:"isPrivate,omitempty"`
 	Encap	string		`json:"encap,omitempty"`
+	Subnet	string		`json:"subnet,omitempty"`
 	LinkSets	NetworkLinkSets		`json:"link-sets,omitempty"`
 	Links	NetworkLinks		`json:"links,omitempty"`
 }
@@ -90,17 +90,18 @@ type PolicyLinks struct {
 
 type Service struct {
 	Key		string		`json:"key,omitempty"`
-	ServiceName	string		`json:"serviceName,omitempty"`
-	AppName	string		`json:"appName,omitempty"`
-	ImageName	string		`json:"imageName,omitempty"`
-	Cpu	string		`json:"cpu,omitempty"`
-	Scale	int64		`json:"scale,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
 	Memory	string		`json:"memory,omitempty"`
 	Command	string		`json:"command,omitempty"`
 	Environment	[]string		`json:"environment,omitempty"`
 	EndpointGroups	[]string		`json:"endpointGroups,omitempty"`
 	Networks	[]string		`json:"networks,omitempty"`
+	VolumeProfile	string		`json:"volumeProfile,omitempty"`
+	ServiceName	string		`json:"serviceName,omitempty"`
+	AppName	string		`json:"appName,omitempty"`
+	ImageName	string		`json:"imageName,omitempty"`
+	Cpu	string		`json:"cpu,omitempty"`
+	Scale	int64		`json:"scale,omitempty"`
 	LinkSets	ServiceLinkSets		`json:"link-sets,omitempty"`
 	Links	ServiceLinks		`json:"links,omitempty"`
 }
@@ -113,15 +114,16 @@ type ServiceLinkSets struct {
 
 type ServiceLinks struct {
 	App	modeldb.Link		`json:"app,omitempty"`
+	VolumeProfile	modeldb.Link		`json:"volumeProfile,omitempty"`
 }
 
 type ServiceInstance struct {
 	Key		string		`json:"key,omitempty"`
+	ServiceName	string		`json:"serviceName,omitempty"`
 	Volumes	[]string		`json:"volumes,omitempty"`
 	InstanceID	string		`json:"instanceId,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
 	AppName	string		`json:"appName,omitempty"`
-	ServiceName	string		`json:"serviceName,omitempty"`
 	LinkSets	ServiceInstanceLinkSets		`json:"link-sets,omitempty"`
 	Links	ServiceInstanceLinks		`json:"links,omitempty"`
 }
@@ -141,19 +143,22 @@ type Tenant struct {
 }
 
 type TenantLinkSets struct {
-	Volumes	map[string]modeldb.Link		`json:"volumes,omitempty"`
 	Networks	map[string]modeldb.Link		`json:"networks,omitempty"`
 	Apps	map[string]modeldb.Link		`json:"apps,omitempty"`
 	EndpointGroups	map[string]modeldb.Link		`json:"endpointGroups,omitempty"`
 	Policies	map[string]modeldb.Link		`json:"policies,omitempty"`
+	Volumes	map[string]modeldb.Link		`json:"volumes,omitempty"`
+	VolumeProfiles	map[string]modeldb.Link		`json:"volumeProfiles,omitempty"`
 }
 
 type Volume struct {
 	Key		string		`json:"key,omitempty"`
 	VolumeName	string		`json:"volumeName,omitempty"`
 	TenantName	string		`json:"tenantName,omitempty"`
+	DatastoreType	string		`json:"datastoreType,omitempty"`
 	PoolName	string		`json:"poolName,omitempty"`
 	Size	string		`json:"size,omitempty"`
+	MountPoint	string		`json:"mountPoint,omitempty"`
 	LinkSets	VolumeLinkSets		`json:"link-sets,omitempty"`
 	Links	VolumeLinks		`json:"links,omitempty"`
 }
@@ -163,6 +168,26 @@ type VolumeLinkSets struct {
 }
 
 type VolumeLinks struct {
+	Tenant	modeldb.Link		`json:"tenant,omitempty"`
+}
+
+type VolumeProfile struct {
+	Key		string		`json:"key,omitempty"`
+	VolumeProfileName	string		`json:"volumeProfileName,omitempty"`
+	TenantName	string		`json:"tenantName,omitempty"`
+	DatastoreType	string		`json:"datastoreType,omitempty"`
+	PoolName	string		`json:"poolName,omitempty"`
+	Size	string		`json:"size,omitempty"`
+	MountPoint	string		`json:"mountPoint,omitempty"`
+	LinkSets	VolumeProfileLinkSets		`json:"link-sets,omitempty"`
+	Links	VolumeProfileLinks		`json:"links,omitempty"`
+}
+
+type VolumeProfileLinkSets struct {
+	Services	map[string]modeldb.Link		`json:"services,omitempty"`
+}
+
+type VolumeProfileLinks struct {
 	Tenant	modeldb.Link		`json:"tenant,omitempty"`
 }
 
@@ -177,6 +202,7 @@ type Collections struct {
 	serviceInstances    map[string]*ServiceInstance
 	tenants    map[string]*Tenant
 	volumes    map[string]*Volume
+	volumeProfiles    map[string]*VolumeProfile
 }
 
 var collections Collections
@@ -198,6 +224,8 @@ type Callbacks interface {
 	TenantDelete(tenant *Tenant) error
 	VolumeCreate(volume *Volume) error
 	VolumeDelete(volume *Volume) error
+	VolumeProfileCreate(volumeProfile *VolumeProfile) error
+	VolumeProfileDelete(volumeProfile *VolumeProfile) error
 }
 
 var objCallbackHandler Callbacks
@@ -214,6 +242,7 @@ objCallbackHandler = handler
 	collections.serviceInstances = make(map[string]*ServiceInstance)
 	collections.tenants = make(map[string]*Tenant)
 	collections.volumes = make(map[string]*Volume)
+	collections.volumeProfiles = make(map[string]*VolumeProfile)
 
 	restoreApp()
 	restoreEndpointGroup()
@@ -223,6 +252,7 @@ objCallbackHandler = handler
 	restoreServiceInstance()
 	restoreTenant()
 	restoreVolume()
+	restoreVolumeProfile()
 }
 
 
@@ -344,6 +374,16 @@ func AddRoutes(router *mux.Router) {
 	router.Path(route).Methods("POST").HandlerFunc(makeHttpHandler(httpCreateVolume))
 	router.Path(route).Methods("PUT").HandlerFunc(makeHttpHandler(httpCreateVolume))
 	router.Path(route).Methods("DELETE").HandlerFunc(makeHttpHandler(httpDeleteVolume))
+
+	// Register volumeProfile
+	route = "/api/volumeProfiles/{key}/"
+	listRoute = "/api/volumeProfiles/"
+	log.Infof("Registering %s", route)
+	router.Path(listRoute).Methods("GET").HandlerFunc(makeHttpHandler(httpListVolumeProfiles))
+	router.Path(route).Methods("GET").HandlerFunc(makeHttpHandler(httpGetVolumeProfile))
+	router.Path(route).Methods("POST").HandlerFunc(makeHttpHandler(httpCreateVolumeProfile))
+	router.Path(route).Methods("PUT").HandlerFunc(makeHttpHandler(httpCreateVolumeProfile))
+	router.Path(route).Methods("DELETE").HandlerFunc(makeHttpHandler(httpDeleteVolumeProfile))
 
 }
 
@@ -1894,6 +1934,200 @@ func restoreVolume() error {
 
 		// add it to the collection
 		collections.volumes[volume.Key] = &volume
+	}
+
+	return nil
+}
+
+// LIST REST call
+func httpListVolumeProfiles(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	log.Debugf("Received httpListVolumeProfiles: %+v", vars)
+
+	list := make([]*VolumeProfile, 0)
+	for _, obj := range collections.volumeProfiles {
+		list = append(list, obj)
+	}
+
+	// Return the list
+	return list, nil
+}
+
+// GET REST call
+func httpGetVolumeProfile(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	log.Debugf("Received httpGetVolumeProfile: %+v", vars)
+
+	key := vars["key"]
+
+	obj := collections.volumeProfiles[key]
+	if obj == nil {
+		log.Errorf("volumeProfile %s not found", key)
+		return nil, errors.New("volumeProfile not found")
+	}
+
+	// Return the obj
+	return obj, nil
+}
+
+// CREATE REST call
+func httpCreateVolumeProfile(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	log.Debugf("Received httpGetVolumeProfile: %+v", vars)
+
+	var obj VolumeProfile
+	key := vars["key"]
+
+	// Get object from the request
+	err := json.NewDecoder(r.Body).Decode(&obj)
+	if err != nil {
+		log.Errorf("Error decoding volumeProfile create request. Err %v", err)
+		return nil, err
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Create the object
+	err = CreateVolumeProfile(&obj)
+	if err != nil {
+		log.Errorf("CreateVolumeProfile error for: %+v. Err: %v", obj, err)
+		return nil, err
+	}
+
+	// Return the obj
+	return obj, nil
+}
+
+// DELETE rest call
+func httpDeleteVolumeProfile(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
+	log.Debugf("Received httpDeleteVolumeProfile: %+v", vars)
+
+	key := vars["key"]
+
+	// Delete the object
+	err := DeleteVolumeProfile(key)
+	if err != nil {
+		log.Errorf("DeleteVolumeProfile error for: %s. Err: %v", key, err)
+		return nil, err
+	}
+
+	// Return the obj
+	return key, nil
+}
+
+// Create a volumeProfile object
+func CreateVolumeProfile(obj *VolumeProfile) error {
+	// save it in cache
+	collections.volumeProfiles[obj.Key] = obj
+
+	// Perform callback
+	err := objCallbackHandler.VolumeProfileCreate(obj)
+	if err != nil {
+		log.Errorf("VolumeProfileCreate retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// Write it to modeldb
+	err = obj.Write()
+	if err != nil {
+		log.Errorf("Error saving volumeProfile %s to db. Err: %v", obj.Key, err)
+		return err
+	}
+
+	return nil
+}
+
+// Return a pointer to volumeProfile from collection
+func FindVolumeProfile(key string) *VolumeProfile {
+	obj := collections.volumeProfiles[key]
+	if obj == nil {
+		log.Errorf("volumeProfile %s not found", key)
+		return nil
+	}
+
+	return obj
+}
+
+// Delete a volumeProfile object
+func DeleteVolumeProfile(key string) error {
+	obj := collections.volumeProfiles[key]
+	if obj == nil {
+		log.Errorf("volumeProfile %s not found", key)
+		return errors.New("volumeProfile not found")
+	}
+
+	// set the key
+	obj.Key = key
+
+	// Perform callback
+	err := objCallbackHandler.VolumeProfileDelete(obj)
+	if err != nil {
+		log.Errorf("VolumeProfileDelete retruned error for: %+v. Err: %v", obj, err)
+		return err
+	}
+
+	// delete it from modeldb
+	err = obj.Delete()
+	if err != nil {
+		log.Errorf("Error deleting volumeProfile %s. Err: %v", obj.Key, err)
+	}
+
+	// delete it from cache
+	delete(collections.volumeProfiles, key)
+
+	return nil
+}
+
+func (self *VolumeProfile) GetType() string {
+	return "volumeProfile"
+}
+
+func (self *VolumeProfile) GetKey() string {
+	return self.Key
+}
+
+func (self *VolumeProfile) Read() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to read volumeProfile object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.ReadObj("volumeProfile", self.Key, self)
+}
+
+func (self *VolumeProfile) Write() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Write volumeProfile object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.WriteObj("volumeProfile", self.Key, self)
+}
+
+func (self *VolumeProfile) Delete() error {
+	if self.Key == "" {
+		log.Errorf("Empty key while trying to Delete volumeProfile object")
+		return errors.New("Empty key")
+	}
+
+	return modeldb.DeleteObj("volumeProfile", self.Key)
+}
+
+func restoreVolumeProfile() error {
+	strList, err := modeldb.ReadAllObj("volumeProfile")
+	if err != nil {
+		log.Errorf("Error reading volumeProfile list. Err: %v", err)
+	}
+
+	for _, objStr := range strList {
+		// Parse the json model
+		var volumeProfile VolumeProfile
+		err = json.Unmarshal([]byte(objStr), &volumeProfile)
+		if err != nil {
+			log.Errorf("Error parsing object %s, Err %v", objStr, err)
+			return err
+		}
+
+		// add it to the collection
+		collections.volumeProfiles[volumeProfile.Key] = &volumeProfile
 	}
 
 	return nil
