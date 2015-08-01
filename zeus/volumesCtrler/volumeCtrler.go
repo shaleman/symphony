@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/contiv/objmodel/objdb"
 	"github.com/contiv/symphony/pkg/altaspec"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
 	"github.com/contiv/symphony/pkg/libfsm"
 
 	log "github.com/Sirupsen/logrus"
@@ -19,19 +19,19 @@ const MAX_VOLUMES = 1000
 // volume controller state
 type VolumeCtrler struct {
 	volumeDb map[string]*VolumeActor      // DB of volumes
-	cStore   confStoreApi.ConfStorePlugin // conf store
+	cdb   objdb.ObjdbApi // conf store
 }
 
 // Main controller for the volumes
 var ctrler *VolumeCtrler
 
 // Initialize the volume controller
-func Init(cStore confStoreApi.ConfStorePlugin) error {
+func Init(cdb objdb.ObjdbApi) error {
 	ctrler = new(VolumeCtrler)
 
 	// Initialize
 	ctrler.volumeDb = make(map[string]*VolumeActor)
-	ctrler.cStore = cStore
+	ctrler.cdb = cdb
 
 	return nil
 }
@@ -139,7 +139,7 @@ func DeleteVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 // Restore all Volumes
 func RestoreVolumes() error {
 	// Get the list of elements
-	jsonArr, err := ctrler.cStore.ListDir("volume")
+	jsonArr, err := ctrler.cdb.ListDir("volume")
 	if err != nil {
 		log.Errorf("Error restoring volume state")
 		return err

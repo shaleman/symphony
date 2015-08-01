@@ -3,8 +3,8 @@ package main
 import (
 	"os/user"
 
-	"github.com/contiv/symphony/pkg/confStore"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
+	"github.com/contiv/objmodel/objdb/objdbClient"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -21,7 +21,7 @@ var netAgent *NetAgent
 var volumeAgent *VolumeAgent
 
 // Conf store plugin
-var cStore confStoreApi.ConfStorePlugin
+var cdb objdb.ObjdbApi
 
 // cluster agent
 var clusterAgent *ClusterAgent
@@ -34,8 +34,8 @@ func main() {
 		log.Fatalf("This process can only be run as root")
 	}
 
-	// create conf store
-	cStore = confStore.NewConfStore()
+	// create objdb client
+	cdb = objdbClient.NewClient()
 
 	// Create a alta manager
 	altaMgr = NewAltaMgr()
@@ -47,7 +47,7 @@ func main() {
 	volumeAgent = NewVolumeAgent()
 
 	// Get the local address to bind to
-	ipAddr, err := cStore.GetLocalAddr()
+	ipAddr, err := cdb.GetLocalAddr()
 	if err != nil {
 		log.Fatalf("Could not find a local address to bind to. Err %v", err)
 	}

@@ -7,7 +7,7 @@ import (
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libdocker"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -512,7 +512,7 @@ func httpGetNodeInfo(w http.ResponseWriter, r *http.Request, vars map[string]str
 
 // Register the node with zeus
 func httpPostNodeRegister(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
-	var masterInfo confStoreApi.ServiceInfo
+	var masterInfo objdb.ServiceInfo
 
 	// Get Alta parameters from the request
 	err := json.NewDecoder(r.Body).Decode(&masterInfo)

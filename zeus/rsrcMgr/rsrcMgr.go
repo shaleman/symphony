@@ -3,7 +3,7 @@ package rsrcMgr
 import (
 	"encoding/json"
 
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/jainvipin/bitset"
@@ -87,7 +87,7 @@ type ResourceProvideMsg struct {
 // State of resource mgr
 type RsrcMgr struct {
 	rsrcDb       map[string]*Resource         // DB of resource types
-	cStore       confStoreApi.ConfStorePlugin // conf store client
+	cdb       	 objdb.ObjdbApi // conf store client
 	providerChan chan ResourceProvideMsg      // Channel for provider msg
 	userChan     chan ResourceUserMsg         // Channel for user message
 }
@@ -96,11 +96,11 @@ type RsrcMgr struct {
 var rsrcMgr *RsrcMgr
 
 // Initialize the resource mgr
-func Init(cStore confStoreApi.ConfStorePlugin) {
+func Init(cdb objdb.ObjdbApi) {
 	rsrcMgr = new(RsrcMgr)
 
 	// Initialize the state
-	rsrcMgr.cStore = cStore
+	rsrcMgr.cdb = cdb
 	rsrcMgr.rsrcDb = make(map[string]*Resource)
 	rsrcMgr.providerChan = make(chan ResourceProvideMsg, 200)
 	rsrcMgr.userChan = make(chan ResourceUserMsg, 200)
@@ -118,9 +118,9 @@ func Restore() error {
 	log.Infof("Restoring resources..")
 
 	// Get the list of resource providers
-	jsonArr, err := rsrcMgr.cStore.ListDir("resource")
+	jsonArr, err := rsrcMgr.cdb.ListDir("resource")
 	if err != nil {
-		log.Errorf("Error getting resources from cstore. Err: %v", err)
+		log.Errorf("Error getting resources from cdb. Err: %v", err)
 		return err
 	}
 
@@ -247,15 +247,15 @@ func FreeResources(rsrcList []ResourceUse) error {
 
 // ******************* Internal utility functions **********************
 // Save a resource provider to conf store
-func cstoreSaveProvider(provider *RsrcProvider) error {
+func cdbSaveProvider(provider *RsrcProvider) error {
 	// If there is no conf store, just ignore it. mainly for unit testing
-	if rsrcMgr.cStore == nil {
+	if rsrcMgr.cdb == nil {
 		return nil
 	}
 
 	// Save it to conf store
 	storeKey := "resource/" + provider.Type + "/" + provider.Provider
-	err := rsrcMgr.cStore.SetObj(storeKey, provider)
+	err := rsrcMgr.cdb.SetObj(storeKey, provider)
 	if err != nil {
 		log.Errorf("Error storing object %+v. Err: %v", provider, err)
 		return err
@@ -265,15 +265,15 @@ func cstoreSaveProvider(provider *RsrcProvider) error {
 }
 
 // Delete provider from conf store
-func cstoreDelProvider(provider *RsrcProvider) error {
+func cdbDelProvider(provider *RsrcProvider) error {
 	// If there is no conf store, just ignore it. mainly for unit testing
-	if rsrcMgr.cStore == nil {
+	if rsrcMgr.cdb == nil {
 		return nil
 	}
 
 	// Save it to conf store
 	storeKey := "resource/" + provider.Type + "/" + provider.Provider
-	err := rsrcMgr.cStore.DelObj(storeKey)
+	err := rsrcMgr.cdb.DelObj(storeKey)
 	if err != nil {
 		log.Errorf("Error deleting object %+v. Err: %v", storeKey, err)
 		return err

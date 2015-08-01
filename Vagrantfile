@@ -16,7 +16,6 @@ end
 gopath_folder="/opt/gopath"
 
 provision_common = <<SCRIPT
-echo Args passed: [[ $@ ]]
 echo 'export GOPATH=#{gopath_folder}' > /etc/profile.d/envvar.sh
 source /etc/profile.d/envvar.sh
 
@@ -104,7 +103,8 @@ Vagrant.configure(2) do |config|
             end
 
             # Forward Zeus port
-            config.vm.network "forwarded_port", guest: 8000, host: 800#{node_index}
+            host_port = "800" + "#{n}"
+            config.vm.network "forwarded_port", guest: 8000, host: "#{host_port}"
 
             # mount the host directories
             symphony.vm.synced_folder ".", "/vagrant"

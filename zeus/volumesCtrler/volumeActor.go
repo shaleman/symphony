@@ -144,7 +144,7 @@ func (self *VolumeActor) saveModel() error {
 	storeKey := "volume/" + volumeKey
 
 	// Save it to conf store
-	err := ctrler.cStore.SetObj(storeKey, self.Model)
+	err := ctrler.cdb.SetObj(storeKey, self.Model)
 	if err != nil {
 		log.Errorf("Error storing object %+v. Err: %v", self.Model, err)
 		return err

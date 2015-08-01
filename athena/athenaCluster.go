@@ -7,7 +7,7 @@ import (
 	"time"
 	"os"
 
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 	"github.com/contiv/symphony/pkg/psutil"
 	"github.com/contiv/symphony/pkg/altaspec"
 
@@ -19,7 +19,7 @@ type ClusterAgent struct {
 	apiPortNo	int			// port number where we are listening
 
 	// List of masters
-	masterDb	map[string]*confStoreApi.ServiceInfo
+	masterDb	map[string]*objdb.ServiceInfo
 }
 
 // Create a new cluster agent
@@ -27,7 +27,7 @@ func NewClusterAgent(localIp string, portNo int) (*ClusterAgent) {
 	cAgent := new(ClusterAgent)
 	cAgent.localIp = localIp
 	cAgent.apiPortNo = portNo
-	cAgent.masterDb = make(map[string]*confStoreApi.ServiceInfo)
+	cAgent.masterDb = make(map[string]*objdb.ServiceInfo)
 
 	// Register the node and refresh it periodically
 	go cAgent.registerNode(localIp, portNo)
@@ -41,14 +41,14 @@ func NewClusterAgent(localIp string, portNo int) (*ClusterAgent) {
 // Register the node with registry
 func (self *ClusterAgent) registerNode(localIp string, portNo int) {
 	// service info
-	srvInfo := confStoreApi.ServiceInfo{
+	srvInfo := objdb.ServiceInfo{
 		ServiceName: "athena",
 		HostAddr:    localIp,
 		Port:        portNo,
 	}
 
 	// Register the node with service registry
-	err := cStore.RegisterService(srvInfo)
+	err := cdb.RegisterService(srvInfo)
 	if err != nil {
 		log.Fatalf("Error registering service. Err: %v", err)
 	}
@@ -58,7 +58,7 @@ func (self *ClusterAgent) registerNode(localIp string, portNo int) {
 
 // Save master info.
 // FIXME: Send periodic update about all running containers to master
-func (self *ClusterAgent) addMaster(masterInfo confStoreApi.ServiceInfo) error {
+func (self *ClusterAgent) addMaster(masterInfo objdb.ServiceInfo) error {
 	// build master key
 	masterKey := fmt.Sprintf("%s:%d", masterInfo.HostAddr, masterInfo.Port)
 

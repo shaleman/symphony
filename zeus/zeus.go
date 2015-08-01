@@ -13,8 +13,8 @@ import (
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 	"github.com/contiv/symphony/zeus/volumesCtrler"
 
-	"github.com/contiv/symphony/pkg/confStore"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
+	"github.com/contiv/objmodel/objdb/objdbClient"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -24,7 +24,7 @@ const ZEUS_MASTER_TTL = 5 // mastership TTL is 30sec
 var stopMasterChan chan bool
 var stopSlaveChan chan bool
 
-var cStore confStoreApi.ConfStorePlugin
+var cdb objdb.ObjdbApi
 
 
 // Global state
@@ -33,22 +33,22 @@ var ctrlers common.ZeusCtrlers
 // Main run loop for Zeus master
 func runLoopMaster() {
 	// Start the resource mgr
-	rsrcMgr.Init(cStore)
+	rsrcMgr.Init(cdb)
 
 	// Start Node controller
-	err := nodeCtrler.Init(cStore, &ctrlers)
+	err := nodeCtrler.Init(cdb, &ctrlers)
 	if err != nil {
 		log.Fatalf("Failed to create node mgr")
 	}
 
 	// Start the Alta controller
-	ctrlers.AltaCtrler = altaCtrler.NewAltaCtrler(cStore)
+	ctrlers.AltaCtrler = altaCtrler.NewAltaCtrler(cdb)
 	if err != nil {
 		log.Fatalf("Failed to create alta mgr")
 	}
 
 	// Create volume controller
-	err = volumesCtrler.Init(cStore)
+	err = volumesCtrler.Init(cdb)
 	if err != nil {
 		log.Fatalf("Failed to create volume ctrler")
 	}
@@ -113,7 +113,7 @@ func main() {
 	// If we acquire the lock, we run as master. If we fail we run as slave
 
 	// Create the conf store client
-	cStore = confStore.NewConfStore()
+	cdb = objdbClient.NewClient()
 
 	// Create channels for run loop
 	stopMasterChan = make(chan bool, 1)
@@ -122,7 +122,7 @@ func main() {
 	myId, _ := os.Hostname()
 
 	// Create the lock
-	masterLock, err := cStore.NewLock("zeus/master", myId, ZEUS_MASTER_TTL)
+	masterLock, err := cdb.NewLock("zeus/master", myId, ZEUS_MASTER_TTL)
 	if err != nil {
 		log.Fatalf("Could not create master lock. Err: %v", err)
 	}
@@ -141,7 +141,7 @@ func main() {
 	// Wait for lock events
 	select {
 	case event := <-masterLock.EventChan():
-		if event.EventType == confStoreApi.LockAcquired {
+		if event.EventType == objdb.LockAcquired {
 			log.Infof("Master lock acquired")
 
 			isMaster = true
@@ -162,11 +162,11 @@ func main() {
 		// Wait for lock events
 		select {
 		case event := <-masterLock.EventChan():
-			if event.EventType == confStoreApi.LockAcquired {
+			if event.EventType == objdb.LockAcquired {
 				log.Infof("Master lock acquired")
 
 				becomeMaster()
-			} else if event.EventType == confStoreApi.LockLost {
+			} else if event.EventType == objdb.LockLost {
 				log.Infof("Master lock lost. Becoming slave")
 
 				becomeSlave()

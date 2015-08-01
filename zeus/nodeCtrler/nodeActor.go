@@ -12,7 +12,7 @@ import (
 	"github.com/contiv/symphony/zeus/rsrcMgr"
 
 	"github.com/contiv/symphony/pkg/altaspec"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 	"github.com/contiv/symphony/pkg/libfsm"
 
 	log "github.com/Sirupsen/logrus"
@@ -112,14 +112,14 @@ func (self *Node) nodeUpEvent() error {
 	}
 
 	// Get my address
-	localIpAddr, err := nodeCtrl.cStore.GetLocalAddr()
+	localIpAddr, err := nodeCtrl.cdb.GetLocalAddr()
 	if err != nil {
 		log.Fatalf("Could not find a local address. Err %v", err)
 		return err
 	}
 
 	// master info
-	masterInfo := confStoreApi.ServiceInfo{
+	masterInfo := objdb.ServiceInfo{
 		ServiceName: "zeus",
 		HostAddr:    localIpAddr,
 		Port:        8000,	// FIXME: dont hardcode the port

@@ -45,7 +45,7 @@ func NewNetAgent() *NetAgent {
 	}
 
 	// Get our local IP address
-	localIpAddr, err := cStore.GetLocalAddr()
+	localIpAddr, err := cdb.GetLocalAddr()
 	if err != nil {
 		log.Fatalf("Could not find a local address to bind to. Err %v", err)
 	}

@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/contiv/symphony/pkg/altaspec"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 
 	"github.com/contiv/symphony/zeus/common"
 
@@ -14,10 +14,10 @@ import (
 
 // Node manager
 type NodeCtrler struct {
-	cStore      confStoreApi.ConfStorePlugin // conf store client
+	cdb         objdb.ObjdbApi // conf store client
 	ctrlers 	*common.ZeusCtrlers			 // All the controllers we can talk to
 	nodeDb      map[string]*Node             // DB of known nodes
-	nodeEventCh chan confStoreApi.WatchServiceEvent
+	nodeEventCh chan objdb.WatchServiceEvent
 	watchStopCh chan bool
 }
 
@@ -25,10 +25,10 @@ type NodeCtrler struct {
 var nodeCtrl *NodeCtrler
 
 // Create a new Node mgr
-func Init(cStore confStoreApi.ConfStorePlugin, ctrlers *common.ZeusCtrlers) error {
+func Init(cdb objdb.ObjdbApi, ctrlers *common.ZeusCtrlers) error {
 	nodeCtrl = new(NodeCtrler)
 
-	nodeCtrl.cStore = cStore
+	nodeCtrl.cdb = cdb
 	nodeCtrl.ctrlers = ctrlers
 
 	// Initialize the node db
@@ -55,22 +55,22 @@ func ListNodes() []*Node {
 // Main loop of node manager
 func (self *NodeCtrler) nodeMgrLoop() {
 	// Create channels for watch thread
-	self.nodeEventCh = make(chan confStoreApi.WatchServiceEvent, 1)
+	self.nodeEventCh = make(chan objdb.WatchServiceEvent, 1)
 	self.watchStopCh = make(chan bool, 1)
 
 	// Start slow. give time for other services to restore state and be ready..
 	time.Sleep(3 * time.Second)
 
 	// Start a watch on athena service so that we dont miss any
-	err := self.cStore.WatchService("athena", self.nodeEventCh, self.watchStopCh)
+	err := self.cdb.WatchService("athena", self.nodeEventCh, self.watchStopCh)
 	if err != nil {
 		log.Fatalf("Could not start a watch on athena service. Err: %v", err)
 	}
 
 	// Get a list of all existing athena nodes
-	nodeList, err := self.cStore.GetService("athena")
+	nodeList, err := self.cdb.GetService("athena")
 	if err != nil {
-		log.Errorf("Error getting node list from cstore. Err: %v", err)
+		log.Errorf("Error getting node list from cdb. Err: %v", err)
 	}
 
 	log.Infof("Got service list: %+v", nodeList)
@@ -99,7 +99,7 @@ func (self *NodeCtrler) nodeMgrLoop() {
 			nodeKey := nodeInfo.HostAddr
 
 			// Handle based on event type
-			if srvEvent.EventType == confStoreApi.WatchServiceEventAdd {
+			if srvEvent.EventType == objdb.WatchServiceEventAdd {
 				// Add the node if we dont know about it
 				if self.nodeDb[nodeKey] == nil {
 					log.Infof("Received Node add event for: %s", nodeKey)
@@ -118,7 +118,7 @@ func (self *NodeCtrler) nodeMgrLoop() {
 					// Queue the up event
 					node.NodeEvent("up")
 				}
-			} else if srvEvent.EventType == confStoreApi.WatchServiceEventDel {
+			} else if srvEvent.EventType == objdb.WatchServiceEventDel {
 
 				if self.nodeDb[nodeKey] != nil {
 					log.Infof("Received Node delete event for: %s", nodeKey)

@@ -287,7 +287,7 @@ func (self *AltaActor) saveModel() error {
 	storeKey := "alta/" + self.Model.Spec.AltaId
 
 	// Save it to conf store
-	err := altaCtrl.cStore.SetObj(storeKey, self.Model)
+	err := altaCtrl.cdb.SetObj(storeKey, self.Model)
 	if err != nil {
 		log.Errorf("Error storing object %+v. Err: %v", self.Model, err)
 		return err

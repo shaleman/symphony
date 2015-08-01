@@ -13,7 +13,7 @@ import (
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 
 	"github.com/contiv/symphony/pkg/altaspec"
-	"github.com/contiv/symphony/pkg/confStore/confStoreApi"
+	"github.com/contiv/objmodel/objdb"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -22,21 +22,21 @@ import (
 type AltaMgr struct {
 	altaDb     map[string]*AltaActor        // Main DB of alta containers
 	altaNameDb map[string]*AltaActor        // mapping from alta names to container
-	cStore     confStoreApi.ConfStorePlugin // persistence store
+	cdb     objdb.ObjdbApi // persistence store
 }
 
 var altaCtrl *AltaMgr
 
 // Create a new alta Mgr
-func NewAltaCtrler(cStore confStoreApi.ConfStorePlugin) *AltaMgr {
+func NewAltaCtrler(cdb objdb.ObjdbApi) *AltaMgr {
 	altaCtrl = new(AltaMgr)
 
 	// Create the mapping databases
 	altaCtrl.altaDb = make(map[string]*AltaActor)
 	altaCtrl.altaNameDb = make(map[string]*AltaActor)
 
-	// Keep a ref to cStore
-	altaCtrl.cStore = cStore
+	// Keep a ref to cdb
+	altaCtrl.cdb = cdb
 
 	return altaCtrl
 }
@@ -310,10 +310,10 @@ func (self *AltaMgr) listAltaForNode(nodeAddr string) []*AltaModel {
 	return altaList
 }
 
-// Restore Alta actor state from cStore
+// Restore Alta actor state from cdb
 func (self *AltaMgr) RestoreAltaActors() error {
 	// Get the list of elements
-	jsonArr, err := self.cStore.ListDir("alta")
+	jsonArr, err := self.cdb.ListDir("alta")
 	if err != nil {
 		log.Errorf("Error restoring alta actor state")
 		return err

@@ -18,8 +18,8 @@ package api
 import (
 	"fmt"
 	"errors"
-	"github.com/contiv/symphony/zeus/api/contivModel"
-	"github.com/contiv/symphony/pkg/confStore/modeldb"
+	"github.com/contiv/objmodel/contivModel"
+	"github.com/contiv/objmodel/objdb/modeldb"
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/zeus/netCtrler"
 

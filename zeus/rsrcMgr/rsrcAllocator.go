@@ -108,7 +108,7 @@ func rsrcProviderAdd(rsrcPrvd ResourceProvide) error {
 	log.Infof("Added Resource Provider: %+v", rsrc.Providers[rcrcProvider])
 
 	// Store the resource onto confStore
-	err := cstoreSaveProvider(rsrc.Providers[rcrcProvider])
+	err := cdbSaveProvider(rsrc.Providers[rcrcProvider])
 	if err != nil {
 		log.Errorf("Error saving provider to conf store")
 		return err
@@ -178,7 +178,7 @@ func rsrcProviderRemove(rsrcPrvd ResourceProvide) error {
 	}
 
 	// remove the resource from conf store
-	err := cstoreDelProvider(rsrc.Providers[rcrcProvider])
+	err := cdbDelProvider(rsrc.Providers[rcrcProvider])
 	if err != nil {
 		log.Errorf("Error removing provider %s from conf store. Err: %v", rcrcProvider, err)
 	}
@@ -356,7 +356,7 @@ func rsrcAlloc(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	provider.UsedRsrc += rsrcUse.NumRsrc
 
 	// Store the resource change onto confStore
-	err := cstoreSaveProvider(provider)
+	err := cdbSaveProvider(provider)
 	if err != nil {
 		log.Errorf("Error saving provider to conf store")
 		return nil, err
@@ -417,7 +417,7 @@ func rsrcFree(rsrcUse ResourceUse) (*ResourceUseResp, error) {
 	provider.UsedRsrc -= rsrcUse.NumRsrc
 
 	// Store the resource change onto confStore
-	err := cstoreSaveProvider(provider)
+	err := cdbSaveProvider(provider)
 	if err != nil {
 		log.Errorf("Error saving provider to conf store")
 		return nil, err
