@@ -16,7 +16,11 @@ end
 gopath_folder="/opt/gopath"
 
 provision_common = <<SCRIPT
+echo Args passed: [[ $@ ]]
 echo 'export GOPATH=#{gopath_folder}' > /etc/profile.d/envvar.sh
+if [ $# -gt 0 ]; then
+    echo "export $@" >> /etc/profile.d/envvar.sh
+fi
 source /etc/profile.d/envvar.sh
 
 ### install basic packages
@@ -119,6 +123,7 @@ Vagrant.configure(2) do |config|
 
             symphony.vm.provision "shell" do |s|
                 s.inline = provision_common
+                s.args = ENV['CONTIV_ENV']
             end
 
 start_etcd_script = <<SCRIPT

@@ -38,7 +38,7 @@ func MoveIntfToNetns(portName string, contPid int) error {
 	procNetNs := path.Join("/proc", strconv.Itoa(contPid), "ns/net")
 	err = os.Symlink(procNetNs, netnsPidFile)
 	if err != nil {
-		log.Errorf("error symlink file '%s' with '%s' \n", netnsPidFile)
+		log.Errorf("error symlink file '%s' with '%s' \n", procNetNs, netnsPidFile)
 		return err
 	}
 
@@ -222,7 +222,7 @@ func SetInterfaceIp(name string, rawIp string) error {
 	if err != nil {
 		return err
 	}
-	addr := &netlink.Addr{ipNet, ""}
+	addr := &netlink.Addr{IPNet: ipNet, Label: ""}
 	return netlink.AddrAdd(iface, addr)
 }
 

@@ -41,7 +41,7 @@ func CheckImageExists(imgName string) bool {
 	// Get the list of images from docker
 	imgList, err := dockerClient.ListImages(docker.ListImagesOptions{All: false})
 	if err != nil {
-		log.Error("Error Getting image list %s", err)
+		log.Errorf("Error Getting image list %v", err)
 
 		return false
 	}
@@ -107,7 +107,7 @@ func PullImage(imgName string) error {
 	}
 
 	// DEBUG: print the raw output stream
-	fmt.Printf("Got resp: %s\nDone\n", buf)
+	fmt.Printf("Got resp: %v\nDone\n", buf)
 
 	return nil
 }

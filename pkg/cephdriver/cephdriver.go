@@ -140,11 +140,11 @@ func (self *CephDriver) MountVolume(spec CephVolumeSpec) error {
 	}
 
 	if err := os.Mkdir(dataStoreDir, 0700); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error creating %q directory: %v", dataStoreDir)
+		return fmt.Errorf("error creating directory: %v", dataStoreDir)
 	}
 
 	if err := os.Mkdir(volumeDir, 0777); err != nil && !os.IsExist(err) {
-		return fmt.Errorf("error creating %q directory: %v", volumeDir)
+		return fmt.Errorf("error creating directory: %v", volumeDir)
 	}
 
 	// Mount the RBD

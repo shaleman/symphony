@@ -2,15 +2,16 @@ package main
 
 import (
 	"os"
-	"time"
 	"runtime"
+	"time"
 
-	"github.com/contiv/symphony/zeus/common"
+	"github.com/contiv/symphony/pkg/rsrcMgr"
 	"github.com/contiv/symphony/zeus/altaCtrler"
 	"github.com/contiv/symphony/zeus/api"
+	"github.com/contiv/symphony/zeus/common"
 	"github.com/contiv/symphony/zeus/netCtrler"
 	"github.com/contiv/symphony/zeus/nodeCtrler"
-	"github.com/contiv/symphony/zeus/rsrcMgr"
+	"github.com/contiv/symphony/zeus/scheduler"
 	"github.com/contiv/symphony/zeus/volumesCtrler"
 
 	"github.com/contiv/objmodel/objdb"
@@ -25,7 +26,6 @@ var stopMasterChan chan bool
 var stopSlaveChan chan bool
 
 var cdb objdb.ObjdbApi
-
 
 // Global state
 var ctrlers common.ZeusCtrlers
@@ -52,6 +52,9 @@ func runLoopMaster() {
 	if err != nil {
 		log.Fatalf("Failed to create volume ctrler")
 	}
+
+	// Initialize the schedulers
+	scheduler.Init()
 
 	// Restore resources from conf store
 	err = rsrcMgr.Restore()

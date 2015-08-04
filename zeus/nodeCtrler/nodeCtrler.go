@@ -1,11 +1,11 @@
 package nodeCtrler
 
 import (
-	"time"
 	"errors"
+	"time"
 
-	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/objmodel/objdb"
+	"github.com/contiv/symphony/pkg/altaspec"
 
 	"github.com/contiv/symphony/zeus/common"
 
@@ -14,9 +14,9 @@ import (
 
 // Node manager
 type NodeCtrler struct {
-	cdb         objdb.ObjdbApi // conf store client
-	ctrlers 	*common.ZeusCtrlers			 // All the controllers we can talk to
-	nodeDb      map[string]*Node             // DB of known nodes
+	cdb         objdb.ObjdbApi      // conf store client
+	ctrlers     *common.ZeusCtrlers // All the controllers we can talk to
+	nodeDb      map[string]*Node    // DB of known nodes
 	nodeEventCh chan objdb.WatchServiceEvent
 	watchStopCh chan bool
 }

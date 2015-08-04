@@ -118,11 +118,12 @@ func (self *VolumeActor) unmountVolume() error {
 	var resp altaspec.ReqSuccess
 	urlPath := "/volume/unmount"
 
-	// Ask the node to create the volume
+	// Ask the node to unmount the volume
 	err := nodeCtrler.NodePostReq(self.Model.CurrNode, urlPath, self.Model.Spec, &resp)
 	if err != nil {
 		log.Errorf("Error unmounting volume %v, Err: %v", self.Model.Spec, err)
-		return err
+		// Ignore errors during unmount
+		return nil
 	}
 
 	if !resp.Success {

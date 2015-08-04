@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/contiv/objmodel/objdb"
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libdocker"
-	"github.com/contiv/objmodel/objdb"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/gorilla/mux"
@@ -36,23 +36,23 @@ func createRouter() *mux.Router {
 	// List of routes
 	routeMap := map[string]map[string]HttpApiFunc{
 		"GET": {
-			"/node": 		httpGetNodeInfo,
+			"/node":          httpGetNodeInfo,
 			"/alta":          httpGetAltaList,
 			"/alta/{altaId}": httpGetAltaInfo,
 		},
 		"POST": {
-			"/node/register": 		 httpPostNodeRegister,
-			"/image/ispresent": 	 httpPostIsImagePresent,
-			"/image/pull": 			 httpPostImagePull,
-			"/alta/create":          httpPostAltaCreate,
-			"/alta/{cntId}/update":  httpPostAltaUpdate,
-			"/alta/{altaId}/start":  httpPostAltaStart,
-			"/alta/{altaId}/stop":   httpPostAltaStop,
-			"/network/create":       httpPostNetworkCreate,
-			"/peer/{peerAddr}":      httpPostPeerAdd,
-			"/volume/create":        httpPostVolumeCreate,
-			"/volume/mount":         httpPostVolumeMount,
-			"/volume/unmount":       httpPostVolumeUnmount,
+			"/node/register":       httpPostNodeRegister,
+			"/image/ispresent":     httpPostIsImagePresent,
+			"/image/pull":          httpPostImagePull,
+			"/alta/create":         httpPostAltaCreate,
+			"/alta/{cntId}/update": httpPostAltaUpdate,
+			"/alta/{altaId}/start": httpPostAltaStart,
+			"/alta/{altaId}/stop":  httpPostAltaStop,
+			"/network/create":      httpPostNetworkCreate,
+			"/peer/{peerAddr}":     httpPostPeerAdd,
+			"/volume/create":       httpPostVolumeCreate,
+			"/volume/mount":        httpPostVolumeMount,
+			"/volume/unmount":      httpPostVolumeUnmount,
 		},
 		"DELETE": {
 			"/alta/{altaId}":         httpRemoveAlta,
@@ -148,7 +148,7 @@ func writeJSON(w http.ResponseWriter, code int, v interface{}) error {
 func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]string) (interface{}, error) {
 	log.Debugf("Received GET alta list: %+v", vars)
 
-/* DPRECATED
+	/* DPRECATED
 	altaList := make([]*altaspec.AltaContext, 0)
 	altaMap := altaMgr.ListAlta()
 	for _, altaState := range altaMap {
@@ -180,7 +180,7 @@ func httpGetAltaList(w http.ResponseWriter, r *http.Request, vars map[string]str
 			altaId = altaState.AltaId
 		}
 		altaContext := altaspec.AltaContext{
-			AltaId: altaId,
+			AltaId:      altaId,
 			ContainerId: cid,
 		}
 

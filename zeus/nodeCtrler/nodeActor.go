@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/contiv/symphony/zeus/rsrcMgr"
+	"github.com/contiv/symphony/pkg/rsrcMgr"
 
-	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/objmodel/objdb"
+	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
 
 	log "github.com/Sirupsen/logrus"
@@ -54,10 +54,11 @@ func NewNode(hostAddr string, port int) (*Node, error) {
 		{"alive", "up", "alive", func(e libfsm.Event) error { return node.nodeUpEvent() }},
 		{"alive", "ticker", "alive", func(e libfsm.Event) error { return node.nodeAliveTicker() }},
 		{"alive", "timeout", "unreachable", func(e libfsm.Event) error { return nil }},
-		{"alive", "down", "down", func(e libfsm.Event) error { return nil }},
+		{"alive", "down", "down", func(e libfsm.Event) error { return node.nodeDownEvent() }},
 		{"unreachable", "ticker", "unreachable", func(e libfsm.Event) error { return nil }},
 		{"unreachable", "up", "alive", func(e libfsm.Event) error { return nil }},
-		{"down", "up", "alive", func(e libfsm.Event) error { return node.nodeUpEvent() }},
+		{"down", "up", "reachable", func(e libfsm.Event) error { return node.nodeReachableEvent() }},
+		{"reachable", "register", "alive", func(e libfsm.Event) error { return node.nodeUpEvent() }},
 		{"down", "ticker", "down", func(e libfsm.Event) error { return node.nodeAliveTicker() }},
 	}, "created")
 
@@ -122,7 +123,7 @@ func (self *Node) nodeUpEvent() error {
 	masterInfo := objdb.ServiceInfo{
 		ServiceName: "zeus",
 		HostAddr:    localIpAddr,
-		Port:        8000,	// FIXME: dont hardcode the port
+		Port:        8000, // FIXME: dont hardcode the port
 	}
 
 	var nodeSpec altaspec.NodeSpec
@@ -173,6 +174,11 @@ func (self *Node) nodeUpEvent() error {
 func (self *Node) nodeAliveTicker() error {
 	log.Debugf("Current state of the node %s is %s", self.HostAddr, self.Fsm.FsmState)
 
+	// Ticker is useful only in alive state
+	if self.Fsm.FsmState != "alive" {
+		return nil
+	}
+
 	// Get list of altas running on this node
 	var altaList []altaspec.AltaContext
 	err := self.NodeGetReq("/alta", &altaList)
@@ -184,11 +190,53 @@ func (self *Node) nodeAliveTicker() error {
 	log.Debugf("Got alta list from node %s: %+v", self.HostAddr, altaList)
 
 	// See what to do about the containers
-	err = nodeCtrl.ctrlers.AltaCtrler.DiffNodeAltaLList(self.HostAddr, altaList)
+	err = nodeCtrl.ctrlers.AltaCtrler.ReconcileNode(self.HostAddr, altaList)
 	if err != nil {
 		log.Errorf("Error updating altaList %+v for node %s. Err: %v", altaList,
-					self.HostAddr, err)
+			self.HostAddr, err)
 	}
+
+	return nil
+}
+
+// Handle a node down event
+func (self *Node) nodeDownEvent() error {
+	// See what to do about the containers
+	err := nodeCtrl.ctrlers.AltaCtrler.NodeDownEvent(self.HostAddr)
+	if err != nil {
+		log.Errorf("Error handling down event for node %s. Err: %v", self.HostAddr, err)
+	}
+
+	// Remove Node resources
+	rsrcProvider := []rsrcMgr.ResourceProvide{
+		{
+			Type:     "cpu",
+			Provider: self.HostAddr,
+			UnitType: "fluid",
+		},
+		{
+			Type:     "memory",
+			Provider: self.HostAddr,
+			UnitType: "fluid",
+		},
+	}
+
+	// Remove the resource provider
+	err = rsrcMgr.RemoveResourceProvider(rsrcProvider)
+	if err != nil {
+		log.Errorf("Error removing provider %+v. Err: %v", rsrcProvider, err)
+		return err
+	}
+
+	return nil
+}
+
+// Handle Node coming back up.
+// we go from down->reachable->alive transition so that REST handlers can know
+// node is reachable and its safe to perform http operations
+func (self *Node) nodeReachableEvent() error {
+	// Simply queue the register event
+	self.NodeEvent("register")
 
 	return nil
 }
@@ -196,6 +244,13 @@ func (self *Node) nodeAliveTicker() error {
 // Get JSON output from a http request
 func (self *Node) NodeGetReq(path string, data interface{}) error {
 	url := "http://" + self.HostAddr + ":" + strconv.Itoa(self.Port) + path
+
+	// Make sure node is up and running
+	if (self.Fsm.FsmState != "alive") && (self.Fsm.FsmState != "created") &&
+		(self.Fsm.FsmState != "reachable") {
+		log.Errorf("Node %s is down. cant make REST call %s", self.HostAddr, path)
+		return errors.New("Node unreachable")
+	}
 
 	log.Debugf("Making REST request to url: %s", url)
 
@@ -234,6 +289,13 @@ func (self *Node) NodeGetReq(path string, data interface{}) error {
 // perform http POST request and return the response
 func (self *Node) NodePostReq(path string, req interface{}, resp interface{}) error {
 	url := "http://" + self.HostAddr + ":" + strconv.Itoa(self.Port) + path
+
+	// Make sure node is up and running
+	if (self.Fsm.FsmState != "alive") && (self.Fsm.FsmState != "created") &&
+		(self.Fsm.FsmState != "reachable") {
+		log.Errorf("Node %s is down. cant make REST call %s", self.HostAddr, path)
+		return errors.New("Node unreachable")
+	}
 
 	log.Infof("Making REST request to url: %s", url)
 

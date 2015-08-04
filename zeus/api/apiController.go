@@ -16,19 +16,20 @@ limitations under the License.
 package api
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
+
 	"github.com/contiv/objmodel/contivModel"
 	"github.com/contiv/objmodel/objdb/modeldb"
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/zeus/netCtrler"
 
-	"github.com/gorilla/mux"
 	log "github.com/Sirupsen/logrus"
+	"github.com/gorilla/mux"
 )
 
 type ApiController struct {
-	router		*mux.Router
+	router *mux.Router
 }
 
 // Create a new controller
@@ -46,9 +47,9 @@ func NewApiController(router *mux.Router) *ApiController {
 	tenant := contivModel.FindTenant("default")
 	if tenant == nil {
 		err := contivModel.CreateTenant(&contivModel.Tenant{
-			Key: "default",
+			Key:        "default",
 			TenantName: "default",
-			})
+		})
 		if err != nil {
 			log.Fatalf("Error creating default tenant. Err: %v", err)
 		}
@@ -81,22 +82,33 @@ func (self *ApiController) AppCreate(app *contivModel.App) error {
 		return err
 	}
 
-    return nil
+	return nil
+}
+
+func (self *ApiController) AppUpdate(app, params *contivModel.App) error {
+	log.Infof("Received AppUpdate: %+v, params: %+v", app, params)
+
+	return nil
 }
 
 func (self *ApiController) AppDelete(app *contivModel.App) error {
 	log.Infof("Received AppDelete: %+v", app)
-    return nil
+	return nil
 }
 
 func (self *ApiController) EndpointGroupCreate(endpointGroup *contivModel.EndpointGroup) error {
 	log.Infof("Received EndpointGroupCreate: %+v", endpointGroup)
-    return nil
+	return nil
+}
+
+func (self *ApiController) EndpointGroupUpdate(endpointGroup, params *contivModel.EndpointGroup) error {
+	log.Infof("Received EndpointGroupUpdate: %+v, params: %+v", endpointGroup, params)
+	return nil
 }
 
 func (self *ApiController) EndpointGroupDelete(endpointGroup *contivModel.EndpointGroup) error {
 	log.Infof("Received EndpointGroupDelete: %+v", endpointGroup)
-    return nil
+	return nil
 }
 
 func (self *ApiController) NetworkCreate(network *contivModel.Network) error {
@@ -130,19 +142,29 @@ func (self *ApiController) NetworkCreate(network *contivModel.Network) error {
 		return err
 	}
 
-    return nil
+	return nil
 }
+
+func (self *ApiController) NetworkUpdate(network, params *contivModel.Network) error {
+	log.Infof("Received NetworkUpdate: %+v, params: %+v", network, params)
+	return nil
+}
+
 func (self *ApiController) NetworkDelete(network *contivModel.Network) error {
 	log.Infof("Received NetworkDelete: %+v", network)
-    return nil
+	return nil
 }
 func (self *ApiController) PolicyCreate(policy *contivModel.Policy) error {
 	log.Infof("Received PolicyCreate: %+v", policy)
-    return nil
+	return nil
+}
+func (self *ApiController) PolicyUpdate(policy, params *contivModel.Policy) error {
+	log.Infof("Received PolicyUpdate: %+v, params: %+v", policy, params)
+	return nil
 }
 func (self *ApiController) PolicyDelete(policy *contivModel.Policy) error {
 	log.Infof("Received PolicyDelete: %+v", policy)
-    return nil
+	return nil
 }
 func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 	log.Infof("Received ServiceCreate: %+v", service)
@@ -206,10 +228,10 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 			// params for default endpoint group
 			dfltEpgName := service.AppName + "." + service.ServiceName + "." + netName
 			endpointGroup := contivModel.EndpointGroup{
-				Key			:	service.TenantName + ":" + dfltEpgName,
-				TenantName	:	service.TenantName,
-				NetworkName	:	netName,
-				GroupName	: 	dfltEpgName,
+				Key:         service.TenantName + ":" + dfltEpgName,
+				TenantName:  service.TenantName,
+				NetworkName: netName,
+				GroupName:   dfltEpgName,
 			}
 
 			// Create default endpoint group for the service
@@ -262,20 +284,20 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 
 	// Create service instances
 	for idx := int64(0); idx < service.Scale; idx++ {
-		instId := fmt.Sprintf("%d", idx + 1)
+		instId := fmt.Sprintf("%d", idx+1)
 		var volumes []string
 
 		// Create a volume for each instance based on the profile
 		if volProfile.DatastoreType != "none" {
 			instVolName := service.AppName + "." + service.ServiceName + "." + instId
 			err = contivModel.CreateVolume(&contivModel.Volume{
-				Key			: service.TenantName + ":" + instVolName,
-				VolumeName	: instVolName,
-				TenantName	: service.TenantName,
-				DatastoreType	: volProfile.DatastoreType,
-				PoolName	: volProfile.PoolName,
-				Size		: volProfile.Size,
-				MountPoint	: volProfile.MountPoint,
+				Key:           service.TenantName + ":" + instVolName,
+				VolumeName:    instVolName,
+				TenantName:    service.TenantName,
+				DatastoreType: volProfile.DatastoreType,
+				PoolName:      volProfile.PoolName,
+				Size:          volProfile.Size,
+				MountPoint:    volProfile.MountPoint,
 			})
 			if err != nil {
 				log.Errorf("Error creating volume %s. Err: %v", instVolName, err)
@@ -287,12 +309,12 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 		// build instance params
 		instKey := service.TenantName + ":" + service.AppName + ":" + service.ServiceName + ":" + instId
 		inst := contivModel.ServiceInstance{
-			Key			: instKey,
-			InstanceID	: instId,
-			TenantName	: service.TenantName,
-			AppName		: service.AppName,
-			ServiceName	: service.ServiceName,
-			Volumes		: volumes,
+			Key:         instKey,
+			InstanceID:  instId,
+			TenantName:  service.TenantName,
+			AppName:     service.AppName,
+			ServiceName: service.ServiceName,
+			Volumes:     volumes,
 		}
 
 		// create the instance
@@ -303,12 +325,17 @@ func (self *ApiController) ServiceCreate(service *contivModel.Service) error {
 		}
 	}
 
-    return nil
+	return nil
+}
+
+func (self *ApiController) ServiceUpdate(service, params *contivModel.Service) error {
+	log.Infof("Received ServiceUpdate: %+v, params: %+v", service, params)
+	return nil
 }
 
 func (self *ApiController) ServiceDelete(service *contivModel.Service) error {
 	log.Infof("Received ServiceDelete: %+v", service)
-    return nil
+	return nil
 }
 
 func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.ServiceInstance) error {
@@ -343,9 +370,9 @@ func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.Se
 
 		// Build volume bind params
 		volBind := altaspec.AltaVolumeBind{
-			DatastoreType     : volume.DatastoreType,
-			DatastoreVolumeId : volumeName,
-			BindMountPoint    : volume.MountPoint,	// FIXME: mount point shouldnt come from the volume itself
+			DatastoreType:     volume.DatastoreType,
+			DatastoreVolumeId: volumeName,
+			BindMountPoint:    volume.MountPoint, // FIXME: mount point shouldnt come from the volume itself
 		}
 
 		volumes = append(volumes, volBind)
@@ -353,14 +380,14 @@ func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.Se
 
 	// container params
 	altaConfig := altaspec.AltaConfig{
-		Name        : inst.AppName + "." + inst.ServiceName + "." + inst.InstanceID,
-		Image       : service.ImageName,
-		Cpu         : service.Cpu,
-		Memory      : service.Memory,
-		Command     : service.Command,
-		Networks    : service.Networks,
-		Environment : service.Environment,
-		Volumes     : volumes,
+		Name:        inst.AppName + "." + inst.ServiceName + "." + inst.InstanceID,
+		Image:       service.ImageName,
+		Cpu:         service.Cpu,
+		Memory:      service.Memory,
+		Command:     service.Command,
+		Networks:    service.Networks,
+		Environment: service.Environment,
+		Volumes:     volumes,
 	}
 
 	// Create the container instance
@@ -370,11 +397,17 @@ func (self *ApiController) ServiceInstanceCreate(serviceInstance *contivModel.Se
 		return err
 	}
 
-    return nil
+	return nil
 }
+
+func (self *ApiController) ServiceInstanceUpdate(serviceInstance, params *contivModel.ServiceInstance) error {
+	log.Infof("Received ServiceInstanceUpdate: %+v, params: %+v", serviceInstance, params)
+	return nil
+}
+
 func (self *ApiController) ServiceInstanceDelete(serviceInstance *contivModel.ServiceInstance) error {
 	log.Infof("Received ServiceInstanceDelete: %+v", serviceInstance)
-    return nil
+	return nil
 }
 func (self *ApiController) TenantCreate(tenant *contivModel.Tenant) error {
 	log.Infof("Received TenantCreate: %+v", tenant)
@@ -385,14 +418,14 @@ func (self *ApiController) TenantCreate(tenant *contivModel.Tenant) error {
 
 	// Create private network for the tenant
 	err := contivModel.CreateNetwork(&contivModel.Network{
-		Key		: tenant.TenantName + ":" + "privateNet",
-		IsPublic	: false,
-		IsPrivate	: true,
-		Encap		: "vxlan",
-		Subnet		: "10.1.0.0/16",
-		NetworkName	: "privateNet",
-		TenantName	: tenant.TenantName,
-		})
+		Key:         tenant.TenantName + ":" + "privateNet",
+		IsPublic:    false,
+		IsPrivate:   true,
+		Encap:       "vxlan",
+		Subnet:      "10.1.0.0/16",
+		NetworkName: "privateNet",
+		TenantName:  tenant.TenantName,
+	})
 	if err != nil {
 		log.Errorf("Error creating privateNet for tenant: %+v. Err: %v", tenant, err)
 		return err
@@ -400,14 +433,14 @@ func (self *ApiController) TenantCreate(tenant *contivModel.Tenant) error {
 
 	// Create public network for the tenant
 	err = contivModel.CreateNetwork(&contivModel.Network{
-		Key		: tenant.TenantName + ":" + "publicNet",
-		IsPublic	: true,
-		IsPrivate	: false,
-		Encap		: "vlan",
-		Subnet		: "192.168.1.0/24",
-		NetworkName	: "publicNet",
-		TenantName	: tenant.TenantName,
-		})
+		Key:         tenant.TenantName + ":" + "publicNet",
+		IsPublic:    true,
+		IsPrivate:   false,
+		Encap:       "vlan",
+		Subnet:      "192.168.1.0/24",
+		NetworkName: "publicNet",
+		TenantName:  tenant.TenantName,
+	})
 	if err != nil {
 		log.Errorf("Error creating publicNet for tenant: %+v. Err: %v", tenant, err)
 		return err
@@ -415,24 +448,30 @@ func (self *ApiController) TenantCreate(tenant *contivModel.Tenant) error {
 
 	// Create a default volume profile for the tenant
 	err = contivModel.CreateVolumeProfile(&contivModel.VolumeProfile{
-			Key					: tenant.TenantName + ":" + "default",
-			VolumeProfileName	: "default",
-			TenantName			: tenant.TenantName,
-			DatastoreType		: "none",
-			PoolName			: "",
-			Size				: "",
-			MountPoint			: "",
-		})
+		Key:               tenant.TenantName + ":" + "default",
+		VolumeProfileName: "default",
+		TenantName:        tenant.TenantName,
+		DatastoreType:     "none",
+		PoolName:          "",
+		Size:              "",
+		MountPoint:        "",
+	})
 	if err != nil {
 		log.Errorf("Error creating default volume profile. Err: %v", err)
 		return err
 	}
 
-    return nil
+	return nil
 }
+
+func (self *ApiController) TenantUpdate(tenant, params *contivModel.Tenant) error {
+	log.Infof("Received TenantUpdate: %+v, params: %+v", tenant, params)
+	return nil
+}
+
 func (self *ApiController) TenantDelete(tenant *contivModel.Tenant) error {
 	log.Infof("Received TenantDelete: %+v", tenant)
-    return nil
+	return nil
 }
 func (self *ApiController) VolumeCreate(volume *contivModel.Volume) error {
 	log.Infof("Received VolumeCreate: %+v", volume)
@@ -459,11 +498,17 @@ func (self *ApiController) VolumeCreate(volume *contivModel.Volume) error {
 
 	// FIXME: Create the volume
 
-    return nil
+	return nil
 }
+
+func (self *ApiController) VolumeUpdate(volume, params *contivModel.Volume) error {
+	log.Infof("Received VolumeUpdate: %+v, params: %+v", volume, params)
+	return nil
+}
+
 func (self *ApiController) VolumeDelete(volume *contivModel.Volume) error {
 	log.Infof("Received VolumeDelete: %+v", volume)
-    return nil
+	return nil
 }
 
 func (self *ApiController) VolumeProfileCreate(volumeProfile *contivModel.VolumeProfile) error {
@@ -488,6 +533,11 @@ func (self *ApiController) VolumeProfileCreate(volumeProfile *contivModel.Volume
 		return err
 	}
 
+	return nil
+}
+
+func (self *ApiController) VolumeProfileUpdate(volumeProfile, params *contivModel.VolumeProfile) error {
+	log.Infof("Received VolumeProfileUpdate: %+v, params: %+v", volumeProfile, params)
 	return nil
 }
 

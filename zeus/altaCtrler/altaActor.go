@@ -1,13 +1,13 @@
 package altaCtrler
 
 import (
-	"time"
 	"errors"
+	"time"
 
-	"github.com/contiv/symphony/zeus/nodeCtrler"
-	"github.com/contiv/symphony/zeus/rsrcMgr"
-	"github.com/contiv/symphony/zeus/volumesCtrler"
 	"github.com/contiv/symphony/zeus/netCtrler"
+	"github.com/contiv/symphony/zeus/nodeCtrler"
+	"github.com/contiv/symphony/zeus/scheduler"
+	"github.com/contiv/symphony/zeus/volumesCtrler"
 
 	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/symphony/pkg/libfsm"
@@ -17,10 +17,10 @@ import (
 
 // Model to be persisted
 type AltaModel struct {
-	Spec     	altaspec.AltaSpec // Spec for the container
-	CurrNode 	string            // Node where this container is placed
-	ContainerId string			  // ContainerId on current node
-	Fsm      	*libfsm.Fsm       // FSM for the container
+	Spec        altaspec.AltaSpec // Spec for the container
+	CurrNode    string            // Node where this container is placed
+	ContainerId string            // ContainerId on current node
+	Fsm         *libfsm.Fsm       // FSM for the container
 }
 
 // State of Alta container
@@ -51,9 +51,11 @@ func NewAlta(altaSpec *altaspec.AltaSpec) (*AltaActor, error) {
 		{"starting", "start", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
 		{"running", "failure", "failed", func(e libfsm.Event) error { return alta.restartAltaCntr() }},
 		{"running", "stop", "stopped", func(e libfsm.Event) error { return alta.stopAltaCntr() }},
+		{"running", "nodeFailure", "rescheduling", func(e libfsm.Event) error { return alta.rescheduleAltaCntr() }},
 		{"failed", "failure", "failed", func(e libfsm.Event) error { return alta.restartAltaCntr() }},
 		{"failed", "restart", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
 		{"stopped", "start", "running", func(e libfsm.Event) error { return alta.startAltaCntr() }},
+		{"rescheduling", "schedule", "scheduled", func(e libfsm.Event) error { return alta.scheduleAlta() }},
 	}, "created")
 
 	// create the channel
@@ -102,7 +104,7 @@ func (self *AltaActor) AltaEvent(eventName string) {
 // Schedule the container to one of the nodes
 func (self *AltaActor) scheduleAlta() error {
 	// Ask the scheduler to assign a node
-	nodeAddr, err := rsrcMgr.Scheduler("default").GetNodeForAlta(&self.Model.Spec)
+	nodeAddr, err := scheduler.Scheduler("default").GetNodeForAlta(&self.Model.Spec)
 	if err != nil {
 		log.Errorf("Failed to schedule node. Error: %v", err)
 		return err
@@ -278,6 +280,29 @@ func (self *AltaActor) restartAltaCntr() error {
 
 	// Trigger the restart event since it was successful
 	self.AltaEvent("restart")
+
+	return nil
+}
+
+// Schedule a container on different node
+func (self *AltaActor) rescheduleAltaCntr() error {
+	// walk all volumes and Unmount it
+	for _, volume := range self.Model.Spec.Volumes {
+		log.Infof("Unmounting volume: %+v", volume)
+
+		// Unmount the volume.
+		err := volumesCtrler.UnmountVolume(volume)
+		if err != nil {
+			log.Errorf("Error mounting volume. Err: %v", err)
+		}
+
+	}
+
+	// Clear current node and schedule it
+	self.Model.CurrNode = ""
+
+	// Trigger the restart event since it was successful
+	self.AltaEvent("schedule")
 
 	return nil
 }

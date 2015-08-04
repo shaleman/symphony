@@ -4,26 +4,26 @@ package main
 
 import (
 	"fmt"
-	"time"
 	"os"
+	"time"
 
 	"github.com/contiv/objmodel/objdb"
-	"github.com/contiv/symphony/pkg/psutil"
 	"github.com/contiv/symphony/pkg/altaspec"
+	"github.com/contiv/symphony/pkg/psutil"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 type ClusterAgent struct {
-	localIp		string		// Local IP address
-	apiPortNo	int			// port number where we are listening
+	localIp   string // Local IP address
+	apiPortNo int    // port number where we are listening
 
 	// List of masters
-	masterDb	map[string]*objdb.ServiceInfo
+	masterDb map[string]*objdb.ServiceInfo
 }
 
 // Create a new cluster agent
-func NewClusterAgent(localIp string, portNo int) (*ClusterAgent) {
+func NewClusterAgent(localIp string, portNo int) *ClusterAgent {
 	cAgent := new(ClusterAgent)
 	cAgent.localIp = localIp
 	cAgent.apiPortNo = portNo

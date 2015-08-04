@@ -3,8 +3,8 @@ package libdocker
 import (
 	"bytes"
 	"encoding/json"
-	"strings"
 	"errors"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	docker "github.com/fsouza/go-dockerclient"
@@ -17,23 +17,23 @@ type ContainerCtx struct {
 }
 
 type ContainerSpec struct {
-	Name        string   // Name of the container
-	Hostname    string   // Hostname to set inside the container
-	Memory      int64    // Memory limit format: <number><optional unit>, where unit = b, k, m or g
-	CPUSet      string   // CPUs cores in which to allow execution (0-3, 0,1)
-	CpuPerc     int64    // CPU percentage on each core
-	Envs        []string // Environment variables
-	Command     []string // Primary command aka entry point
-	Args        []string // Arguments to the command
-	Image       string   // Image name
-	WorkingDir  string   // Working directory for the command
-	Privileged  bool     // is this a privilaged container?
-	RestartPolicyName string // Restart 'always', 'on-failure' or 'no'
-	RestartRetryCount int	 // Restart retry count
-	VolumeBinds []string // Volumes that needs to be bind mounted
-	ExposePorts []string // Expose these ports(alternative to EXPOSE in Dockerfile)
-	PortMapList []string // Port mapping from container port to host ports
-	NetworkMode string   // Network mode to be used for inheriting other container's network namespace
+	Name              string   // Name of the container
+	Hostname          string   // Hostname to set inside the container
+	Memory            int64    // Memory limit format: <number><optional unit>, where unit = b, k, m or g
+	CPUSet            string   // CPUs cores in which to allow execution (0-3, 0,1)
+	CpuPerc           int64    // CPU percentage on each core
+	Envs              []string // Environment variables
+	Command           []string // Primary command aka entry point
+	Args              []string // Arguments to the command
+	Image             string   // Image name
+	WorkingDir        string   // Working directory for the command
+	Privileged        bool     // is this a privilaged container?
+	RestartPolicyName string   // Restart 'always', 'on-failure' or 'no'
+	RestartRetryCount int      // Restart retry count
+	VolumeBinds       []string // Volumes that needs to be bind mounted
+	ExposePorts       []string // Expose these ports(alternative to EXPOSE in Dockerfile)
+	PortMapList       []string // Port mapping from container port to host ports
+	NetworkMode       string   // Network mode to be used for inheriting other container's network namespace
 }
 
 // Convert CPU percentage unit to CPU shares docker uses.
@@ -106,7 +106,7 @@ func CreateContainer(cSpec *ContainerSpec) (*ContainerCtx, error) {
 			// IpcMode:      cSpec.NetworkMode,
 			Privileged: cSpec.Privileged,
 			RestartPolicy: docker.RestartPolicy{
-				Name: cSpec.RestartPolicyName,
+				Name:              cSpec.RestartPolicyName,
 				MaximumRetryCount: cSpec.RestartRetryCount,
 			},
 		},
@@ -267,7 +267,6 @@ func GetRunningContainers() ([]string, error) {
 		return nil, err
 	}
 
-
 	log.Debugf("Got running container list: %+v", containers)
 
 	var containerList []string
@@ -286,7 +285,6 @@ func GetAllContainers() ([]string, error) {
 		log.Errorf("Error getting a list of containers. Err: %v", err)
 		return nil, err
 	}
-
 
 	log.Debugf("Got all container list: %+v", containers)
 

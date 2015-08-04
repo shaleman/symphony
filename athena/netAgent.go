@@ -52,7 +52,7 @@ func NewNetAgent() *NetAgent {
 
 	// Create an ofnet agent
 	netAgent.ofnetAgent, _ = ofnet.NewOfnetAgent("vrouter", net.ParseIP(localIpAddr),
-								ofnet.OFNET_AGENT_PORT, OVS_CONTROLLER_PORT)
+		ofnet.OFNET_AGENT_PORT, OVS_CONTROLLER_PORT)
 
 	// Initialize vlan bitset
 	netAgent.vlanBitset = bitset.New(4095) // usable vlans are from 1-4094
@@ -187,7 +187,7 @@ func (self *NetAgent) CreateAltaEndpoint(contPid int, ifNum int, ifSpec *altaspe
 	// Create the port
 	portName, err := self.createEndpoint(ifSpec.NetworkName)
 	if err != nil {
-		log.Errorf("Error creating network intf %+v\n. Error: %v\n", err)
+		log.Errorf("Error creating network intf %+v. Error: %v\n", ifSpec.NetworkName, err)
 		return "", err
 	}
 
@@ -320,7 +320,7 @@ func (self *NetAgent) AddPeerHost(peerAddr string) error {
 	// Inform Ofnet about the VTEP
 	err = self.ofnetAgent.AddVtepPort(ofpPort, net.ParseIP(peerAddr))
 	if err != nil {
-		log.Errorf("Error adding VTEP port to ofnet. Err: ", err)
+		log.Errorf("Error adding VTEP port to ofnet. Err: %v", err)
 		return err
 	}
 
@@ -355,7 +355,7 @@ func (self *NetAgent) RemovePeerHost(peerAddr string) error {
 	// Ask OVS driver to delete the vtep
 	err = self.ovsDriver.DeleteVtep(*vtepName)
 	if err != nil {
-		log.Errorf("Error deleting vtep port %s. Err: %v", vtepName, err)
+		log.Errorf("Error deleting vtep port %s. Err: %v", *vtepName, err)
 		return err
 	}
 

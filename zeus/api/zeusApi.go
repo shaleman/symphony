@@ -28,7 +28,6 @@ func CreateServer(port int, ctrlers *common.ZeusCtrlers) {
 	// Create the API controller
 	apiCtrler = NewApiController(router)
 
-
 	log.Infof("HTTP server listening on %s", listenAddr)
 
 	// Start the HTTP server

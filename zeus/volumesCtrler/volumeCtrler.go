@@ -14,12 +14,10 @@ import (
 
 // Manage volumes
 
-const MAX_VOLUMES = 1000
-
 // volume controller state
 type VolumeCtrler struct {
-	volumeDb map[string]*VolumeActor      // DB of volumes
-	cdb   objdb.ObjdbApi // conf store
+	volumeDb map[string]*VolumeActor // DB of volumes
+	cdb      objdb.ObjdbApi          // conf store
 }
 
 // Main controller for the volumes
@@ -69,7 +67,7 @@ func CreateVolume(volumeSpec altaspec.AltaVolumeSpec, hostAddr string) error {
 func MountVolume(volumeBind altaspec.AltaVolumeBind, hostAddr string) error {
 	volumeKey := volumeBind.DatastoreType + ":" + volumeBind.DatastoreVolumeId
 
-	// Create the volume with default params if it doesnt exist
+	// Create the volume if it doesnt exist
 	if ctrler.volumeDb[volumeKey] == nil {
 		volumeSpec := altaspec.AltaVolumeSpec{
 			DatastoreType:     volumeBind.DatastoreType,

@@ -45,8 +45,8 @@ type AltaSpec struct {
 	ExposePorts []string // List of ports to expose(alternative to EXPOSE keyword in dockerfile)
 	PortMapList []string // Port mapping(for externally visible ports)
 
-	Volumes    []AltaVolumeBind // Volumes to be mounted
-	Endpoints  []AltaEndpoint      // Network endpoints to be created
+	Volumes   []AltaVolumeBind // Volumes to be mounted
+	Endpoints []AltaEndpoint   // Network endpoints to be created
 }
 
 // Slave node information
@@ -102,12 +102,12 @@ type DockerCompose struct {
 // We are trying to be backward compatible with Docker Compose spec.
 // But, its not clear if most of the options in docker compose are relavent to us
 type AltaConfig struct {
-	Name        string   `json:"name"`        // Optional name
-	Image       string   `json:"image"`       // Image to run
-	Cpu         string   `json:"cpu"`         // CPU Eg: 2, 1.5, .5, 4 etc
-	Memory      string   `json:"memory"`      // Memory Eg: 1G, 16GB, 200MB, 2g etc
-	Command     string   `json:"command"`     // override entry point
-	Networks    []string `json:"network"`     // List of networks to join
-	Environment []string `json:"environment"` // Optional environment variable
+	Name        string           `json:"name"`        // Optional name
+	Image       string           `json:"image"`       // Image to run
+	Cpu         string           `json:"cpu"`         // CPU Eg: 2, 1.5, .5, 4 etc
+	Memory      string           `json:"memory"`      // Memory Eg: 1G, 16GB, 200MB, 2g etc
+	Command     string           `json:"command"`     // override entry point
+	Networks    []string         `json:"network"`     // List of networks to join
+	Environment []string         `json:"environment"` // Optional environment variable
 	Volumes     []AltaVolumeBind `json:"volumes"`     // Volumes to mount
 }

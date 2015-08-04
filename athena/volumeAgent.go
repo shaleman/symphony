@@ -93,7 +93,7 @@ func (self *VolumeAgent) MountVolume(volumeSpec altaspec.AltaVolumeSpec) error {
 		cephVolume := cephdriver.CephVolumeSpec{
 			VolumeName: volumeSpec.DatastoreVolumeId,
 			VolumeSize: volumeSpec.VolumeSize,
-			PoolName: "rbd",
+			PoolName:   "rbd",
 		}
 
 		// Ask ceph library to mount the volume
@@ -117,7 +117,7 @@ func (self *VolumeAgent) UnmountVolume(volumeSpec altaspec.AltaVolumeSpec) error
 		cephVolume := cephdriver.CephVolumeSpec{
 			VolumeName: volumeSpec.DatastoreVolumeId,
 			VolumeSize: volumeSpec.VolumeSize,
-			PoolName: "rbd",
+			PoolName:   "rbd",
 		}
 
 		// Ask ceph library to unmount the volume
@@ -141,7 +141,7 @@ func (self *VolumeAgent) DeleteVolume(volumeSpec altaspec.AltaVolumeSpec) error 
 		cephVolume := cephdriver.CephVolumeSpec{
 			VolumeName: volumeSpec.DatastoreVolumeId,
 			VolumeSize: volumeSpec.VolumeSize,
-			PoolName: "rbd",
+			PoolName:   "rbd",
 		}
 
 		// Ask ceph library to delete the volume

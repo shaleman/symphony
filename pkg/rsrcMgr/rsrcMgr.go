@@ -86,10 +86,10 @@ type ResourceProvideMsg struct {
 
 // State of resource mgr
 type RsrcMgr struct {
-	rsrcDb       map[string]*Resource         // DB of resource types
-	cdb       	 objdb.ObjdbApi // conf store client
-	providerChan chan ResourceProvideMsg      // Channel for provider msg
-	userChan     chan ResourceUserMsg         // Channel for user message
+	rsrcDb       map[string]*Resource    // DB of resource types
+	cdb          objdb.ObjdbApi          // conf store client
+	providerChan chan ResourceProvideMsg // Channel for provider msg
+	userChan     chan ResourceUserMsg    // Channel for user message
 }
 
 // Resource manager
@@ -104,9 +104,6 @@ func Init(cdb objdb.ObjdbApi) {
 	rsrcMgr.rsrcDb = make(map[string]*Resource)
 	rsrcMgr.providerChan = make(chan ResourceProvideMsg, 200)
 	rsrcMgr.userChan = make(chan ResourceUserMsg, 200)
-
-	// Initialize the schedulers
-	initSchedulers()
 
 	// Start the resource mgr loop
 	go rsrcMgrLoop()
@@ -178,6 +175,15 @@ func FindResourceProvider(rsrcType string, rsrcProvider string) *RsrcProvider {
 
 	// Return the provider
 	return rsrcMgr.rsrcDb[rsrcType].Providers[rsrcProvider]
+}
+
+func ListProviders(rsrcType string) map[string]*RsrcProvider {
+	// Check if resource type exists
+	if rsrcMgr.rsrcDb[rsrcType] == nil {
+		return nil
+	}
+
+	return rsrcMgr.rsrcDb[rsrcType].Providers
 }
 
 // Remove a resource provider

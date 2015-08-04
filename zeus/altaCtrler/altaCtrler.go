@@ -12,17 +12,17 @@ import (
 	"github.com/contiv/symphony/zeus/netCtrler"
 	"github.com/contiv/symphony/zeus/nodeCtrler"
 
-	"github.com/contiv/symphony/pkg/altaspec"
 	"github.com/contiv/objmodel/objdb"
+	"github.com/contiv/symphony/pkg/altaspec"
 
 	log "github.com/Sirupsen/logrus"
 )
 
 // State of alta manager
 type AltaMgr struct {
-	altaDb     map[string]*AltaActor        // Main DB of alta containers
-	altaNameDb map[string]*AltaActor        // mapping from alta names to container
-	cdb     objdb.ObjdbApi // persistence store
+	altaDb     map[string]*AltaActor // Main DB of alta containers
+	altaNameDb map[string]*AltaActor // mapping from alta names to container
+	cdb        objdb.ObjdbApi        // persistence store
 }
 
 var altaCtrl *AltaMgr
@@ -86,7 +86,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 
 	// Parse memory option
 	if altaConfig.Memory == "" {
-		altaSpec.Memory = 512 * 1024 * 1024
+		altaSpec.Memory = 300 * 1024 * 1024
 	} else if strings.Contains(altaConfig.Memory, "M") {
 		mem, _ := strconv.Atoi(strings.Split(altaConfig.Memory, "M")[0])
 		altaSpec.Memory = int64(mem) * 1024 * 1024
@@ -133,7 +133,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 	altaSpec.Volumes = altaConfig.Volumes
 
 	// Default volumes to mount
-/* Disable this for now
+	/* Disable this for now
 	altaSpec.Volumes = []altaspec.AltaVolumeBind{
 		{
 			DatastoreType: "PersistentVolume",
@@ -146,7 +146,7 @@ func buildAltaSpec(altaConfig *altaspec.AltaConfig, altaSpec *altaspec.AltaSpec)
 			BindMountPoint:    "/var/log",
 		},
 	}
-*/
+	*/
 }
 
 // Create a new Alta container
@@ -195,10 +195,10 @@ func (self *AltaMgr) ListAlta() []*common.AltaState {
 	// Append each alta actor's model
 	for _, alta := range self.altaDb {
 		astate := common.AltaState{
-			Spec: alta.Model.Spec,
-			CurrNode: alta.Model.CurrNode,
+			Spec:        alta.Model.Spec,
+			CurrNode:    alta.Model.CurrNode,
 			ContainerId: alta.Model.ContainerId,
-			FsmState: alta.Model.Fsm.FsmState,
+			FsmState:    alta.Model.Fsm.FsmState,
 		}
 		altaList = append(altaList, &astate)
 	}
@@ -223,7 +223,7 @@ func (self *AltaMgr) AltaEvent(altaId string, event string) error {
 }
 
 // Diff the alta list we got from a node and what we expect
-func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.AltaContext) error {
+func (self *AltaMgr) ReconcileNode(nodeAddr string, altaList []altaspec.AltaContext) error {
 	// Get the list of altas we expect on this node
 	expAltaList := self.listAltaForNode(nodeAddr)
 
@@ -291,6 +291,19 @@ func (self *AltaMgr) DiffNodeAltaLList(nodeAddr string, altaList []altaspec.Alta
 		} else if alta.AltaId != "" && expAltaMap[alta.AltaId] == nil {
 			log.Infof("Node has unexpected altaId %+v", alta)
 		}
+	}
+
+	return nil
+}
+
+// NodeDownEvent handles node going down.
+// Queue nodeFailure event to all altas on this node
+func (self *AltaMgr) NodeDownEvent(nodeAddr string) error {
+	altaList := self.listAltaForNode(nodeAddr)
+
+	// Queue down event to each alta
+	for _, alta := range altaList {
+		self.AltaEvent(alta.Spec.AltaId, "nodeFailure")
 	}
 
 	return nil

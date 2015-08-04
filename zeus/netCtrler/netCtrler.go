@@ -5,10 +5,10 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/contiv/symphony/zeus/rsrcMgr"
-	"github.com/contiv/symphony/pkg/altaspec"
-	"github.com/contiv/ofnet"
 	log "github.com/Sirupsen/logrus"
+	"github.com/contiv/ofnet"
+	"github.com/contiv/symphony/pkg/altaspec"
+	"github.com/contiv/symphony/pkg/rsrcMgr"
 )
 
 // network endpoint state, aka network interface state

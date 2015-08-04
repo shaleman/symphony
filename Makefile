@@ -1,7 +1,8 @@
-.PHONY: all build clean default
+.PHONY: all build clean default checks
 
 TO_BUILD := ./athena/ ./zeus/
 TO_TEST := ./zeus/... ./pkg/...
+TO_LINT := ./zeus/ ./athena/ ./pkg/altaspec ./pkg/cephdriver ./pkg/libdocker ./pkg/libfsm ./pkg/netutils ./pkg/ovsdriver ./pkg/ovsdriver/ovsdbDump ./pkg/psutil ./pkg/rsrcMgr
 
 default: build
 
@@ -10,7 +11,10 @@ all: build
 godep:
 	go get github.com/kr/godep
 
-build: godep
+checks:
+	./checks "$(TO_LINT)"
+
+build: godep checks
 	godep go install -v $(TO_BUILD)
 
 clean: godep

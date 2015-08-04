@@ -81,7 +81,7 @@ func (self *AltaMgr) CreateAlta(altaSpec altaspec.AltaSpec) (*AltaState, error) 
 		Envs:       altaSpec.EnvList,
 		WorkingDir: altaSpec.WorkingDir,
 
-		Privileged: false,
+		Privileged:        false,
 		RestartPolicyName: "on-failure",
 		RestartRetryCount: 5,
 
@@ -131,6 +131,7 @@ func (self *AltaMgr) FindAltaByContainerId(containerId string) *AltaState {
 
 	return nil
 }
+
 // List all Alta containers on this node
 func (self *AltaMgr) ListContainers() ([]string, error) {
 	return libdocker.GetRunningContainers()

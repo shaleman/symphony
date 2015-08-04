@@ -2,6 +2,7 @@ package libdocker
 
 import (
 	"testing"
+
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -54,7 +55,7 @@ func TestContainer(t *testing.T) {
 
 	containerList, err := GetRunningContainers()
 	if err != nil {
-		t.Errorf("Error getting container list. Err: %v")
+		t.Errorf("Error getting container list. Err: %v", err)
 	}
 
 	log.Infof("Got container list: %+v", containerList)
