@@ -1,3 +1,18 @@
+/***
+Copyright 2014 Cisco Systems Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package altaspec
 
 // Volume parameters
@@ -30,31 +45,46 @@ type AltaEndpoint struct {
 	Ipv4Gateway     string // default gateway
 }
 
+type AltaSchedPolicy struct {
+	SchedulerName string            // Name of the scheduler [leastUsed, binPack, random]
+	RestartPolicy string            // restart policy [always, never, onFailure]
+	NumRestart    int               // number of times to restart
+	Filters       map[string]string // list of constraints
+	Resources     []Resource        // list of resources requested
+}
+
 // Specifications for a Alta container
 type AltaSpec struct {
-	AltaId      string   // Unique identifier for the container
-	AltaName    string   // Optional Unique name for the container
-	NumCpu      uint32   // Number of CPUs cores
-	CpuPerc     int64    // CPU percentage on eahc core
-	Memory      int64    // Memory in MBs
-	Image       string   // Image for the container
-	Command     []string // Command to run in the container
-	Args        []string // Arguments for the command
-	WorkingDir  string   // Working directory for the command
-	EnvList     []string // Environment variables
-	ExposePorts []string // List of ports to expose(alternative to EXPOSE keyword in dockerfile)
-	PortMapList []string // Port mapping(for externally visible ports)
+	AltaId      string          // Unique identifier for the container
+	AltaName    string          // Optional Unique name for the container
+	NumCpu      uint32          // Number of CPUs cores
+	CpuPerc     int64           // CPU percentage on eahc core
+	Memory      int64           // Memory in MBs
+	Image       string          // Image for the container
+	Command     []string        // Command to run in the container
+	Args        []string        // Arguments for the command
+	WorkingDir  string          // Working directory for the command
+	EnvList     []string        // Environment variables
+	ExposePorts []string        // List of ports to expose(alternative to EXPOSE keyword in dockerfile)
+	PortMapList []string        // Port mapping(for externally visible ports)
+	SchedPolicy AltaSchedPolicy // Scheduler policy
 
 	Volumes   []AltaVolumeBind // Volumes to be mounted
 	Endpoints []AltaEndpoint   // Network endpoints to be created
 }
 
+// Resource available or consumed
+type Resource struct {
+	Type     string  // Resource type
+	UnitType string  // 'descrete' or 'fluid'
+	NumRsrc  float64 // number of resources provided or consumed
+}
+
 // Slave node information
 type NodeSpec struct {
-	HostName    string // Name of the host
-	NumCpuCores int    // Logical cpu cores(one per hyperthread)
-	CpuMhz      uint64 // CPU megahertz
-	MemTotal    uint64 // Total available memory in bytes
+	HostName   string            // Name of the host
+	Resources  []Resource        // List of resources
+	Attributes map[string]string // List of attributes
 }
 
 // Request was success

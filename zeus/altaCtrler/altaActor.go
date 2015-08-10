@@ -104,7 +104,8 @@ func (self *AltaActor) AltaEvent(eventName string) {
 // Schedule the container to one of the nodes
 func (self *AltaActor) scheduleAlta() error {
 	// Ask the scheduler to assign a node
-	nodeAddr, err := scheduler.Scheduler("default").GetNodeForAlta(&self.Model.Spec)
+	sched := scheduler.Scheduler(self.Model.Spec.SchedPolicy.SchedulerName)
+	nodeAddr, err := sched.ScheduleAlta(&self.Model.Spec)
 	if err != nil {
 		log.Errorf("Failed to schedule node. Error: %v", err)
 		return err

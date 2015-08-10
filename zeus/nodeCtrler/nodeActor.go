@@ -1,3 +1,17 @@
+/***
+Copyright 2014 Cisco Systems Inc. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 package nodeCtrler
 
 import (
@@ -18,22 +32,16 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// Resources on the node
-type NodeResource struct {
-	NumCpuCores int    // Number of CPU cores
-	CpuMhz      uint64 // CPU speed in Mhz
-	MemTotal    uint64 // Total memory
-}
-
 // Per node state
 type Node struct {
-	HostName  string            // Host name
-	HostAddr  string            // Host ip addr
-	Port      int               // Port where athena is running
-	Resources NodeResource      // Schedulable resource
-	Fsm       *libfsm.Fsm       // FSM for the node
-	eventChan chan libfsm.Event // Event channel
-	ticker    *time.Ticker      // Periodic ticker for the node
+	HostName   string              // Host name
+	HostAddr   string              // Host ip addr
+	Port       int                 // Port where athena is running
+	Resources  []altaspec.Resource // Schedulable resource
+	Attributes map[string]string   // node attributes
+	Fsm        *libfsm.Fsm         // FSM for the node
+	eventChan  chan libfsm.Event   // Event channel
+	ticker     *time.Ticker        // Periodic ticker for the node
 }
 
 // Create a new node
@@ -135,30 +143,23 @@ func (self *Node) nodeUpEvent() error {
 
 	// Save the node info
 	self.HostName = nodeSpec.HostName
-	self.Resources = NodeResource{
-		NumCpuCores: nodeSpec.NumCpuCores,
-		CpuMhz:      nodeSpec.CpuMhz,
-		MemTotal:    nodeSpec.MemTotal,
-	}
+	self.Resources = nodeSpec.Resources
+	self.Attributes = nodeSpec.Attributes
 
 	log.Infof("Got node info: %+v\n Node: %+v", nodeSpec, self)
 
 	// Add Node resources
-	rsrcProvider := []rsrcMgr.ResourceProvide{
-		{
-			// FIXME: need better rsrc mgmt for cpu. Need to manage num cores
-			//        and CPU oversubscription level
-			Type:     "cpu",
+	// FIXME: need better rsrc mgmt for cpu. Need to manage num cores
+	//        and CPU oversubscription level etc
+	var rsrcProvider []rsrcMgr.ResourceProvide
+	for _, rsrc := range nodeSpec.Resources {
+		provider := rsrcMgr.ResourceProvide{
+			Type:     rsrc.Type,
 			Provider: self.HostAddr,
-			UnitType: "fluid",
-			NumRsrc:  float64(nodeSpec.NumCpuCores),
-		},
-		{
-			Type:     "memory",
-			Provider: self.HostAddr,
-			UnitType: "fluid",
-			NumRsrc:  float64(nodeSpec.MemTotal),
-		},
+			UnitType: rsrc.UnitType,
+			NumRsrc:  rsrc.NumRsrc,
+		}
+		rsrcProvider = append(rsrcProvider, provider)
 	}
 
 	// Add the resource provider
@@ -208,17 +209,15 @@ func (self *Node) nodeDownEvent() error {
 	}
 
 	// Remove Node resources
-	rsrcProvider := []rsrcMgr.ResourceProvide{
-		{
-			Type:     "cpu",
+	var rsrcProvider []rsrcMgr.ResourceProvide
+	for _, rsrc := range self.Resources {
+		provider := rsrcMgr.ResourceProvide{
+			Type:     rsrc.Type,
 			Provider: self.HostAddr,
-			UnitType: "fluid",
-		},
-		{
-			Type:     "memory",
-			Provider: self.HostAddr,
-			UnitType: "fluid",
-		},
+			UnitType: rsrc.UnitType,
+			NumRsrc:  rsrc.NumRsrc,
+		}
+		rsrcProvider = append(rsrcProvider, provider)
 	}
 
 	// Remove the resource provider

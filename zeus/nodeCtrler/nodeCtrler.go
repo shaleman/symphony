@@ -41,12 +41,51 @@ func Init(cdb objdb.ObjdbApi, ctrlers *common.ZeusCtrlers) error {
 	return nil
 }
 
-// FIXME: this is temporary till we have scheduler
+// ListNodes list all nodes
 func ListNodes() []*Node {
 	nodeList := make([]*Node, 0)
 
 	for _, node := range nodeCtrl.nodeDb {
 		nodeList = append(nodeList, node)
+	}
+
+	return nodeList
+}
+
+// ListAliveNodes lists nodes that are alive
+func ListAliveNodes() []*Node {
+	nodeList := make([]*Node, 0)
+
+	for _, node := range nodeCtrl.nodeDb {
+		if node.Fsm.FsmState == "alive" {
+			nodeList = append(nodeList, node)
+		}
+	}
+
+	return nodeList
+}
+
+// FilterNodes returns a list of nodes that match a filter criteria
+func FilterNodes(filters map[string]string) []string {
+	var nodeList []string
+
+	// Walk all nodes
+	for _, node := range nodeCtrl.nodeDb {
+		// Make sure node is alive
+		if node.Fsm.FsmState == "alive" {
+			match := true
+			// apply all Filters
+			for key, value := range filters {
+				if node.Attributes[key] == "" {
+					match = false
+				} else if node.Attributes[key] != value {
+					match = false
+				}
+			}
+			if match {
+				nodeList = append(nodeList, node.HostAddr)
+			}
+		}
 	}
 
 	return nodeList
